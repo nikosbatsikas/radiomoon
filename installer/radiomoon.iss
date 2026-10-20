@@ -39,14 +39,6 @@ ArchitecturesInstallIn64BitMode=arm64
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
-; Greek is an unofficial translation: it is used when the file exists (next to this script, or in Inno Setup's Languages folders)
-#if FileExists(SourcePath + "Greek.isl")
-Name: "greek"; MessagesFile: "{#SourcePath}Greek.isl"
-#elif FileExists(CompilerPath + "Languages\Greek.isl")
-Name: "greek"; MessagesFile: "compiler:Languages\Greek.isl"
-#elif FileExists(CompilerPath + "Languages\Unofficial\Greek.isl")
-Name: "greek"; MessagesFile: "compiler:Languages\Unofficial\Greek.isl"
-#endif
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
