@@ -2,7 +2,7 @@
 # and publishes them as a GitHub Release:
 #   Windows x64/x86/arm64: setup .exe, portable .zip   (x64 includes the bundled MariaDB)
 #   Linux x64/arm64:       .deb, .rpm, portable .tar.gz
-#   macOS arm64/x64:       .dmg
+#   macOS arm64 (Apple Silicon): .dmg
 name: release
 on:
   push:
@@ -78,7 +78,6 @@ jobs:
       matrix:
         include:
           - { os: macos-14, arch: arm64 }
-          - { os: macos-13, arch: x64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
