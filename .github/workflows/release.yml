@@ -1,0 +1,128 @@
+# Builds every edition when a version tag is pushed (git tag v0.4.2 && git push origin v0.4.2)
+# and publishes them as a GitHub Release:
+#   Windows x64/x86/arm64: setup .exe, .msi, portable .zip   (x64 includes the bundled MariaDB)
+#   Linux x64/arm64:       .deb, .rpm, portable .tar.gz
+#   macOS arm64/x64:       .dmg
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, x86, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install WiX (MSI)
+        run: dotnet tool install --global wix
+      - name: Download MariaDB (x64 only)
+        if: matrix.arch == 'x64'
+        shell: pwsh
+        run: Invoke-WebRequest "https://archive.mariadb.org/mariadb-11.4.4/winx64-packages/mariadb-11.4.4-winx64.zip" -OutFile mariadb.zip
+      - name: Build setup, MSI and portable zip
+        shell: pwsh
+        run: |
+          if ("${{ matrix.arch }}" -eq "x64") { ./build_installer.ps1 -Arch x64 -MariaDbZip "$PWD\mariadb.zip" }
+          else { ./build_installer.ps1 -Arch ${{ matrix.arch }} }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+          path: dist/*
+
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, arch: x64 }
+          - { os: ubuntu-22.04-arm, arch: arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: System packages
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config libxkbcommon-dev libwayland-dev libgtk-3-dev
+      - name: Build
+        run: cargo build --release
+      - name: Packages
+        run: |
+          cargo install cargo-deb cargo-generate-rpm --locked
+          cargo deb --no-build
+          cargo generate-rpm
+          V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          mkdir -p dist RadioMoon/lang
+          cp target/release/radiomoon RadioMoon/radiomoon
+          cp target/release/radiomoon-mpx-receiver RadioMoon/
+          cp README.txt CHANGELOG.md RadioMoon/
+          cp lang/* RadioMoon/lang/
+          touch RadioMoon/portable.flag
+          tar czf dist/RadioMoon-$V-linux-${{ matrix.arch }}-portable.tar.gz RadioMoon
+          cp target/debian/*.deb dist/
+          cp target/generate-rpm/*.rpm dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: dist/*
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14, arch: arm64 }
+          - { os: macos-13, arch: x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release
+      - name: App bundle and dmg
+        run: |
+          V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          APP=dist/RadioMoon.app
+          mkdir -p $APP/Contents/MacOS $APP/Contents/Resources dist/dmg
+          cp target/release/radiomoon $APP/Contents/MacOS/RadioMoon
+          cp target/release/radiomoon-mpx-receiver $APP/Contents/MacOS/RadioMoon-MPX-Receiver
+          sed "s/@VERSION@/$V/g" packaging/macos/Info.plist.in > $APP/Contents/Info.plist
+          mkdir RadioMoon.iconset
+          for s in 16 32 64 128 256; do sips -z $s $s packaging/icon.png --out RadioMoon.iconset/icon_${s}x${s}.png; done
+          iconutil -c icns RadioMoon.iconset -o $APP/Contents/Resources/RadioMoon.icns
+          cp -R $APP dist/dmg/
+          hdiutil create -volname RadioMoon -srcfolder dist/dmg -ov -format UDZO dist/RadioMoon-$V-macos-${{ matrix.arch }}.dmg
+          rm -rf dist/dmg dist/RadioMoon.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: dist/*
+
+  release:
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Check that the tag matches the program version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          [ "v$V" = "${GITHUB_REF_NAME}" ] || { echo "Tag ${GITHUB_REF_NAME} does not match Cargo.toml version $V"; exit 1; }
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: out/*
+          generate_release_notes: true

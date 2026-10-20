@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RadioMoon
+Comment=Radio automation
+Exec=radiomoon
+Icon=radiomoon
+Terminal=false
+Categories=AudioVideo;Audio;

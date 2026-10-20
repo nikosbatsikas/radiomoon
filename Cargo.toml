@@ -1,0 +1,71 @@
+[package]
+name = "radiomoon"
+version = "0.4.2"
+edition = "2021"
+description = "RadioMoon - radio automation software"
+license = "LicenseRef-RadioMoon"
+build = "build.rs"
+default-run = "radiomoon"
+
+[[bin]]
+name = "radiomoon"
+path = "src/main.rs"
+
+[[bin]]
+name = "radiomoon-mpx-receiver"
+path = "src/bin/mpx_receiver.rs"
+
+[build-dependencies]
+winres = "0.1"
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+eframe = "0.29"
+rodio = { version = "0.19", default-features = false, features = ["symphonia-all"] }
+mysql = "25"
+lofty = "0.21"
+walkdir = "2"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rfd = "0.15"
+anyhow = "1"
+sha2 = "0.10"
+mp3lame-encoder = "0.2"
+flate2 = "1"
+base64 = "0.22"
+aes-gcm = "0.10"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+
+[package.metadata.deb]
+name = "radiomoon"
+maintainer = "RadioMoon <noreply@example.com>"
+copyright = "RadioMoon"
+extended-description = "RadioMoon is radio automation software: libraries, clocks, spots, instant jingles, internet broadcast and backups."
+section = "sound"
+priority = "optional"
+depends = "$auto, libasound2"
+recommends = "mariadb-server"
+assets = [
+  ["target/release/radiomoon", "usr/bin/", "755"],
+  ["target/release/radiomoon-mpx-receiver", "usr/bin/", "755"],
+  ["packaging/linux/radiomoon.desktop", "usr/share/applications/", "644"],
+  ["packaging/icon.png", "usr/share/icons/hicolor/256x256/apps/radiomoon.png", "644"],
+  ["README.txt", "usr/share/doc/radiomoon/README", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/radiomoon", dest = "/usr/bin/radiomoon", mode = "755" },
+  { source = "target/release/radiomoon-mpx-receiver", dest = "/usr/bin/radiomoon-mpx-receiver", mode = "755" },
+  { source = "packaging/linux/radiomoon.desktop", dest = "/usr/share/applications/radiomoon.desktop", mode = "644" },
+  { source = "packaging/icon.png", dest = "/usr/share/icons/hicolor/256x256/apps/radiomoon.png", mode = "644" },
+]
