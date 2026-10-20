@@ -38,14 +38,6 @@ $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\I
 if (-not $iscc) { throw "Inno Setup 6 was not found. Install it from https://jrsoftware.org/isdl.php and run this script again." }
 & $iscc "/DAppVersion=$v" "/DArch=$Arch" "/DSourceDir=$stage" "/DOutDir=$PSScriptRoot\dist" "installer\radiomoon.iss"
 
-# MSI package (WiX v4: dotnet tool install --global wix)
-if (Get-Command wix -ErrorAction SilentlyContinue) {
-    $warch = @{ x64 = "x64"; x86 = "x86"; arm64 = "arm64" }[$Arch]
-    wix build installer\radiomoon.wxs -arch $warch -d Version=$v -d SourceDir=$stage -d IconFile=$PSScriptRoot\packaging\icon.ico -o "dist\RadioMoon-$v-windows-$Arch.msi"
-} else {
-    Write-Host "WiX not found - skipping the MSI. Install it with: dotnet tool install --global wix"
-}
-
 # portable zip (the flag file makes the program keep all its data next to itself)
 New-Item -ItemType File "$stage\portable.flag" | Out-Null
 Compress-Archive -Path $stage -DestinationPath "dist\RadioMoon-$v-windows-$Arch-portable.zip" -Force

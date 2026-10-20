@@ -1,6 +1,6 @@
 # Builds every edition when a version tag is pushed (git tag v0.4.2 && git push origin v0.4.2)
 # and publishes them as a GitHub Release:
-#   Windows x64/x86/arm64: setup .exe, .msi, portable .zip   (x64 includes the bundled MariaDB)
+#   Windows x64/x86/arm64: setup .exe, portable .zip   (x64 includes the bundled MariaDB)
 #   Linux x64/arm64:       .deb, .rpm, portable .tar.gz
 #   macOS arm64/x64:       .dmg
 name: release
@@ -22,13 +22,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Install WiX (MSI)
-        run: dotnet tool install --global wix
       - name: Download MariaDB (x64 only)
         if: matrix.arch == 'x64'
         shell: pwsh
         run: Invoke-WebRequest "https://archive.mariadb.org/mariadb-11.4.4/winx64-packages/mariadb-11.4.4-winx64.zip" -OutFile mariadb.zip
-      - name: Build setup, MSI and portable zip
+      - name: Build setup and portable zip
         shell: pwsh
         run: |
           if ("${{ matrix.arch }}" -eq "x64") { ./build_installer.ps1 -Arch x64 -MariaDbZip "$PWD\mariadb.zip" }

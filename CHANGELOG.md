@@ -1,3 +1,6 @@
+# 0.4.3
+- The MSI installer was removed (WiX 7 requires accepting a maintenance-fee EULA). Windows editions: setup .exe and portable .zip.
+
 # 0.4.2
 - Audio item editor: order is Data, Playback, Waveform, then the play buttons; everything fits in the window without a scroll bar.
 - Studio: the Delete button removes the selected item from the playlist (the song stays in the library).
@@ -21,7 +24,6 @@
 - Clearer text: embedded DejaVu Sans font (Latin + Greek), brighter text colours, stronger borders, larger sizes.
 - Executable and window now have the RadioMoon icon.
 - Library lists use a proper column table (code, artist, title, category, duration).
-- MSI installer (WiX 4, `installer/radiomoon.wxs`) built by `build_installer.ps1` next to the .exe installer.
 - Faster: missing-file checks cached, idle redraw rate lowered, `panic = abort` in release builds.
 
 # Changelog
