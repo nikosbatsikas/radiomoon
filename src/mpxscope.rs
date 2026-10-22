@@ -6,14 +6,14 @@ use std::time::{Duration, Instant};
 
 pub const FS: f32 = 192_000.0;
 const N: usize = 8192;
-const COLS: usize = 512; // spectrum columns, 0 .. 100 kHz
+const COLS: usize = 512; // spectrum columns, 0 .. 96 kHz
 const WAVE: usize = 1152; // samples shown in the oscilloscope (6 ms)
-const MAXF: f32 = 100_000.0;
+const MAXF: f32 = 96_000.0; // Nyquist at 192 kHz
 
 #[derive(Clone, Default)]
 pub struct ScopeData {
     pub active: bool,
-    /// spectrum in dB relative to 75 kHz deviation, COLS values for 0 .. 100 kHz
+    /// spectrum in dB relative to 75 kHz deviation, COLS values for 0 .. 96 kHz
     pub spec: Vec<f32>,
     pub wave: Vec<f32>,
     /// levels as a fraction of 75 kHz deviation
@@ -111,9 +111,10 @@ impl Analyzer {
             (4.0 * e / (N as f32 * w2)).sqrt()
         };
         let mut spec = Vec::with_capacity(COLS);
-        let nb = (MAXF / binhz) as usize;
+        let nb = ((MAXF / binhz) as usize).min(N / 2);
         for c in 0..COLS {
-            let (a, b) = (c * nb / COLS, ((c + 1) * nb / COLS).max(c * nb / COLS + 1).min(N / 2));
+            let a = (c * nb / COLS).min(N / 2 - 1);
+            let b = ((c + 1) * nb / COLS).max(a + 1).min(N / 2);
             let m = power[a..b].iter().fold(0.0f32, |x, y| x.max(*y)).sqrt() * 2.0 / g;
             spec.push(20.0 * m.max(1e-6).log10());
         }
@@ -132,7 +133,7 @@ impl Analyzer {
     }
 }
 
-/// Draws the readouts, the spectrum (0-100 kHz) and the oscilloscope.
+/// Draws the readouts, the spectrum (0-96 kHz) and the oscilloscope.
 pub fn draw(ui: &mut egui::Ui, scope: &Scope) {
     let d = scope.lock().map(|g| g.clone()).unwrap_or_default();
     let kz = |v: f32| format!("{:.1} kHz ({:.1}%)", v * 75.0, v * 100.0);
@@ -173,7 +174,7 @@ pub fn draw(ui: &mut egui::Ui, scope: &Scope) {
         p.line_segment([Pos2::new(r.left(), y_of(db)), Pos2::new(r.right(), y_of(db))], Stroke::new(1.0, Color32::from_rgb(35, 40, 48)));
         p.text(Pos2::new(r.left() + 3.0, y_of(db) - 1.0), egui::Align2::LEFT_BOTTOM, format!("{db:.0} dB"), egui::FontId::proportional(10.0), Color32::from_rgb(110, 118, 130));
     }
-    for (f, name) in [(15_000.0, "15"), (19_000.0, "19"), (38_000.0, "38"), (57_000.0, "57"), (76_000.0, "76"), (95_000.0, "95")] {
+    for (f, name) in [(15_000.0, "15"), (19_000.0, "19"), (38_000.0, "38"), (57_000.0, "57"), (76_000.0, "76"), (90_000.0, "90")] {
         let x = r.left() + f / MAXF * r.width();
         p.line_segment([Pos2::new(x, r.top()), Pos2::new(x, r.bottom())], Stroke::new(1.0, Color32::from_rgb(45, 52, 64)));
         p.text(Pos2::new(x + 2.0, r.bottom() - 1.0), egui::Align2::LEFT_BOTTOM, format!("{name} kHz"), egui::FontId::proportional(10.0), Color32::from_rgb(130, 140, 155));
