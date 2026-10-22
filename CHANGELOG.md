@@ -32,6 +32,7 @@ Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`; a release 
 `vMAJOR.MINOR.PATCH` that matches it (see README.txt, "Versioning and releases").
 
 ## 0.5.0
+- Database layout moved to a `sql/` folder: `schema.sql` (latest) and `migrations/` (upgrade steps per version), embedded in the program.
 - New: Control Panel > Utilities > Import from Jazler RadioStar 2. Reads the old .mdb database (Access 2000-2003) directly on every platform and imports songs, spots, categories, playlists, campaigns, jingle pallets and play history, with a path-replace option. Existing data is never overwritten.
 
 ## 0.2.0

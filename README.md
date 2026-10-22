@@ -44,7 +44,7 @@ To publish a release:
 2. Commit, then create the tag `vX.Y.Z` (on GitHub: Releases > Draft a new release > new tag) matching the version.
 3. The Release workflow builds every platform and attaches the packages and `SHA256SUMS.txt`.
 
-Developers: when the database layout changes, raise `SCHEMA_VERSION` and add the SQL to `MIGRATIONS` in `src/db.rs`.
+Developers: the database layout is in the `sql/` folder: `sql/schema.sql` (latest full layout) and `sql/migrations/NNNN_name.sql` (upgrade steps). Both are embedded in the program; register new migrations in `src/schema.rs` (see `sql/migrations/README.md`).
 
 ## Portable folder layout (Windows x64)
 

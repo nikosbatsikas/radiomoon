@@ -18,6 +18,7 @@ mod mpx;
 mod mpxdsp;
 mod mpxio;
 mod player;
+mod schema;
 mod stream;
 mod studio;
 mod waveform;
