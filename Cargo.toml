@@ -59,7 +59,7 @@ assets = [
   ["target/release/radiomoon-mpx-receiver", "usr/bin/", "755"],
   ["packaging/linux/radiomoon.desktop", "usr/share/applications/", "644"],
   ["packaging/icon.png", "usr/share/icons/hicolor/256x256/apps/radiomoon.png", "644"],
-  ["README.txt", "usr/share/doc/radiomoon/README", "644"],
+  ["README.md", "usr/share/doc/radiomoon/README", "644"],
 ]
 
 [package.metadata.generate-rpm]

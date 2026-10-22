@@ -61,7 +61,7 @@ jobs:
           mkdir -p dist RadioMoon/lang
           cp target/release/radiomoon RadioMoon/radiomoon
           cp target/release/radiomoon-mpx-receiver RadioMoon/
-          cp README.txt CHANGELOG.md RadioMoon/
+          cp README.md CHANGELOG.md RadioMoon/
           cp lang/* RadioMoon/lang/
           touch RadioMoon/portable.flag
           tar czf dist/RadioMoon-$V-linux-${{ matrix.arch }}-portable.tar.gz RadioMoon

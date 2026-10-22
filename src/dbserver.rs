@@ -38,7 +38,7 @@ impl DbServer {
         let mysqld = bin.join(if win { "mysqld.exe" } else { "mysqld" });
         if !mysqld.exists() {
             bail!(
-                "Database server not found:\n{}\n\nCopy the MariaDB files into the 'mariadb' folder next to the program (see README.txt), or start your own MySQL on port {}.",
+                "Database server not found:\n{}\n\nCopy the MariaDB files into the 'mariadb' folder next to the program (see README.md), or start your own MySQL on port {}.",
                 mysqld.display(),
                 port
             );
