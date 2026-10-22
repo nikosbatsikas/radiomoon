@@ -64,6 +64,8 @@ Control Panel > Internet broadcast: add several servers, each Icecast 2 (host, p
 
 Control Panel > MPX: generates the FM composite signal (stereo pilot, 38 kHz, RDS) and sends it to a 192 kHz sound card and/or over IP (RTP L24 over UDP, or TCP). The separate program `RadioMoon-MPX-Receiver` receives the IP stream and plays it on a sound card at the transmitter site.
 
+The receiver also runs on a **Raspberry Pi 3/4/5 with 64-bit Raspberry Pi OS**: download `RadioMoon-MPX-Receiver-<ver>-linux-arm64.tar.gz`, extract it and run `./radiomoon-mpx-receiver` (needs a desktop session and `libasound2`). A 192 kHz capable USB or HAT sound card is required for the composite output.
+
 ## Import from Jazler RadioStar 2
 
 Control Panel > Utilities > Import from Jazler RadioStar 2. Select the old `.mdb` database (Access 2000-2003), press **Scan file**, choose what to import (songs, spots and campaigns, playlists, jingle pallets, play history) and press **Start import**.

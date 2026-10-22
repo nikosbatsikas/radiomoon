@@ -1,7 +1,7 @@
 # Builds every edition when a version tag is pushed (git tag v0.4.2 && git push origin v0.4.2)
 # and publishes them as a GitHub Release:
 #   Windows x64/x86/arm64: setup .exe, portable .zip   (x64 includes the bundled MariaDB)
-#   Linux x64/arm64:       .deb, .rpm, portable .tar.gz
+#   Linux x64/arm64:       .deb, .rpm, portable .tar.gz, MPX receiver only .tar.gz (arm64 = Raspberry Pi 3/4/5, 64-bit OS)
 #   macOS arm64 (Apple Silicon): .dmg
 name: release
 on:
@@ -65,6 +65,11 @@ jobs:
           cp lang/* RadioMoon/lang/
           touch RadioMoon/portable.flag
           tar czf dist/RadioMoon-$V-linux-${{ matrix.arch }}-portable.tar.gz RadioMoon
+          # receiver only (for a Raspberry Pi at the transmitter site): RadioMoon-MPX-Receiver-<ver>-linux-<arch>.tar.gz
+          mkdir -p RadioMoon-MPX-Receiver
+          cp target/release/radiomoon-mpx-receiver RadioMoon-MPX-Receiver/
+          cp README.md RadioMoon-MPX-Receiver/
+          tar czf dist/RadioMoon-MPX-Receiver-$V-linux-${{ matrix.arch }}.tar.gz RadioMoon-MPX-Receiver
           cp target/debian/*.deb dist/
           cp target/generate-rpm/*.rpm dist/
       - uses: actions/upload-artifact@v4
