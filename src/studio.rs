@@ -44,6 +44,7 @@ pub enum Action {
     SetMode(Mode),
     ToggleLayout,
     ToggleLive,
+    StartLive(usize),
     OpenControl,
     PalletStep(i32),
     Page(usize),
@@ -247,18 +248,16 @@ impl App {
                 self.lib_sel = None;
             }
             Action::ToggleLive => {
-                let (url, dev, gain, duck) = (self.data.s.live_url.clone(), self.data.s.live_device.clone(), self.data.s.live_gain_db, self.data.s.live_mute_automation);
-                if let Some(p) = self.player.as_mut() {
-                    if p.live_active() {
-                        p.stop_live();
-                        self.status = tr("Live source stopped");
-                    } else {
-                        match p.start_live(&url, &dev, gain, duck) {
-                            Ok(_) => self.status = tr("Live source on air"),
-                            Err(e) => self.status = format!("{}: {e}", tr("Live source failed")),
-                        }
-                    }
+                if self.player.as_ref().map(|p| p.live_active()).unwrap_or(false) {
+                    self.stop_live_source();
+                } else {
+                    let (i, m) = (self.live_sel.min(self.data.s.live_sources.len().saturating_sub(1)), self.data.s.live_mute_automation);
+                    self.start_live_source(i, m, None);
                 }
+            }
+            Action::StartLive(i) => {
+                let m = self.data.s.live_mute_automation;
+                self.start_live_source(i, m, None);
             }
             Action::SetMode(m) => {
                 if !self.can("studio_modes") {
@@ -439,6 +438,7 @@ impl eframe::App for App {
             self.auto_start();
         }
         self.auto_backup_tick();
+        self.live_tick();
 
         // ---- values computed once per frame ----
         let now = Local::now();
@@ -508,9 +508,22 @@ impl eframe::App for App {
             }
             let live_on = self.player.as_ref().map(|p| p.live_active()).unwrap_or(false);
             let live_r = slot(70.0);
-            if kit::button_at(ui, live_r, "h_live", None, "LIVE", if live_on { Color32::from_rgb(220, 120, 0) } else { kit::DARK }, WHITE).clicked() {
+            let live_resp = kit::button_at(ui, live_r, "h_live", None, "LIVE", if live_on { Color32::from_rgb(220, 120, 0) } else { kit::DARK }, WHITE);
+            if live_resp.clicked() {
                 actions.push(Action::ToggleLive);
             }
+            let live_names: Vec<String> = self.data.s.live_sources.iter().map(|x| x.name.clone()).collect();
+            live_resp.context_menu(|ui| {
+                for (i, n) in live_names.iter().enumerate() {
+                    if ui.button(n).clicked() {
+                        actions.push(Action::StartLive(i));
+                        ui.close_menu();
+                    }
+                }
+                if live_names.is_empty() {
+                    ui.label(tr("No live source defined"));
+                }
+            });
             let lay_r = slot(90.0);
             if kit::button_at(ui, lay_r, "h_lay", None, &format!("Layout: {layout}"), kit::DARK, WHITE).clicked() {
                 actions.push(Action::ToggleLayout);

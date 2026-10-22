@@ -435,6 +435,35 @@ impl Default for BackupCfg {
     }
 }
 
+/// A source for the live rebroadcast: a sound card input, or an internet stream when `url` is set.
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct LiveSource {
+    pub name: String,
+    pub device: String,
+    pub url: String,
+    pub gain_db: f32,
+}
+
+/// A scheduled live rebroadcast: the source goes on the air between `start` and `end` (HH:MM) on the chosen days.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LiveSlot {
+    pub enabled: bool,
+    pub source: String,
+    /// Monday .. Sunday
+    pub days: [bool; 7],
+    pub start: String,
+    pub end: String,
+    pub mute: bool,
+}
+
+impl Default for LiveSlot {
+    fn default() -> Self {
+        LiveSlot { enabled: true, source: String::new(), days: [true; 7], start: "12:00".into(), end: "13:00".into(), mute: true }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -465,6 +494,8 @@ pub struct Settings {
     pub live_url: String,
     pub live_gain_db: f32,
     pub live_mute_automation: bool,
+    pub live_sources: Vec<LiveSource>,
+    pub live_slots: Vec<LiveSlot>,
     pub custom_log: bool,
     pub custom_log_path: String,
     pub custom_log_format: String,
@@ -529,6 +560,8 @@ impl Default for Settings {
             live_url: String::new(),
             live_gain_db: 0.0,
             live_mute_automation: true,
+            live_sources: Vec::new(),
+            live_slots: Vec::new(),
             custom_log: false,
             custom_log_path: "logs".into(),
             custom_log_format: "{date} {time} {kind} {artist} - {title}".into(),

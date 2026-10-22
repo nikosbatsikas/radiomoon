@@ -511,5 +511,18 @@
   "Live source stopped": "Η ζωντανή πηγή σταμάτησε",
   "Live source on air": "Η ζωντανή πηγή είναι στον αέρα",
   "Live source failed": "Αποτυχία ζωντανής πηγής",
-  "Signal analysis": "Ανάλυση σήματος"
+  "Signal analysis": "Ανάλυση σήματος",
+  "Put a sound card input or an internet radio stream on the air, by hand (LIVE button) or on a schedule": "Βγάλτε στον αέρα είσοδο κάρτας ήχου ή internet radio stream, με το χέρι (κουμπί LIVE) ή με πρόγραμμα",
+  "Sources": "Πηγές",
+  "Go live": "Έναρξη live",
+  "Add source": "Προσθήκη πηγής",
+  "Add schedule": "Προσθήκη προγράμματος",
+  "from": "από",
+  "Mute automation": "Σίγαση αυτοματισμού",
+  "Times are HH:MM. If the end is earlier than the start the slot runs over midnight (the days are those of the start). The source goes on the air at the start and off at the end; the LIVE button in the studio can end it earlier.": "Οι ώρες είναι ΩΩ:ΛΛ. Αν το τέλος είναι πριν την έναρξη, το πρόγραμμα συνεχίζει μετά τα μεσάνυχτα (οι ημέρες είναι της έναρξης). Η πηγή μπαίνει στον αέρα στην έναρξη και βγαίνει στο τέλος· το κουμπί LIVE στο στούντιο μπορεί να τη σταματήσει νωρίτερα.",
+  "This applies to sources started by hand. Each schedule entry has its own setting. Right-click the LIVE button in the studio to choose a source.": "Ισχύει για πηγές που ξεκινούν με το χέρι. Κάθε εγγραφή προγράμματος έχει δική της ρύθμιση. Δεξί κλικ στο LIVE του στούντιο για επιλογή πηγής.",
+  "The live rebroadcast sources and their schedule are in Scheduling > Live rebroadcast.": "Οι πηγές ζωντανής αναμετάδοσης και το πρόγραμμά τους βρίσκονται στο Προγραμματισμός > Ζωντανή αναμετάδοση.",
+  "No live source defined (Control Panel > Live rebroadcast)": "Δεν έχει οριστεί πηγή live (Πίνακας Ελέγχου > Ζωντανή αναμετάδοση)",
+  "No live source defined": "Δεν υπάρχει πηγή live",
+  "Scheduled live source ended": "Η προγραμματισμένη ζωντανή πηγή έληξε"
 }

@@ -513,5 +513,18 @@
   "Live source stopped": "",
   "Live source on air": "",
   "Live source failed": "",
-  "Signal analysis": ""
+  "Signal analysis": "",
+  "Put a sound card input or an internet radio stream on the air, by hand (LIVE button) or on a schedule": "",
+  "Sources": "",
+  "Go live": "",
+  "Add source": "",
+  "Add schedule": "",
+  "from": "",
+  "Mute automation": "",
+  "Times are HH:MM. If the end is earlier than the start the slot runs over midnight (the days are those of the start). The source goes on the air at the start and off at the end; the LIVE button in the studio can end it earlier.": "",
+  "This applies to sources started by hand. Each schedule entry has its own setting. Right-click the LIVE button in the studio to choose a source.": "",
+  "The live rebroadcast sources and their schedule are in Scheduling > Live rebroadcast.": "",
+  "No live source defined (Control Panel > Live rebroadcast)": "",
+  "No live source defined": "",
+  "Scheduled live source ended": ""
 }

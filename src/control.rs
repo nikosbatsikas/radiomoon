@@ -33,6 +33,7 @@ pub enum Page {
     LogViewer,
     General,
     Outputs,
+    Live,
     Shortcuts,
     Users,
     Folders,
@@ -68,6 +69,7 @@ const NAV: [(&str, &[(Page, &str, &str)]); 4] = [
             (Page::Clocks, "Main auto schedule", "auto_schedule"),
             (Page::Playlists, "Playlists", "playlists"),
             (Page::Force, "Force clocks", "force_clocks"),
+            (Page::Live, "Live rebroadcast", "auto_schedule"),
             (Page::FinalLog, "Final log creator", "final_log"),
             (Page::LogViewer, "Log viewer", "log_viewer"),
         ],
@@ -375,6 +377,7 @@ impl App {
                                     Page::LogViewer => self.page_logviewer(ui),
                                     Page::General => self.page_general(ui),
                                     Page::Outputs => self.page_outputs(ui),
+                                    Page::Live => self.page_live(ui),
                                     Page::Shortcuts => self.page_shortcuts(ui),
                                     Page::Users => self.page_users(ui),
                                     Page::Folders => self.page_folders(ui),
@@ -1482,6 +1485,144 @@ impl App {
         }
     }
 
+    fn page_live(&mut self, ui: &mut egui::Ui) {
+        kit::page_title(ui, "Live rebroadcast", "Put a sound card input or an internet radio stream on the air, by hand (LIVE button) or on a schedule");
+        let ins = player::list_inputs();
+        let mut ch = false;
+        let mut del_src: Option<usize> = None;
+        let mut go: Option<usize> = None;
+        let mut rename: Option<(String, String)> = None;
+        let live_now = self.player.as_ref().map(|p| p.live_active()).unwrap_or(false);
+        let sel = self.live_sel;
+        kit::card(ui, "Sources", |ui| {
+            let list = &mut self.data.s.live_sources;
+            for (i, src) in list.iter_mut().enumerate() {
+                ui.push_id(i, |ui| {
+                    ui.horizontal(|ui| {
+                        let old = src.name.clone();
+                        ui.label(tr("Name"));
+                        if ui.add(egui::TextEdit::singleline(&mut src.name).desired_width(140.0)).changed() {
+                            ch = true;
+                            rename = Some((old, src.name.clone()));
+                        }
+                        ui.label(tr("Level (dB)"));
+                        ch |= ui.add(egui::Slider::new(&mut src.gain_db, -24.0..=12.0)).changed();
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(tr("Sound input"));
+                        egui::ComboBox::from_id_salt("lsd").width(260.0).selected_text(if src.device.is_empty() { tr("(default)").to_string() } else { src.device.clone() }).show_ui(ui, |ui| {
+                            ch |= ui.selectable_value(&mut src.device, String::new(), tr("(default)")).changed();
+                            for o in &ins {
+                                ch |= ui.selectable_value(&mut src.device, o.clone(), o).changed();
+                            }
+                        });
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(tr("Stream URL (leave empty to use the sound input)"));
+                        ch |= ui.add(egui::TextEdit::singleline(&mut src.url).desired_width(ui.available_width().max(120.0) - 8.0)).changed();
+                    });
+                    ui.horizontal(|ui| {
+                        let on = live_now && sel == i;
+                        if on {
+                            if kit::danger_button(ui, "Stop").clicked() {
+                                go = Some(usize::MAX);
+                            }
+                        } else if kit::primary_button(ui, "Go live").clicked() {
+                            go = Some(i);
+                        }
+                        if ui.button(tr("Delete")).clicked() {
+                            del_src = Some(i);
+                        }
+                    });
+                    ui.separator();
+                });
+            }
+            if ui.button(tr("Add source")).clicked() {
+                let n = list.len() + 1;
+                list.push(LiveSource { name: format!("Live {n}"), ..Default::default() });
+                ch = true;
+            }
+        });
+        if let Some((o, n)) = rename {
+            for sl in self.data.s.live_slots.iter_mut() {
+                if sl.source == o {
+                    sl.source = n.clone();
+                }
+            }
+        }
+        if let Some(i) = del_src {
+            let name = self.data.s.live_sources.remove(i).name;
+            self.data.s.live_slots.retain(|x| x.source != name);
+            ch = true;
+        }
+        match go {
+            Some(usize::MAX) => self.stop_live_source(),
+            Some(i) => {
+                let m = self.data.s.live_mute_automation;
+                self.start_live_source(i, m, None);
+            }
+            None => {}
+        }
+        let names: Vec<String> = self.data.s.live_sources.iter().map(|x| x.name.clone()).collect();
+        let mut del_slot: Option<usize> = None;
+        kit::card(ui, "Schedule", |ui| {
+            let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            for (i, sl) in self.data.s.live_slots.iter_mut().enumerate() {
+                ui.push_id(("slot", i), |ui| {
+                    ui.horizontal(|ui| {
+                        ch |= ui.checkbox(&mut sl.enabled, "").changed();
+                        egui::ComboBox::from_id_salt("lss").width(130.0).selected_text(sl.source.clone()).show_ui(ui, |ui| {
+                            for n in &names {
+                                ch |= ui.selectable_value(&mut sl.source, n.clone(), n).changed();
+                            }
+                        });
+                        ui.label(tr("from"));
+                        ch |= ui.add(egui::TextEdit::singleline(&mut sl.start).desired_width(48.0)).changed();
+                        ui.label(tr("to"));
+                        ch |= ui.add(egui::TextEdit::singleline(&mut sl.end).desired_width(48.0)).changed();
+                        ch |= ui.checkbox(&mut sl.mute, tr("Mute automation")).changed();
+                        if ui.button(tr("Delete")).clicked() {
+                            del_slot = Some(i);
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        for (d, n) in days.iter().enumerate() {
+                            ch |= ui.selectable_label(sl.days[d], tr(n)).clicked() && {
+                                sl.days[d] = !sl.days[d];
+                                true
+                            };
+                        }
+                    });
+                    ui.separator();
+                });
+            }
+            if ui.add_enabled(!names.is_empty(), egui::Button::new(tr("Add schedule"))).clicked() {
+                self.data.s.live_slots.push(LiveSlot { source: names.first().cloned().unwrap_or_default(), ..Default::default() });
+                ch = true;
+            }
+            ui.label(RichText::new(tr("Times are HH:MM. If the end is earlier than the start the slot runs over midnight (the days are those of the start). The source goes on the air at the start and off at the end; the LIVE button in the studio can end it earlier.")).color(kit::GRAY).small());
+        });
+        if let Some(i) = del_slot {
+            self.data.s.live_slots.remove(i);
+            ch = true;
+        }
+        kit::card(ui, "Options", |ui| {
+            ch |= ui.checkbox(&mut self.data.s.live_mute_automation, tr("Mute the automation while live (it keeps running silently underneath)")).changed();
+            ui.label(RichText::new(tr("This applies to sources started by hand. Each schedule entry has its own setting. Right-click the LIVE button in the studio to choose a source.")).color(kit::GRAY).small());
+        });
+        if let Some(p) = self.player.as_ref() {
+            if p.live_active() {
+                let (pk, st) = p.live_info();
+                ui.add(egui::ProgressBar::new(pk.min(1.0)).desired_width(260.0));
+                ui.label(st);
+                ui.ctx().request_repaint_after(std::time::Duration::from_millis(100));
+            }
+        }
+        if ch {
+            self.save_settings();
+        }
+    }
+
     fn page_outputs(&mut self, ui: &mut egui::Ui) {
         ui.heading(tr("Sound outputs"));
         let outs = player::list_outputs();
@@ -1507,46 +1648,7 @@ impl App {
             self.apply_outputs();
             self.cp.msg = tr("Outputs applied");
         }
-        ui.separator();
-        ui.heading(tr("Live rebroadcast"));
-        ui.label(tr("The LIVE button in the studio header puts an external source on the air: a sound card input, or an internet radio stream (MP3/AAC) when a URL is given. It is included in the internet broadcast and MPX."));
-        let ins = player::list_inputs();
-        let mut lch = false;
-        let s = &mut self.data.s;
-        ui.horizontal(|ui| {
-            ui.label(tr("Sound input"));
-            egui::ComboBox::from_id_salt("li").selected_text(if s.live_device.is_empty() { "(default)".to_string() } else { s.live_device.clone() }).show_ui(ui, |ui| {
-                lch |= ui.selectable_value(&mut s.live_device, String::new(), tr("(default)")).changed();
-                for o in &ins {
-                    lch |= ui.selectable_value(&mut s.live_device, o.clone(), o).changed();
-                }
-            });
-        });
-        ui.horizontal(|ui| {
-            ui.label(tr("Stream URL (leave empty to use the sound input)"));
-            lch |= ui.add(egui::TextEdit::singleline(&mut s.live_url).desired_width(ui.available_width().max(120.0) - 8.0)).changed();
-        });
-        ui.horizontal(|ui| {
-            ui.label(tr("Level (dB)"));
-            lch |= ui.add(egui::Slider::new(&mut s.live_gain_db, -24.0..=12.0)).changed();
-        });
-        lch |= ui.checkbox(&mut s.live_mute_automation, tr("Mute the automation while live (it keeps running silently underneath)")).changed();
-        if lch {
-            let (g, m) = (self.data.s.live_gain_db, self.data.s.live_mute_automation);
-            if let Some(p) = self.player.as_ref() {
-                p.set_live_gain(g);
-                p.set_live_mute_automation(m);
-            }
-            self.save_settings();
-        }
-        if let Some(p) = self.player.as_ref() {
-            if p.live_active() {
-                let (pk, st) = p.live_info();
-                ui.add(egui::ProgressBar::new(pk.min(1.0)).desired_width(220.0));
-                ui.label(st);
-                ui.ctx().request_repaint_after(std::time::Duration::from_millis(100));
-            }
-        }
+        ui.label(tr("The live rebroadcast sources and their schedule are in Scheduling > Live rebroadcast."));
         ui.label(tr("Mixing between songs uses each song's mix-in / mix-out points. VST/DSP plugins and A-B interchange output are not supported."));
     }
 

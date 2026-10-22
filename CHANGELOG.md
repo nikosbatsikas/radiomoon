@@ -31,6 +31,9 @@
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`; a release is made by pushing a tag
 `vMAJOR.MINOR.PATCH` that matches it (see README.txt, "Versioning and releases").
 
+## 0.5.2
+- Live rebroadcast: any number of sources (sound inputs and internet streams), each with its own level, and a weekly schedule (days, start and end time, mute automation per entry; over midnight is supported). New page Scheduling > Live rebroadcast. Right-click the LIVE button in the studio to choose a source. The single source of 0.5.0/0.5.1 is converted automatically.
+
 ## 0.5.1
 - Fixed: the program closed when MPX was started (the new MPX analyzer read past the end of the spectrum data).
 

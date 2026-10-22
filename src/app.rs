@@ -11,7 +11,7 @@ use crate::stream::Streamer;
 use crate::model::*;
 use crate::player::Player;
 use crate::waveform;
-use chrono::{Duration as CDur, Local, NaiveDateTime, Timelike};
+use chrono::{Datelike, Duration as CDur, Local, NaiveDateTime, Timelike};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -130,6 +130,11 @@ pub struct App {
     pub mpx: Option<MpxHandle>,
     pub last_backup_day: String,
     pub last_backup_check: Instant,
+    /// live rebroadcast: selected source, the schedule slot that started it, a slot switched off by hand
+    pub live_sel: usize,
+    pub live_slot: Option<usize>,
+    pub live_dismissed: Option<usize>,
+    pub last_live_check: Instant,
 }
 
 impl App {
@@ -179,6 +184,10 @@ impl App {
             mpx: None,
             last_backup_day: String::new(),
             last_backup_check: Instant::now(),
+            live_sel: 0,
+            live_slot: None,
+            live_dismissed: None,
+            last_live_check: Instant::now(),
         };
         app.reload_all();
         crate::i18n::set_language(&app.data.s.language.clone(), &app.lang_dirs());
@@ -404,6 +413,101 @@ impl App {
                 }
             });
             self.status = "Automatic database backup started".into();
+        }
+    }
+
+    // ---------------------------------------------------------------- live rebroadcast
+    /// Puts source number `idx` on the air. `slot` is the schedule slot that asked for it (None = by hand).
+    pub fn start_live_source(&mut self, idx: usize, mute: bool, slot: Option<usize>) -> bool {
+        let Some(src) = self.data.s.live_sources.get(idx).cloned() else {
+            self.status = tr("No live source defined (Control Panel > Live rebroadcast)");
+            return false;
+        };
+        let Some(p) = self.player.as_mut() else { return false };
+        match p.start_live(&src.url, &src.device, src.gain_db, mute) {
+            Ok(_) => {
+                self.live_slot = slot;
+                self.live_sel = idx;
+                self.status = format!("{}: {}", tr("Live source on air"), src.name);
+                true
+            }
+            Err(e) => {
+                self.status = format!("{} ({}): {e}", tr("Live source failed"), src.name);
+                false
+            }
+        }
+    }
+
+    /// Stops the live source. A scheduled one stays off until its slot ends.
+    pub fn stop_live_source(&mut self) {
+        if let Some(p) = self.player.as_mut() {
+            p.stop_live();
+        }
+        if let Some(i) = self.live_slot.take() {
+            self.live_dismissed = Some(i);
+        }
+        self.status = tr("Live source stopped");
+    }
+
+    /// Starts and ends the scheduled live sources (checked every second).
+    pub fn live_tick(&mut self) {
+        if self.last_live_check.elapsed() < std::time::Duration::from_secs(1) {
+            return;
+        }
+        self.last_live_check = Instant::now();
+        // settings of version 0.5.0 had a single source
+        if self.data.s.live_sources.is_empty() && (!self.data.s.live_url.is_empty() || !self.data.s.live_device.is_empty()) {
+            let s = &mut self.data.s;
+            s.live_sources.push(LiveSource { name: "Live 1".into(), device: std::mem::take(&mut s.live_device), url: std::mem::take(&mut s.live_url), gain_db: s.live_gain_db });
+            self.save_settings();
+        }
+        if self.data.s.live_slots.is_empty() && self.live_slot.is_none() {
+            return;
+        }
+        let now = Local::now();
+        let (t, wd) = (now.time(), now.weekday().num_days_from_monday() as usize);
+        let mut active: Option<(usize, usize, bool)> = None; // slot, source, mute
+        for (i, sl) in self.data.s.live_slots.iter().enumerate() {
+            if !sl.enabled {
+                continue;
+            }
+            let (Some(a), Some(b)) = (engine::parse_hm(&sl.start), engine::parse_hm(&sl.end)) else { continue };
+            let day = if a < b {
+                if t >= a && t < b { Some(wd) } else { None }
+            } else if a > b {
+                // over midnight: the days are those of the start
+                if t >= a { Some(wd) } else if t < b { Some((wd + 6) % 7) } else { None }
+            } else {
+                None
+            };
+            if let Some(d) = day {
+                if sl.days[d] {
+                    if let Some(si) = self.data.s.live_sources.iter().position(|x| x.name == sl.source) {
+                        active = Some((i, si, sl.mute));
+                        break;
+                    }
+                }
+            }
+        }
+        if self.live_dismissed.is_some() && self.live_dismissed != active.map(|a| a.0) {
+            self.live_dismissed = None;
+        }
+        let live = self.player.as_ref().map(|p| p.live_active()).unwrap_or(false);
+        match active {
+            Some((i, si, mute)) => {
+                if self.live_slot != Some(i) && self.live_dismissed != Some(i) && !(live && self.live_slot.is_none()) && !self.start_live_source(si, mute, Some(i)) {
+                    self.live_dismissed = Some(i);
+                }
+            }
+            None => {
+                if self.live_slot.is_some() {
+                    if let Some(p) = self.player.as_mut() {
+                        p.stop_live();
+                    }
+                    self.live_slot = None;
+                    self.status = tr("Scheduled live source ended");
+                }
+            }
         }
     }
 
