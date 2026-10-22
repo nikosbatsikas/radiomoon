@@ -36,6 +36,7 @@ mp3lame-encoder = "0.2"
 flate2 = "1"
 base64 = "0.22"
 aes-gcm = "0.10"
+ureq = "2"
 
 [profile.release]
 opt-level = 3

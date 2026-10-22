@@ -1507,6 +1507,46 @@ impl App {
             self.apply_outputs();
             self.cp.msg = tr("Outputs applied");
         }
+        ui.separator();
+        ui.heading(tr("Live rebroadcast"));
+        ui.label(tr("The LIVE button in the studio header puts an external source on the air: a sound card input, or an internet radio stream (MP3/AAC) when a URL is given. It is included in the internet broadcast and MPX."));
+        let ins = player::list_inputs();
+        let mut lch = false;
+        let s = &mut self.data.s;
+        ui.horizontal(|ui| {
+            ui.label(tr("Sound input"));
+            egui::ComboBox::from_id_salt("li").selected_text(if s.live_device.is_empty() { "(default)".to_string() } else { s.live_device.clone() }).show_ui(ui, |ui| {
+                lch |= ui.selectable_value(&mut s.live_device, String::new(), tr("(default)")).changed();
+                for o in &ins {
+                    lch |= ui.selectable_value(&mut s.live_device, o.clone(), o).changed();
+                }
+            });
+        });
+        ui.horizontal(|ui| {
+            ui.label(tr("Stream URL (leave empty to use the sound input)"));
+            lch |= ui.add(egui::TextEdit::singleline(&mut s.live_url).desired_width(ui.available_width().max(120.0) - 8.0)).changed();
+        });
+        ui.horizontal(|ui| {
+            ui.label(tr("Level (dB)"));
+            lch |= ui.add(egui::Slider::new(&mut s.live_gain_db, -24.0..=12.0)).changed();
+        });
+        lch |= ui.checkbox(&mut s.live_mute_automation, tr("Mute the automation while live (it keeps running silently underneath)")).changed();
+        if lch {
+            let (g, m) = (self.data.s.live_gain_db, self.data.s.live_mute_automation);
+            if let Some(p) = self.player.as_ref() {
+                p.set_live_gain(g);
+                p.set_live_mute_automation(m);
+            }
+            self.save_settings();
+        }
+        if let Some(p) = self.player.as_ref() {
+            if p.live_active() {
+                let (pk, st) = p.live_info();
+                ui.add(egui::ProgressBar::new(pk.min(1.0)).desired_width(220.0));
+                ui.label(st);
+                ui.ctx().request_repaint_after(std::time::Duration::from_millis(100));
+            }
+        }
         ui.label(tr("Mixing between songs uses each song's mix-in / mix-out points. VST/DSP plugins and A-B interchange output are not supported."));
     }
 

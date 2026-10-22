@@ -503,5 +503,14 @@
   "Start import": "",
   "Artists": "",
   "Jingle pallet buttons": "",
-  "Play history entries": ""
+  "Play history entries": "",
+  "Live rebroadcast": "",
+  "The LIVE button in the studio header puts an external source on the air: a sound card input, or an internet radio stream (MP3/AAC) when a URL is given. It is included in the internet broadcast and MPX.": "",
+  "Sound input": "",
+  "Stream URL (leave empty to use the sound input)": "",
+  "Level (dB)": "",
+  "Mute the automation while live (it keeps running silently underneath)": "",
+  "Live source stopped": "",
+  "Live source on air": "",
+  "Live source failed": ""
 }

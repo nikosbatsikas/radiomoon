@@ -5,8 +5,9 @@ use rodio::cpal::traits::{DeviceTrait, HostTrait};
 use rodio::dynamic_mixer::{mixer, DynamicMixerController};
 use rodio::source::Zero;
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
+use std::collections::VecDeque;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
@@ -118,7 +119,7 @@ impl<S: Source<Item = f32>> Iterator for Ctrl<S> {
             return Some(0.0);
         }
         match self.inner.next() {
-            Some(s) => Some(s * self.c.get_vol()),
+            Some(s) => Some(if DUCK.load(Ordering::Relaxed) { 0.0 } else { s * self.c.get_vol() }),
             None => {
                 self.finish();
                 None
@@ -188,6 +189,270 @@ impl<S: Source<Item = f32>> Source for Tap<S> {
     }
 }
 
+
+// ---------------------------------------------------------------- live input (sound card or internet stream)
+/// While a live source is on the air with "mute automation", everything the automation plays is silent
+/// (it keeps running underneath, so the schedule stays in time).
+static DUCK: AtomicBool = AtomicBool::new(false);
+
+struct LiveShared {
+    q: Mutex<VecDeque<f32>>,
+    cap: usize,
+    stop: AtomicBool,
+    peak: AtomicU32,
+    gain: AtomicU32,
+    status: Mutex<String>,
+}
+
+impl LiveShared {
+    fn set_status(&self, s: &str) {
+        if let Ok(mut g) = self.status.lock() {
+            *g = s.to_string();
+        }
+    }
+    /// Adds interleaved stereo 44.1 kHz samples. A stream (`block`) waits when the queue is full, a sound card drops the oldest.
+    fn push(&self, buf: &mut Vec<f32>, block: bool) {
+        let g = f32::from_bits(self.gain.load(Ordering::Relaxed));
+        let mut pk = 0f32;
+        for x in buf.iter_mut() {
+            *x *= g;
+            pk = pk.max(x.abs());
+        }
+        let old = f32::from_bits(self.peak.load(Ordering::Relaxed));
+        self.peak.store(pk.max(old * 0.9).to_bits(), Ordering::Relaxed);
+        if block {
+            while !self.stop.load(Ordering::Relaxed) && self.q.lock().map(|q| q.len() > self.cap).unwrap_or(false) {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
+        if let Ok(mut q) = self.q.lock() {
+            q.extend(buf.iter().copied());
+            while q.len() > self.cap * 2 {
+                q.pop_front();
+            }
+        }
+        buf.clear();
+    }
+}
+
+struct LiveSrc {
+    sh: Arc<LiveShared>,
+}
+
+impl Iterator for LiveSrc {
+    type Item = f32;
+    fn next(&mut self) -> Option<f32> {
+        if self.sh.stop.load(Ordering::Relaxed) {
+            return None;
+        }
+        Some(self.sh.q.lock().ok().and_then(|mut q| q.pop_front()).unwrap_or(0.0))
+    }
+}
+
+impl Source for LiveSrc {
+    fn current_frame_len(&self) -> Option<usize> {
+        None
+    }
+    fn channels(&self) -> u16 {
+        2
+    }
+    fn sample_rate(&self) -> u32 {
+        44100
+    }
+    fn total_duration(&self) -> Option<Duration> {
+        None
+    }
+}
+
+/// Linear resampler to 44.1 kHz.
+struct Rs {
+    step: f64,
+    pos: f64,
+    prev: (f32, f32),
+}
+
+impl Rs {
+    fn new(rate: u32) -> Self {
+        Rs { step: rate.max(1) as f64 / 44100.0, pos: 0.0, prev: (0.0, 0.0) }
+    }
+    fn frame(&mut self, l: f32, r: f32, out: &mut Vec<f32>) {
+        while self.pos < 1.0 {
+            let a = self.pos as f32;
+            out.push(self.prev.0 + (l - self.prev.0) * a);
+            out.push(self.prev.1 + (r - self.prev.1) * a);
+            self.pos += self.step;
+        }
+        self.pos -= 1.0;
+        self.prev = (l, r);
+    }
+}
+
+/// Names of the sound inputs of this computer.
+pub fn list_inputs() -> Vec<String> {
+    let mut v = Vec::new();
+    if let Ok(devs) = rodio::cpal::default_host().input_devices() {
+        for d in devs {
+            if let Ok(n) = d.name() {
+                v.push(n);
+            }
+        }
+    }
+    v
+}
+
+fn capture_thread(device: String, sh: Arc<LiveShared>, ready: std::sync::mpsc::Sender<Result<(), String>>) {
+    use rodio::cpal::SampleFormat;
+    let host = rodio::cpal::default_host();
+    let dev = host.input_devices().ok().and_then(|mut it| it.find(|d| d.name().map(|n| n == device).unwrap_or(false))).or_else(|| host.default_input_device());
+    let dev = match dev {
+        Some(d) => d,
+        None => {
+            let _ = ready.send(Err("no audio input device".into()));
+            return;
+        }
+    };
+    let cfg = match dev.default_input_config() {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = ready.send(Err(e.to_string()));
+            return;
+        }
+    };
+    let ch = cfg.channels().max(1) as usize;
+    let mut rs = Rs::new(cfg.sample_rate().0);
+    let sh2 = sh.clone();
+    let mut out: Vec<f32> = Vec::new();
+    let mut handle = move |d: &[f32]| {
+        for f in d.chunks_exact(ch) {
+            let (l, r) = if ch == 1 { (f[0], f[0]) } else { (f[0], f[1]) };
+            rs.frame(l, r, &mut out);
+        }
+        sh2.push(&mut out, false);
+    };
+    let err = |e| eprintln!("live input: {e}");
+    let stream = match cfg.sample_format() {
+        SampleFormat::F32 => dev.build_input_stream(&cfg.clone().into(), move |d: &[f32], _| handle(d), err, None),
+        SampleFormat::I16 => {
+            let mut tmp: Vec<f32> = Vec::new();
+            dev.build_input_stream(
+                &cfg.clone().into(),
+                move |d: &[i16], _| {
+                    tmp.clear();
+                    tmp.extend(d.iter().map(|x| *x as f32 / 32768.0));
+                    handle(&tmp)
+                },
+                err,
+                None,
+            )
+        }
+        SampleFormat::U16 => {
+            let mut tmp: Vec<f32> = Vec::new();
+            dev.build_input_stream(
+                &cfg.clone().into(),
+                move |d: &[u16], _| {
+                    tmp.clear();
+                    tmp.extend(d.iter().map(|x| (*x as f32 - 32768.0) / 32768.0));
+                    handle(&tmp)
+                },
+                err,
+                None,
+            )
+        }
+        f => {
+            let _ = ready.send(Err(format!("unsupported input format {f:?}")));
+            return;
+        }
+    };
+    let stream = match stream {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = ready.send(Err(e.to_string()));
+            return;
+        }
+    };
+    use rodio::cpal::traits::StreamTrait;
+    if let Err(e) = stream.play() {
+        let _ = ready.send(Err(e.to_string()));
+        return;
+    }
+    sh.set_status("Sound input on air");
+    let _ = ready.send(Ok(()));
+    while !sh.stop.load(Ordering::Relaxed) {
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    drop(stream);
+}
+
+/// A network stream has no seeking; the decoder only needs to be told so.
+struct NoSeek<R>(R);
+
+impl<R: Read> Read for NoSeek<R> {
+    fn read(&mut self, b: &mut [u8]) -> std::io::Result<usize> {
+        self.0.read(b)
+    }
+}
+
+impl<R> Seek for NoSeek<R> {
+    fn seek(&mut self, p: SeekFrom) -> std::io::Result<u64> {
+        match p {
+            SeekFrom::Current(0) => Ok(0),
+            _ => Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "live stream")),
+        }
+    }
+}
+
+/// Plays an internet radio stream (HTTP/HTTPS, MP3 or AAC) into the queue; reconnects when it drops.
+fn stream_thread(url: String, sh: Arc<LiveShared>) {
+    while !sh.stop.load(Ordering::Relaxed) {
+        sh.set_status("Connecting to the stream ...");
+        let res = ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(8)).timeout_read(Duration::from_secs(15)).build().get(&url).set("User-Agent", "RadioMoon").call();
+        match res {
+            Ok(resp) => {
+                let reader = resp.into_reader();
+                match Decoder::new(NoSeek(BufReader::with_capacity(64 * 1024, reader))) {
+                    Ok(dec) => {
+                        let ch = dec.channels().max(1) as usize;
+                        let mut rs = Rs::new(dec.sample_rate());
+                        let mut it = dec.convert_samples::<f32>();
+                        let mut out: Vec<f32> = Vec::with_capacity(8192);
+                        sh.set_status("Stream on air");
+                        'play: loop {
+                            let mut f = [0f32; 8];
+                            for k in 0..ch {
+                                match it.next() {
+                                    Some(x) => {
+                                        if k < 8 {
+                                            f[k] = x;
+                                        }
+                                    }
+                                    None => break 'play,
+                                }
+                            }
+                            let (l, r) = if ch == 1 { (f[0], f[0]) } else { (f[0], f[1]) };
+                            rs.frame(l, r, &mut out);
+                            if out.len() >= 4096 {
+                                sh.push(&mut out, true);
+                                if sh.stop.load(Ordering::Relaxed) {
+                                    return;
+                                }
+                            }
+                        }
+                        sh.set_status("Stream ended, reconnecting ...");
+                    }
+                    Err(e) => sh.set_status(&format!("Stream format not supported: {e}")),
+                }
+            }
+            Err(e) => sh.set_status(&format!("Stream connection failed: {e}")),
+        }
+        for _ in 0..30 {
+            if sh.stop.load(Ordering::Relaxed) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+}
+
 // ---------------------------------------------------------------- player
 struct Deck {
     ctl: Ctl,
@@ -201,6 +466,7 @@ pub struct Player {
     bus: Arc<DynamicMixerController<f32>>,
     _bus_sink: Sink,
     tap: Arc<TapShared>,
+    live: Option<Arc<LiveShared>>,
     decks: Vec<Deck>,
     jingles: Vec<Ctl>,
     jingle_sinks: Vec<Sink>,
@@ -231,6 +497,7 @@ impl Player {
             bus,
             _bus_sink: sink,
             tap,
+            live: None,
             decks: Vec::new(),
             jingles: Vec::new(),
             jingle_sinks: Vec::new(),
@@ -267,6 +534,72 @@ impl Player {
             false
         };
         self.tap.enabled.store(any, Ordering::Relaxed);
+    }
+
+    // ----- live source: sound card input or internet stream, mixed into the on-air bus -----
+    /// `url` empty = sound card `device` (empty = default input); otherwise the internet stream at `url`.
+    pub fn start_live(&mut self, url: &str, device: &str, gain_db: f32, mute_automation: bool) -> Result<()> {
+        self.stop_live();
+        let stream = !url.trim().is_empty();
+        let sh = Arc::new(LiveShared {
+            q: Mutex::new(VecDeque::new()),
+            cap: if stream { 44100 * 4 } else { 44100 / 2 },
+            stop: AtomicBool::new(false),
+            peak: AtomicU32::new(0),
+            gain: AtomicU32::new(lin(gain_db).to_bits()),
+            status: Mutex::new(String::new()),
+        });
+        if stream {
+            let (u, s2) = (url.trim().to_string(), sh.clone());
+            std::thread::spawn(move || stream_thread(u, s2));
+        } else {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let (d, s2) = (device.to_string(), sh.clone());
+            std::thread::spawn(move || capture_thread(d, s2, tx));
+            match rx.recv_timeout(Duration::from_secs(5)) {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => anyhow::bail!(e),
+                Err(_) => {
+                    sh.stop.store(true, Ordering::Relaxed);
+                    anyhow::bail!("the sound input did not start");
+                }
+            }
+        }
+        self.bus.add(LiveSrc { sh: sh.clone() });
+        DUCK.store(mute_automation, Ordering::Relaxed);
+        self.live = Some(sh);
+        Ok(())
+    }
+
+    pub fn stop_live(&mut self) {
+        if let Some(sh) = self.live.take() {
+            sh.stop.store(true, Ordering::Relaxed);
+        }
+        DUCK.store(false, Ordering::Relaxed);
+    }
+
+    pub fn live_active(&self) -> bool {
+        self.live.is_some()
+    }
+
+    pub fn set_live_gain(&self, db: f32) {
+        if let Some(sh) = &self.live {
+            sh.gain.store(lin(db).to_bits(), Ordering::Relaxed);
+        }
+    }
+
+    pub fn set_live_mute_automation(&self, on: bool) {
+        if self.live.is_some() {
+            DUCK.store(on, Ordering::Relaxed);
+        }
+    }
+
+    /// (peak 0..1, status text) of the live source.
+    pub fn live_info(&self) -> (f32, String) {
+        match &self.live {
+            Some(sh) => (f32::from_bits(sh.peak.load(Ordering::Relaxed)), sh.status.lock().map(|g| g.clone()).unwrap_or_default()),
+            None => (0.0, String::new()),
+        }
     }
 
     // ----- decks -----

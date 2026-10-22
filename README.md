@@ -107,6 +107,10 @@ Control Panel > Backup & restore: a daily automatic backup (default 03:00, keeps
 3. Spots > Add new campaign; program it on the break times.
 4. Header: press **AUTO**. The next 2 hours are generated and played with automatic mixing.
 
+## Live rebroadcast
+
+Control Panel > Sound outputs > Live rebroadcast: choose a sound card input, or enter an internet radio stream URL (MP3 or AAC over HTTP/HTTPS; HLS is not supported). The **LIVE** button in the studio header switches it on and off. The live audio is mixed into the main output and therefore also into the internet broadcast and MPX. With *Mute the automation while live* the playlist keeps running silently underneath, so the schedule stays in time.
+
 ## Not included
 
-Weather, live-input rebroadcast, VST plug-ins, microphone recording of voice tracks.
+Weather, VST plug-ins, microphone recording of voice tracks.

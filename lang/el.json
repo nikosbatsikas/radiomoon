@@ -501,5 +501,14 @@
   "Start import": "Έναρξη εισαγωγής",
   "Artists": "Καλλιτέχνες",
   "Jingle pallet buttons": "Κουμπιά παλέτας jingle",
-  "Play history entries": "Εγγραφές ιστορικού"
+  "Play history entries": "Εγγραφές ιστορικού",
+  "Live rebroadcast": "Ζωντανή αναμετάδοση",
+  "The LIVE button in the studio header puts an external source on the air: a sound card input, or an internet radio stream (MP3/AAC) when a URL is given. It is included in the internet broadcast and MPX.": "Το κουμπί LIVE στην κεφαλίδα του στούντιο βγάζει στον αέρα εξωτερική πηγή: είσοδο κάρτας ήχου ή internet radio stream (MP3/AAC) όταν δοθεί URL. Περιλαμβάνεται στο internet broadcast και στο MPX.",
+  "Sound input": "Είσοδος ήχου",
+  "Stream URL (leave empty to use the sound input)": "URL stream (κενό = είσοδος ήχου)",
+  "Level (dB)": "Στάθμη (dB)",
+  "Mute the automation while live (it keeps running silently underneath)": "Σίγαση του αυτοματισμού κατά το live (συνεχίζει σιωπηλά από κάτω)",
+  "Live source stopped": "Η ζωντανή πηγή σταμάτησε",
+  "Live source on air": "Η ζωντανή πηγή είναι στον αέρα",
+  "Live source failed": "Αποτυχία ζωντανής πηγής"
 }
