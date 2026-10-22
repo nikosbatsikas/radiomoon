@@ -129,6 +129,7 @@ pub struct MpxHandle {
     ip: Text,
     params: Arc<Mutex<(MpxParams, RdsData)>>,
     live_rt: Mutex<String>,
+    pub scope: crate::mpxscope::Scope,
 }
 
 impl MpxHandle {
@@ -153,12 +154,15 @@ impl MpxHandle {
         if queues.is_empty() {
             set(&status, "No output selected (sound card or IP)");
         }
+        let scope = crate::mpxscope::new_scope();
+        let scope2 = scope.clone();
         let (st, pk, pa, stt) = (stop.clone(), peak.clone(), params.clone(), status.clone());
         let in_rate = 44_100;
         std::thread::spawn(move || {
             let (p0, r0) = pa.lock().map(|g| g.clone()).unwrap_or_default();
             let mut enc = MpxEncoder::new(in_rate, FS, p0, r0);
             let mut out: Vec<f32> = Vec::new();
+            let mut an = crate::mpxscope::Analyzer::new();
             let mut secs_at = Instant::now();
             // wait for the first audio, then keep going until stopped
             while !st.load(Ordering::Relaxed) {
@@ -170,6 +174,7 @@ impl MpxHandle {
                         }
                         out.clear();
                         enc.process(&chunk, &mut out);
+                        an.push(&out, &scope2);
                         for q in &queues {
                             q.push(&out);
                         }
@@ -187,7 +192,7 @@ impl MpxHandle {
                 }
             }
         });
-        MpxHandle { stop, peak, status, card, ip, params, live_rt: Mutex::new(String::new()) }
+        MpxHandle { stop, peak, status, card, ip, params, live_rt: Mutex::new(String::new()), scope }
     }
 
     /// Applies changed levels / RDS texts while running.

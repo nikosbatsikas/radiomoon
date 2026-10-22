@@ -510,5 +510,6 @@
   "Mute the automation while live (it keeps running silently underneath)": "Σίγαση του αυτοματισμού κατά το live (συνεχίζει σιωπηλά από κάτω)",
   "Live source stopped": "Η ζωντανή πηγή σταμάτησε",
   "Live source on air": "Η ζωντανή πηγή είναι στον αέρα",
-  "Live source failed": "Αποτυχία ζωντανής πηγής"
+  "Live source failed": "Αποτυχία ζωντανής πηγής",
+  "Signal analysis": "Ανάλυση σήματος"
 }

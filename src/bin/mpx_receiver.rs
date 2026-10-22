@@ -5,6 +5,8 @@
 mod mpxdsp;
 #[path = "../mpxio.rs"]
 mod mpxio;
+#[path = "../mpxscope.rs"]
+mod mpxscope;
 #[path = "../mpxrx.rs"]
 mod mpxrx;
 
@@ -124,6 +126,8 @@ impl eframe::App for App {
                     ui.colored_label(Color32::from_rgb(120, 230, 150), r.status_text());
                     let p = r.peak();
                     ui.add(egui::ProgressBar::new(p.min(1.0)).desired_width(380.0).text(format!("{:.1} kHz  ({:.0}%)", p * 75.0, p * 100.0)));
+                    ui.add_space(6.0);
+                    mpxscope::draw(ui, &r.scope);
                 }
                 None => {
                     ui.label("Stopped");
@@ -148,8 +152,8 @@ fn main() -> eframe::Result<()> {
     let icon = image::load_from_memory(include_bytes!("../../packaging/icon.png")).map(|i| i.to_rgba8().into_raw()).unwrap_or_else(|_| vec![0; 256 * 256 * 4]);
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([560.0, 340.0])
-            .with_min_inner_size([520.0, 320.0])
+            .with_inner_size([600.0, 700.0])
+            .with_min_inner_size([520.0, 360.0])
             .with_title("RadioMoon MPX Receiver")
             .with_icon(std::sync::Arc::new(egui::IconData { rgba: icon, width: 256, height: 256 })),
         ..Default::default()

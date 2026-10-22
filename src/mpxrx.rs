@@ -19,6 +19,7 @@ pub struct RxHandle {
     stop: Arc<AtomicBool>,
     status: Text,
     peak: Arc<AtomicU32>,
+    pub scope: crate::mpxscope::Scope,
 }
 
 impl RxHandle {
@@ -29,9 +30,12 @@ impl RxHandle {
         let q = Queue::new(cfg.buffer_ms.clamp(20, 2000));
         let card: Text = Arc::new(Mutex::new(String::new()));
         card_thread(cfg.device.clone(), q.clone(), stop.clone(), card.clone(), "Sound card");
+        let scope = crate::mpxscope::new_scope();
+        let scope2 = scope.clone();
         let (st, stt, pk, port, tcp) = (stop.clone(), status.clone(), peak.clone(), cfg.port, cfg.proto == "tcp");
         std::thread::spawn(move || {
             let mut samples: Vec<f32> = Vec::with_capacity(4096);
+            let mut an = crate::mpxscope::Analyzer::new();
             let mut shown = Instant::now();
             let show = |stt: &Text, from: &str, q: &Queue, card: &Text| {
                 set(stt, &format!("Receiving from {from}, buffer {} ms; {}", q.ms(), get(card)));
@@ -70,6 +74,7 @@ impl RxHandle {
                                 from_l24(&rest[..usable], &mut samples);
                                 rest.drain(..usable);
                                 track_peak(&samples, &pk);
+                                an.push(&samples, &scope2);
                                 q.push(&samples);
                             }
                             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock || e.kind() == std::io::ErrorKind::TimedOut => {}
@@ -99,6 +104,7 @@ impl RxHandle {
                             samples.clear();
                             from_l24(&buf[12..n], &mut samples);
                             track_peak(&samples, &pk);
+                                an.push(&samples, &scope2);
                             q.push(&samples);
                         }
                         _ => {
@@ -114,7 +120,7 @@ impl RxHandle {
                 }
             }
         });
-        RxHandle { stop, status, peak }
+        RxHandle { stop, status, peak, scope }
     }
 
     pub fn status_text(&self) -> String {

@@ -17,6 +17,7 @@ mod mdb;
 mod mpx;
 mod mpxdsp;
 mod mpxio;
+mod mpxscope;
 mod player;
 mod schema;
 mod stream;

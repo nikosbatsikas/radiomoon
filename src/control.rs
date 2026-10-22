@@ -2375,6 +2375,11 @@ impl App {
             });
             ui.label(RichText::new(tr("100% = 75 kHz deviation. Set the exciter input so that this level gives 75 kHz, and keep the peaks below 100%.")).color(kit::GRAY).small());
         });
+        if let Some(h) = &self.mpx {
+            kit::card(ui, "Signal analysis", |ui| {
+                crate::mpxscope::draw(ui, &h.scope);
+            });
+        }
         kit::card(ui, "Outputs", |ui| {
             let c = &mut self.data.s.mpx;
             ch |= ui.checkbox(&mut c.card_on, tr("192 kHz sound card (MPX input of the exciter)")).changed();

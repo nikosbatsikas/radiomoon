@@ -512,5 +512,6 @@
   "Mute the automation while live (it keeps running silently underneath)": "",
   "Live source stopped": "",
   "Live source on air": "",
-  "Live source failed": ""
+  "Live source failed": "",
+  "Signal analysis": ""
 }
