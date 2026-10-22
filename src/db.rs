@@ -431,6 +431,19 @@ impl Db {
         Ok(())
     }
 
+    /// (path, id) of every track, to skip files that are already in the library.
+    pub fn track_paths(&self) -> Vec<(String, u64)> {
+        self.pool.get_conn().ok().and_then(|mut c| c.query::<(String, u64), _>("SELECT path,id FROM tracks").ok()).unwrap_or_default()
+    }
+
+    pub fn max_track_id(&self) -> u64 {
+        self.pool.get_conn().ok().and_then(|mut c| c.query_first::<u64, _>("SELECT COALESCE(MAX(id),0) FROM tracks").ok().flatten()).unwrap_or(0)
+    }
+
+    pub fn max_history_id(&self) -> u64 {
+        self.pool.get_conn().ok().and_then(|mut c| c.query_first::<u64, _>("SELECT COALESCE(MAX(id),0) FROM play_history").ok().flatten()).unwrap_or(0)
+    }
+
     pub fn restore_track(&self, t: &Track) -> Result<()> {
         let mut c = self.pool.get_conn()?;
         c.exec_drop(

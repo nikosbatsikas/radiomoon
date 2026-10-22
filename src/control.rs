@@ -41,6 +41,7 @@ pub enum Page {
     Mpx,
     Backup,
     Updater,
+    Jazler,
     Integrity,
     Reports,
     Reset,
@@ -89,6 +90,7 @@ const NAV: [(&str, &[(Page, &str, &str)]); 4] = [
         "Utilities",
         &[
             (Page::Updater, "Internet updater", "utilities"),
+            (Page::Jazler, "Import from Jazler RadioStar 2", "utilities"),
             (Page::Integrity, "Integrity check", "utilities"),
             (Page::Reports, "Broadcasting reports", "utilities"),
             (Page::Reset, "Reset database", "db_reset"),
@@ -146,6 +148,14 @@ pub struct ControlState {
     // users
     pub user: Option<User>,
     pub user_pw: String,
+    // jazler import
+    pub jz_path: String,
+    pub jz_opts: Option<crate::jzimport::Opts>,
+    pub jz_preview: Vec<(String, usize)>,
+    pub jz_status: std::sync::Arc<std::sync::Mutex<String>>,
+    pub jz_report: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    pub jz_busy: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    pub jz_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
     // utilities
     pub integ_kind: String,
     pub integ_res: Vec<Track>,
@@ -373,6 +383,7 @@ impl App {
                                     Page::Mpx => self.page_mpx(ui),
                                     Page::Backup => self.page_backup(ui),
                                     Page::Updater => self.page_updater(ui),
+                                    Page::Jazler => self.page_jazler(ui),
                                     Page::Integrity => self.page_integrity(ui),
                                     Page::Reports => self.page_reports(ui),
                                     Page::Reset => self.page_reset(ui),
@@ -1641,6 +1652,102 @@ impl App {
             self.save_settings();
         }
         ui.label(tr("Uploading by HTTP/TCP/TuneIn and stream encoders are not part of this version: point your web tools at the export folder."));
+    }
+
+    fn page_jazler(&mut self, ui: &mut egui::Ui) {
+        use std::sync::atomic::Ordering;
+        ui.heading(tr("Import from Jazler RadioStar 2"));
+        ui.label(tr("Imports songs, spots, categories, playlists, campaigns, jingle pallets and play history from a Jazler RadioStar 2 database (.mdb, Access 2000-2003). Existing data is kept; nothing is overwritten or deleted. User passwords are not imported."));
+        ui.add_space(6.0);
+        let busy = self.cp.jz_busy.load(Ordering::SeqCst);
+        if self.cp.jz_done.swap(false, Ordering::SeqCst) {
+            self.reload_tracks();
+            self.reload_docs();
+        }
+        let mut o = self.cp.jz_opts.clone().unwrap_or_default();
+        ui.add_enabled_ui(!busy, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(tr("Database file (.mdb)"));
+                let w = (ui.available_width() - 110.0).max(80.0);
+                ui.add(egui::TextEdit::singleline(&mut self.cp.jz_path).desired_width(w));
+                if ui.button(tr("Browse...")).clicked() {
+                    if let Some(p) = rfd::FileDialog::new().add_filter("Access database", &["mdb", "MDB"]).pick_file() {
+                        self.cp.jz_path = p.to_string_lossy().to_string();
+                        self.cp.jz_preview.clear();
+                    }
+                }
+            });
+            if ui.button(tr("Scan file")).clicked() {
+                match crate::jzimport::preview(std::path::Path::new(&self.cp.jz_path)) {
+                    Ok(v) => {
+                        self.cp.jz_preview = v;
+                        self.cp.msg.clear();
+                    }
+                    Err(e) => {
+                        self.cp.jz_preview.clear();
+                        self.cp.msg = e;
+                    }
+                }
+            }
+            for (k, n) in &self.cp.jz_preview {
+                ui.label(format!("{}: {}", tr(k), n));
+            }
+            ui.separator();
+            ui.checkbox(&mut o.songs, tr("Songs and artists"));
+            ui.checkbox(&mut o.spots, tr("Spots and campaigns"));
+            ui.checkbox(&mut o.playlists, tr("Playlists"));
+            ui.checkbox(&mut o.pallets, tr("Jingle pallets"));
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut o.history, tr("Play history, last days:"));
+                ui.add(egui::DragValue::new(&mut o.history_days).range(1..=3650));
+            });
+            ui.separator();
+            ui.label(tr("If the audio files are on a different drive or folder now, replace the start of the old path:"));
+            ui.horizontal(|ui| {
+                ui.label(tr("Old path start"));
+                ui.add(egui::TextEdit::singleline(&mut o.replace_from).desired_width(160.0));
+                ui.label(tr("New path start"));
+                ui.add(egui::TextEdit::singleline(&mut o.replace_to).desired_width(160.0));
+            });
+            if ui.button(tr("Start import")).clicked() && !self.cp.jz_path.trim().is_empty() {
+                self.cp.jz_busy.store(true, Ordering::SeqCst);
+                self.cp.jz_report.lock().unwrap().clear();
+                *self.cp.jz_status.lock().unwrap() = "Starting ...".into();
+                let (db, path, op) = (self.db.clone(), self.cp.jz_path.clone(), o.clone());
+                let (st, rp, bs, dn) = (self.cp.jz_status.clone(), self.cp.jz_report.clone(), self.cp.jz_busy.clone(), self.cp.jz_done.clone());
+                std::thread::spawn(move || {
+                    let st2 = st.clone();
+                    let res = crate::jzimport::apply(&db, std::path::Path::new(&path), &op, &move |m| {
+                        *st2.lock().unwrap() = m.to_string();
+                    });
+                    match res {
+                        Ok(r) => {
+                            *rp.lock().unwrap() = r;
+                            *st.lock().unwrap() = "Import finished".into();
+                        }
+                        Err(e) => *st.lock().unwrap() = format!("Import failed: {e}"),
+                    }
+                    dn.store(true, Ordering::SeqCst);
+                    bs.store(false, Ordering::SeqCst);
+                });
+            }
+        });
+        self.cp.jz_opts = Some(o);
+        if busy {
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.label(self.cp.jz_status.lock().unwrap().clone());
+            });
+        } else {
+            let st = self.cp.jz_status.lock().unwrap().clone();
+            if !st.is_empty() {
+                ui.label(st);
+            }
+        }
+        for l in self.cp.jz_report.lock().unwrap().iter() {
+            ui.label(l);
+        }
     }
 
     fn page_integrity(&mut self, ui: &mut egui::Ui) {

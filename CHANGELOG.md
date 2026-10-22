@@ -31,6 +31,9 @@
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`; a release is made by pushing a tag
 `vMAJOR.MINOR.PATCH` that matches it (see README.txt, "Versioning and releases").
 
+## 0.5.0
+- New: Control Panel > Utilities > Import from Jazler RadioStar 2. Reads the old .mdb database (Access 2000-2003) directly on every platform and imports songs, spots, categories, playlists, campaigns, jingle pallets and play history, with a path-replace option. Existing data is never overwritten.
+
 ## 0.2.0
 - New professional look: dark theme, card layout, full-size Control Panel with a navigation sidebar.
 - Audio editor with waveform: click or drag to set mix start, mix end, intro end and hooks; zoom; listen from any position or to the mix end.
