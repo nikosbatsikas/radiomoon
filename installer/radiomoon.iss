@@ -18,9 +18,9 @@ AppId={{B6E1C6A2-5D3A-4F0B-9C55-4D6F0C8A1E21}
 AppName=RadioMoon
 AppVersion={#AppVersion}
 AppPublisher=RadioMoon
-DefaultDirName={localappdata}\Programs\RadioMoon
+DefaultDirName={autopf}\RadioMoon
 DefaultGroupName=RadioMoon
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 OutputDir={#OutDir}
 OutputBaseFilename=RadioMoon-{#AppVersion}-windows-{#Arch}-setup
 SetupIconFile={#SourcePath}..\packaging\icon.ico
@@ -46,6 +46,10 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
+[Dirs]
+; data folder shared by all users of the PC (database, backups, settings)
+Name: "{commonappdata}\RadioMoon"; Permissions: users-modify
+
 [Icons]
 Name: "{group}\RadioMoon"; Filename: "{app}\RadioMoon.exe"
 Name: "{group}\RadioMoon MPX Receiver"; Filename: "{app}\RadioMoon-MPX-Receiver.exe"
@@ -53,4 +57,4 @@ Name: "{autodesktop}\RadioMoon"; Filename: "{app}\RadioMoon.exe"; Tasks: desktop
 
 [Run]
 Filename: "{app}\RadioMoon.exe"; Description: "{cm:LaunchProgram,RadioMoon}"; Flags: nowait postinstall skipifsilent
-; The database, backups and settings live in %LOCALAPPDATA%\RadioMoon and are kept when the program is uninstalled or upgraded.
+; The database, backups and settings live in %PROGRAMDATA%\RadioMoon and are kept when the program is uninstalled or upgraded.

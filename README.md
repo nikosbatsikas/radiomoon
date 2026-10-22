@@ -29,7 +29,7 @@ The bundled database server (MariaDB) is included only in the Windows x64 packag
 ## Portable or installed
 
 - **Portable:** the folder contains `portable.flag`. All data (database, backups, reports, settings, `config.json`) stays in the program folder. Copy the folder to move the station.
-- **Installed:** no `portable.flag`. Data is kept per user in `%LOCALAPPDATA%\RadioMoon` (Windows), `~/Library/Application Support/RadioMoon` (macOS) or `~/.local/share/RadioMoon` (Linux). Uninstalling or upgrading never deletes it.
+- **Installed:** no `portable.flag`. Data is kept per user in `%PROGRAMDATA%\RadioMoon` (Windows; the program itself is in Program Files), `~/Library/Application Support/RadioMoon` (macOS) or `~/.local/share/RadioMoon` (Linux). Uninstalling or upgrading never deletes it.
 
 ## Versioning and releases
 

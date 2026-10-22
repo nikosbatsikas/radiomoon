@@ -35,8 +35,10 @@ fn cfg_path() -> PathBuf {
     if exe.join("portable.flag").exists() {
         return exe.join("mpx-receiver.json");
     }
-    let base = std::env::var_os("LOCALAPPDATA")
-        .map(PathBuf::from)
+    let old = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).filter(|o| o.join("RadioMoon").join("mpx-receiver.json").exists());
+    let base = old
+        .or_else(|| std::env::var_os("PROGRAMDATA").map(PathBuf::from))
+        .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
         .or_else(|| std::env::var_os("XDG_DATA_HOME").map(PathBuf::from))
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
         .unwrap_or(exe);

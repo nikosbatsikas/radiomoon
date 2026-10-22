@@ -43,13 +43,20 @@ impl eframe::App for ErrorApp {
 }
 
 /// Portable mode (a `portable.flag` file next to the program): everything stays in the program folder.
-/// Installed mode: data goes to the per-user application data folder.
+/// Installed mode: data goes to %PROGRAMDATA%\RadioMoon (Windows) or the per-user data folder.
 fn data_dir(exe_dir: &std::path::Path) -> PathBuf {
     if exe_dir.join("portable.flag").exists() {
         return exe_dir.to_path_buf();
     }
     let base: Option<PathBuf> = if cfg!(windows) {
-        std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
+        // %PROGRAMDATA%\RadioMoon; an older per-user folder (%LOCALAPPDATA%\RadioMoon) is still used if it exists and the new one does not
+        let pd = std::env::var_os("PROGRAMDATA").map(PathBuf::from);
+        let old = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
+        match (pd, old) {
+            (Some(p), Some(o)) if !p.join("RadioMoon").exists() && o.join("RadioMoon").exists() => Some(o),
+            (Some(p), _) => Some(p),
+            (None, o) => o,
+        }
     } else if cfg!(target_os = "macos") {
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"))
     } else {
