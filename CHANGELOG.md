@@ -31,6 +31,9 @@
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`; a release is made by pushing a tag
 `vMAJOR.MINOR.PATCH` that matches it (see README.txt, "Versioning and releases").
 
+## 0.5.1
+- Fixed: the program closed when MPX was started (the new MPX analyzer read past the end of the spectrum data).
+
 ## 0.5.0
 - MPX analyzer in the generator (Control Panel > MPX) and in the MPX receiver: spectrum 0-96 kHz with 19/38/57 kHz markers, composite waveform, levels of pilot, RDS, L+R and L-R, peak and maximum deviation (kHz and %).
 - New: live rebroadcast. A LIVE button in the studio header puts a sound card input or an internet radio stream (MP3/AAC URL) on the air, mixed into the main output, internet broadcast and MPX. Option to mute the automation while live (it keeps running silently so the schedule stays in time). Settings: Control Panel > Sound outputs.
