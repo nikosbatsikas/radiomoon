@@ -494,6 +494,8 @@ pub struct Settings {
     pub live_url: String,
     pub live_gain_db: f32,
     pub live_mute_automation: bool,
+    /// seconds of cross-fade when a live source starts and ends
+    pub live_fade_s: f32,
     pub live_sources: Vec<LiveSource>,
     pub live_slots: Vec<LiveSlot>,
     pub custom_log: bool,
@@ -560,6 +562,7 @@ impl Default for Settings {
             live_url: String::new(),
             live_gain_db: 0.0,
             live_mute_automation: true,
+            live_fade_s: 3.0,
             live_sources: Vec::new(),
             live_slots: Vec::new(),
             custom_log: false,

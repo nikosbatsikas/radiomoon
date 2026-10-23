@@ -199,6 +199,9 @@ struct LiveShared {
     q: Mutex<VecDeque<f32>>,
     cap: usize,
     stop: AtomicBool,
+    /// false = fade out and end
+    on: AtomicBool,
+    fade_ms: AtomicU32,
     peak: AtomicU32,
     gain: AtomicU32,
     status: Mutex<String>,
@@ -237,6 +240,8 @@ impl LiveShared {
 
 struct LiveSrc {
     sh: Arc<LiveShared>,
+    /// fade gain 0..1: rises when the source starts, falls to 0 when it ends
+    cur: f32,
 }
 
 impl Iterator for LiveSrc {
@@ -245,7 +250,20 @@ impl Iterator for LiveSrc {
         if self.sh.stop.load(Ordering::Relaxed) {
             return None;
         }
-        Some(self.sh.q.lock().ok().and_then(|mut q| q.pop_front()).unwrap_or(0.0))
+        // one step per interleaved sample: 44.1 frames per ms, 2 samples per frame
+        let step = 1.0 / (self.sh.fade_ms.load(Ordering::Relaxed).max(1) as f32 * 88.2);
+        if self.sh.on.load(Ordering::Relaxed) {
+            if self.cur < 1.0 {
+                self.cur = (self.cur + step).min(1.0);
+            }
+        } else {
+            self.cur -= step;
+            if self.cur <= 0.0 {
+                self.sh.stop.store(true, Ordering::Relaxed); // also ends the capture / stream thread
+                return None;
+            }
+        }
+        Some(self.sh.q.lock().ok().and_then(|mut q| q.pop_front()).unwrap_or(0.0) * self.cur)
     }
 }
 
@@ -457,6 +475,7 @@ fn stream_thread(url: String, sh: Arc<LiveShared>) {
 struct Deck {
     ctl: Ctl,
     fade: Option<(Instant, Duration)>,
+    fade_in: Option<(Instant, Duration)>,
 }
 
 pub struct Player {
@@ -467,6 +486,7 @@ pub struct Player {
     _bus_sink: Sink,
     tap: Arc<TapShared>,
     live: Option<Arc<LiveShared>>,
+    pending_fade_in: Option<Duration>,
     decks: Vec<Deck>,
     jingles: Vec<Ctl>,
     jingle_sinks: Vec<Sink>,
@@ -498,6 +518,7 @@ impl Player {
             _bus_sink: sink,
             tap,
             live: None,
+            pending_fade_in: None,
             decks: Vec::new(),
             jingles: Vec::new(),
             jingle_sinks: Vec::new(),
@@ -538,13 +559,15 @@ impl Player {
 
     // ----- live source: sound card input or internet stream, mixed into the on-air bus -----
     /// `url` empty = sound card `device` (empty = default input); otherwise the internet stream at `url`.
-    pub fn start_live(&mut self, url: &str, device: &str, gain_db: f32, mute_automation: bool) -> Result<()> {
+    pub fn start_live(&mut self, url: &str, device: &str, gain_db: f32, mute_automation: bool, fade_ms: u32) -> Result<()> {
         self.stop_live();
         let stream = !url.trim().is_empty();
         let sh = Arc::new(LiveShared {
             q: Mutex::new(VecDeque::new()),
             cap: if stream { 44100 * 4 } else { 44100 / 2 },
             stop: AtomicBool::new(false),
+            on: AtomicBool::new(true),
+            fade_ms: AtomicU32::new(fade_ms),
             peak: AtomicU32::new(0),
             gain: AtomicU32::new(lin(gain_db).to_bits()),
             status: Mutex::new(String::new()),
@@ -565,12 +588,36 @@ impl Player {
                 }
             }
         }
-        self.bus.add(LiveSrc { sh: sh.clone() });
+        self.bus.add(LiveSrc { sh: sh.clone(), cur: if fade_ms == 0 { 1.0 } else { 0.0 } });
         DUCK.store(mute_automation, Ordering::Relaxed);
         self.live = Some(sh);
         Ok(())
     }
 
+    /// Fades the live source out (the sound of the automation can come back meanwhile) and ends it.
+    pub fn end_live(&mut self, fade_ms: u32) {
+        if let Some(sh) = self.live.take() {
+            sh.fade_ms.store(fade_ms, Ordering::Relaxed);
+            sh.on.store(false, Ordering::Relaxed);
+        }
+        DUCK.store(false, Ordering::Relaxed);
+    }
+
+    /// Fades out everything the automation is playing (the decks).
+    pub fn fade_out_all(&mut self, ms: u64) {
+        for d in self.decks.iter_mut() {
+            if d.fade.is_none() {
+                d.fade = Some((Instant::now(), Duration::from_millis(ms)));
+            }
+        }
+    }
+
+    /// The next track that starts fades in over `ms`.
+    pub fn fade_in_next(&mut self, ms: u64) {
+        self.pending_fade_in = if ms > 0 { Some(Duration::from_millis(ms)) } else { None };
+    }
+
+    /// Ends the live source at once.
     pub fn stop_live(&mut self) {
         if let Some(sh) = self.live.take() {
             sh.stop.store(true, Ordering::Relaxed);
@@ -615,7 +662,8 @@ impl Player {
         for p in parts {
             self.bus.add(Ctrl { inner: p, c: c.clone(), ended: false });
         }
-        self.decks.push(Deck { ctl: c, fade: None });
+        let fade_in = self.pending_fade_in.take().map(|d| (Instant::now(), d));
+        self.decks.push(Deck { ctl: c, fade: None, fade_in });
         self.started = Some(Instant::now());
         self.skip_ms = skip_ms;
         self.paused_at = None;
@@ -814,10 +862,13 @@ impl Player {
             keep
         });
         for d in &self.decks {
-            let f = match d.fade {
+            let mut f = match d.fade {
                 Some((t, l)) => (1.0 - t.elapsed().as_secs_f32() / l.as_secs_f32().max(0.01)).clamp(0.0, 1.0),
                 None => 1.0,
             };
+            if let Some((t, l)) = d.fade_in {
+                f *= (t.elapsed().as_secs_f32() / l.as_secs_f32().max(0.01)).clamp(0.0, 1.0);
+            }
             d.ctl.set_vol(vol * f);
         }
         let pos = self.pos_ms();

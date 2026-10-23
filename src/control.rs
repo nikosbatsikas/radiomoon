@@ -1618,6 +1618,11 @@ impl App {
         }
         kit::card(ui, "Options", |ui| {
             ch |= ui.checkbox(&mut self.data.s.live_mute_automation, tr("Stop the automation while live (it continues afterwards)")).changed();
+            ui.horizontal(|ui| {
+                ui.label(tr("Cross-fade at the start and end of the live source (seconds)"));
+                ch |= ui.add(egui::Slider::new(&mut self.data.s.live_fade_s, 0.0..=15.0).fixed_decimals(1)).changed();
+            });
+            ui.label(RichText::new(tr("At the start the automation fades out while the live source fades in, and the other way round at the end, so both are heard together during the transition. With the automation not stopped, only the live source fades in and out.")).color(kit::GRAY).small());
             ui.label(RichText::new(tr("While a source is live the studio shows LIVE in the player. With the automation stopped, the playlist is stopped and the mode switches to MANUAL; when the source ends the previous mode returns and AUTO plays the next item. This applies to sources started by hand; each schedule entry has its own setting. Right-click the LIVE button in the studio to choose a source.")).color(kit::GRAY).small());
         });
         if let Some(p) = self.player.as_ref() {

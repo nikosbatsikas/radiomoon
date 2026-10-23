@@ -428,14 +428,18 @@ impl App {
             return false;
         };
         let Some(p) = self.player.as_mut() else { return false };
-        match p.start_live(&src.url, &src.device, src.gain_db, false) {
+        let fade_ms = (self.data.s.live_fade_s.clamp(0.0, 30.0) * 1000.0) as u32;
+        match p.start_live(&src.url, &src.device, src.gain_db, false, fade_ms) {
             Ok(_) => {
                 self.live_slot = slot;
                 self.live_sel = idx;
                 if mute && self.live_prev_mode.is_none() {
                     // the automation stops while the live source is on the air; it is resumed afterwards
                     self.live_prev_mode = Some(self.mode);
-                    self.stop();
+                    if let Some(p) = self.player.as_mut() {
+                        p.fade_out_all(fade_ms as u64); // the automation fades out while the live source fades in
+                    }
+                    self.current = None;
                     self.mode = Mode::Manual;
                     self.gen = None;
                 }
@@ -451,8 +455,9 @@ impl App {
 
     /// Stops the live source. A scheduled one stays off until its slot ends.
     pub fn stop_live_source(&mut self) {
+        let fade_ms = (self.data.s.live_fade_s.clamp(0.0, 30.0) * 1000.0) as u32;
         if let Some(p) = self.player.as_mut() {
-            p.stop_live();
+            p.end_live(fade_ms);
         }
         if let Some(i) = self.live_slot.take() {
             self.live_dismissed = Some(i);
@@ -467,6 +472,10 @@ impl App {
             self.mode = m;
             self.gen = None;
             if m == Mode::Auto {
+                let fade_ms = (self.data.s.live_fade_s.clamp(0.0, 30.0) * 1000.0) as u64;
+                if let Some(p) = self.player.as_mut() {
+                    p.fade_in_next(fade_ms); // the automation comes back while the live source fades out
+                }
                 self.autoplay_pending = true;
                 self.auto_fill();
                 self.expand_pending();
@@ -527,8 +536,9 @@ impl App {
             }
             None => {
                 if self.live_slot.is_some() {
+                    let fade_ms = (self.data.s.live_fade_s.clamp(0.0, 30.0) * 1000.0) as u32;
                     if let Some(p) = self.player.as_mut() {
-                        p.stop_live();
+                        p.end_live(fade_ms);
                     }
                     self.live_slot = None;
                     self.live_resume_automation();

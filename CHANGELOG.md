@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.8
+- Live rebroadcast: cross-fade (0-15 s, default 3 s, setting in Scheduling > Live rebroadcast). At the start the automation fades out while the live source fades in; at the end the live source fades out while the automation fades in with its next item, so both are heard together during the transition.
+
 ## 0.5.7
 - All cards in the Control Panel span the whole width of the page, like the edit windows; General settings is grouped into cards and its text fields fill the width.
 

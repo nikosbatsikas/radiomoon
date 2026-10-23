@@ -530,5 +530,7 @@
   "Stop automation": "",
   "Stop the automation while live (it continues afterwards)": "",
   "While a source is live the studio shows LIVE in the player. With the automation stopped, the playlist is stopped and the mode switches to MANUAL; when the source ends the previous mode returns and AUTO plays the next item. This applies to sources started by hand; each schedule entry has its own setting. Right-click the LIVE button in the studio to choose a source.": "",
-  "Station": ""
+  "Station": "",
+  "Cross-fade at the start and end of the live source (seconds)": "",
+  "At the start the automation fades out while the live source fades in, and the other way round at the end, so both are heard together during the transition. With the automation not stopped, only the live source fades in and out.": ""
 }
