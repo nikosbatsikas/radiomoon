@@ -1,5 +1,5 @@
-# Builds every edition when a version tag is pushed (git tag v0.4.2 && git push origin v0.4.2)
-# and publishes them as a GitHub Release:
+# Builds every edition when a version tag is pushed (create the release on GitHub: Releases > Draft a new release).
+# The packages are attached to that release and its notes are taken from CHANGELOG.md; no release is created here:
 #   Windows x64/x86/arm64: setup .exe, portable .zip   (x64 includes the bundled MariaDB)
 #   Linux x64/arm64:       .deb, .rpm, portable .tar.gz, MPX receiver only .tar.gz (arm64 = Raspberry Pi 3/4/5, 64-bit OS)
 #   macOS arm64 (Apple Silicon): .dmg
@@ -130,9 +130,18 @@ jobs:
           awk -v v="$V" '$0 ~ "^## " v "([^0-9.]|$)" {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
           [ -s notes.md ] || echo "RadioMoon $V" > notes.md
           cat notes.md
-      - uses: softprops/action-gh-release@v2
+      - name: Attach the packages to your release and set its notes
         if: startsWith(github.ref, 'refs/tags/v')
-        with:
-          files: out/*
-          body_path: notes.md
-          generate_release_notes: false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The release is created by you on GitHub (Releases > Draft a new release). This step never creates one:
+          # it uploads the packages to it and replaces its description with the CHANGELOG.md section.
+          TAG="${GITHUB_REF_NAME}"
+          for i in $(seq 1 24); do
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && FOUND=1 && break
+            sleep 5
+          done
+          [ -n "$FOUND" ] || { echo "No release for tag $TAG. Create it on GitHub (Releases > Draft a new release), then re-run this workflow."; exit 1; }
+          gh release upload "$TAG" out/* --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit "$TAG" --notes-file notes.md --repo "$GITHUB_REPOSITORY"

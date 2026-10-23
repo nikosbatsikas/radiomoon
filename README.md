@@ -42,7 +42,7 @@ To publish a release:
 
 1. Change `version` in `Cargo.toml` and add the changes to `CHANGELOG.md`.
 2. Commit, then create the tag `vX.Y.Z` (on GitHub: Releases > Draft a new release > new tag) matching the version.
-3. The Release workflow builds every platform and attaches the packages and `SHA256SUMS.txt`.
+3. The Release workflow builds every platform, attaches the packages to that release and replaces its description with the matching `## x.y.z` section of `CHANGELOG.md`. It never creates a release itself; if it cannot find one it stops with a message (create the release, then re-run the workflow).
 
 Developers: the database layout is in the `sql/` folder: `sql/schema.sql` (latest full layout) and `sql/migrations/NNNN_name.sql` (upgrade steps). Both are embedded in the program; register new migrations in `src/schema.rs` (see `sql/migrations/README.md`).
 
