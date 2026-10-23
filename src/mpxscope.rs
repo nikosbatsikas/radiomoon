@@ -171,17 +171,17 @@ pub fn draw(ui: &mut egui::Ui, scope: &Scope) {
     let (lo, hi) = (-80.0f32, 0.0f32);
     let y_of = |db: f32| r.bottom() - (db.clamp(lo, hi) - lo) / (hi - lo) * r.height();
     for db in [-60.0, -40.0, -20.0] {
-        p.line_segment([Pos2::new(r.left(), y_of(db)), Pos2::new(r.right(), y_of(db))], Stroke::new(1.0, Color32::from_rgb(35, 40, 48)));
+        p.line_segment([Pos2::new(r.left(), y_of(db)), Pos2::new(r.right(), y_of(db))], Stroke::new(1.0_f32, Color32::from_rgb(35, 40, 48)));
         p.text(Pos2::new(r.left() + 3.0, y_of(db) - 1.0), egui::Align2::LEFT_BOTTOM, format!("{db:.0} dB"), egui::FontId::proportional(10.0), Color32::from_rgb(110, 118, 130));
     }
     for (f, name) in [(15_000.0, "15"), (19_000.0, "19"), (38_000.0, "38"), (57_000.0, "57"), (76_000.0, "76"), (90_000.0, "90")] {
         let x = r.left() + f / MAXF * r.width();
-        p.line_segment([Pos2::new(x, r.top()), Pos2::new(x, r.bottom())], Stroke::new(1.0, Color32::from_rgb(45, 52, 64)));
+        p.line_segment([Pos2::new(x, r.top()), Pos2::new(x, r.bottom())], Stroke::new(1.0_f32, Color32::from_rgb(45, 52, 64)));
         p.text(Pos2::new(x + 2.0, r.bottom() - 1.0), egui::Align2::LEFT_BOTTOM, format!("{name} kHz"), egui::FontId::proportional(10.0), Color32::from_rgb(130, 140, 155));
     }
     if d.spec.len() == COLS {
         let pts: Vec<Pos2> = d.spec.iter().enumerate().map(|(i, db)| Pos2::new(r.left() + (i as f32 + 0.5) / COLS as f32 * r.width(), y_of(*db))).collect();
-        p.add(egui::Shape::line(pts, Stroke::new(1.3, Color32::from_rgb(90, 190, 255))));
+        p.add(egui::Shape::line(pts, Stroke::new(1.3_f32, Color32::from_rgb(90, 190, 255))));
     } else {
         p.text(r.center(), egui::Align2::CENTER_CENTER, "No signal", egui::FontId::proportional(13.0), Color32::GRAY);
     }
@@ -192,14 +192,14 @@ pub fn draw(ui: &mut egui::Ui, scope: &Scope) {
     p.rect_filled(r, 2.0, Color32::from_rgb(8, 10, 14));
     let y_of = |v: f32| r.center().y - v.clamp(-1.25, 1.25) / 1.25 * (r.height() / 2.0);
     for v in [1.0f32, -1.0] {
-        p.line_segment([Pos2::new(r.left(), y_of(v)), Pos2::new(r.right(), y_of(v))], Stroke::new(1.0, Color32::from_rgb(110, 40, 40)));
+        p.line_segment([Pos2::new(r.left(), y_of(v)), Pos2::new(r.right(), y_of(v))], Stroke::new(1.0_f32, Color32::from_rgb(110, 40, 40)));
     }
-    p.line_segment([Pos2::new(r.left(), r.center().y), Pos2::new(r.right(), r.center().y)], Stroke::new(1.0, Color32::from_rgb(35, 40, 48)));
+    p.line_segment([Pos2::new(r.left(), r.center().y), Pos2::new(r.right(), r.center().y)], Stroke::new(1.0_f32, Color32::from_rgb(35, 40, 48)));
     p.text(Pos2::new(r.left() + 3.0, y_of(1.0) + 1.0), egui::Align2::LEFT_TOP, "+75 kHz", egui::FontId::proportional(10.0), Color32::from_rgb(170, 90, 90));
     if !d.wave.is_empty() {
         let n = d.wave.len();
         let pts: Vec<Pos2> = d.wave.iter().enumerate().map(|(i, v)| Pos2::new(r.left() + i as f32 / (n - 1) as f32 * r.width(), y_of(*v))).collect();
-        p.add(egui::Shape::line(pts, Stroke::new(1.0, Color32::from_rgb(120, 230, 150))));
+        p.add(egui::Shape::line(pts, Stroke::new(1.0_f32, Color32::from_rgb(120, 230, 150))));
     }
     ui.ctx().request_repaint_after(Duration::from_millis(60));
 }

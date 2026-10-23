@@ -51,6 +51,7 @@ impl Queue {
     pub fn ms(&self) -> u32 {
         (self.len() as u64 * 1000 / FS as u64) as u32
     }
+    #[allow(dead_code)]
     pub fn pop_n(&self, n: usize, out: &mut Vec<f32>) -> bool {
         if let Ok(mut g) = self.q.lock() {
             if g.len() >= n {

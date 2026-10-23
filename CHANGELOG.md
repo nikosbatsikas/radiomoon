@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.11
+- Fixed: the build error in the half-hour schedule grid (0.5.9 and 0.5.10 did not compile) and the compiler warnings.
+- Auto mode no longer starts with the same songs every time: songs with an equal rank are chosen at random.
+
 ## 0.5.10
 - Build: compiler errors and warnings of the Linux build are shown as annotations of the workflow run.
 

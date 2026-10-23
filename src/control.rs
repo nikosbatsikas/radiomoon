@@ -1079,7 +1079,7 @@ impl App {
             let mut chip = |ui: &mut egui::Ui, id: u64, label: &str, col: Color32| {
                 let on = self.cp.grid_brush == id;
                 let fg = if (col.r() as u32 * 299 + col.g() as u32 * 587 + col.b() as u32 * 114) / 1000 > 150 { Color32::BLACK } else { Color32::WHITE };
-                let b = egui::Button::new(RichText::new(label).color(fg)).fill(col).stroke(if on { Stroke::new(2.0, Color32::WHITE) } else { Stroke::new(1.0, kit::BORDER) });
+                let b = egui::Button::new(RichText::new(label).color(fg)).fill(col).stroke(if on { Stroke::new(2.0_f32, Color32::WHITE) } else { Stroke::new(1.0_f32, kit::BORDER) });
                 if ui.add(b).clicked() {
                     self.cp.grid_brush = id;
                 }
@@ -1121,7 +1121,7 @@ impl App {
             let y = rect.top() + head_h + h as f32 * 2.0 * row_h;
             painter.text(pos2(rect.left() + label_w - 8.0, y + 1.0), Align2::RIGHT_TOP, format!("{h:02}:00"), FontId::proportional(11.0), kit::TEXT_DIM);
             if h > 0 {
-                painter.line_segment([pos2(rect.left() + label_w - 4.0, y), pos2(rect.right() - 4.0, y)], Stroke::new(1.0, kit::BORDER.gamma_multiply(0.7)));
+                painter.line_segment([pos2(rect.left() + label_w - 4.0, y), pos2(rect.right() - 4.0, y)], Stroke::new(1.0_f32, kit::BORDER.gamma_multiply(0.7)));
             }
         }
         for d in 0..7 {
@@ -1144,14 +1144,16 @@ impl App {
                         let galley_pos = pos2(block.center().x, block.top() + (block.height().min(row_h * 2.0)) / 2.0);
                         painter.text(galley_pos, Align2::CENTER_CENTER, &c.1, FontId::proportional(11.0), fg);
                     }
-                    None => painter.rect_filled(block, 3.0, kit::CARD),
+                    None => {
+                        painter.rect_filled(block, 3.0, kit::CARD);
+                    }
                 }
                 i = j;
             }
         }
         // the current half hour
         let ny = rect.top() + head_h + now_slot as f32 * row_h;
-        painter.rect_stroke(Rect::from_min_size(pos2(rect.left() + label_w + now_d as f32 * col_w + 1.0, ny), egui::vec2(col_w - 2.0, row_h)), 3.0, Stroke::new(1.5, Color32::WHITE));
+        painter.rect_stroke(Rect::from_min_size(pos2(rect.left() + label_w + now_d as f32 * col_w + 1.0, ny), egui::vec2(col_w - 2.0, row_h)), 3.0, Stroke::new(1.5_f32, Color32::WHITE));
         // painting with the mouse: click, drag, day header, hour label
         let pressed = resp.clicked() || resp.dragged() || resp.drag_started();
         if pressed {

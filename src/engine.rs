@@ -429,6 +429,7 @@ impl Generator {
             if cands.is_empty() {
                 continue;
             }
+            cands.shuffle(&mut rand::thread_rng()); // equal ranks are decided randomly: not the same songs at every start
             cands.sort_by_key(|t| self.order.get(&t.id).copied().unwrap_or(0));
             let mut fresh: Vec<&Track> = cands.iter().cloned().filter(|t| !self.cycle.contains(&t.id)).collect();
             if fresh.is_empty() {
