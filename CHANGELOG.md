@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.14
+- Playlists can be called from the Main auto schedule by time: pick a playlist (purple, marked with a triangle) as the brush and paint it on the half-hour grid; it starts at the beginning of each painted block, then the clock continues.
+
 ## 0.5.13
 - Start in AUTO no longer replays the playlist of the last run: the schedule builds a new playlist, so the songs differ at every start.
 - "Add selected" in AUTO mode queues the track right after the current song (and after earlier manual items) instead of after all the generated hours, so it is really played.

@@ -1072,8 +1072,10 @@ impl App {
             self.del_doc(id);
         }
         ui.separator();
-        ui.label(RichText::new(tr("Clocks schedule (weekday x half hour). Pick a clock, then click or drag over the cells. Click a day name to fill the whole day, an hour to fill that hour on every day.")).strong());
-        let names: Vec<(u64, String, [u8; 3])> = self.data.clocks.iter().map(|c| (c.id, c.name.clone(), c.color)).collect();
+        ui.label(RichText::new(tr("Clocks schedule (weekday x half hour). Pick a clock or a playlist (\u{25B6}, played at the start of its block), then click or drag over the cells. Click a day name to fill the whole day, an hour to fill that hour on every day.")).strong());
+        let mut names: Vec<(u64, String, [u8; 3])> = self.data.clocks.iter().map(|c| (c.id, c.name.clone(), c.color)).collect();
+        // playlists can be called at a time from the same schedule (purple)
+        names.extend(self.data.playlists.iter().map(|p| (p.id, format!("\u{25B6} {}", p.name), [120, 80, 170])));
         // ---- brush: the clocks as coloured chips
         ui.horizontal_wrapped(|ui| {
             let mut chip = |ui: &mut egui::Ui, id: u64, label: &str, col: Color32| {

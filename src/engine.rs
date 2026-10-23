@@ -295,6 +295,21 @@ impl Generator {
                     }
                 }
             }
+            if f.playlists && d.s.clock_grid.len() == 336 {
+                // playlists placed in the main auto schedule: one call at the start of every block of half hours
+                for sl in 0..48usize {
+                    let id = d.s.clock_grid[wd as usize * 48 + sl];
+                    if id == 0 || (sl > 0 && d.s.clock_grid[wd as usize * 48 + sl - 1] == id) {
+                        continue;
+                    }
+                    if let Some(pi) = d.playlists.iter().position(|p| p.id == id) {
+                        let time = format!("{:02}:{:02}", sl / 2, (sl % 2) * 30);
+                        if let Some(tm) = parse_hm(&time) {
+                            v.push(Anchor { at: day.and_time(tm), key: format!("g:{id}:{ds}:{sl}"), kind: 1, idx: pi, time, immediate: false });
+                        }
+                    }
+                }
+            }
             if f.playlists {
                 for (pi, p) in d.playlists.iter().enumerate() {
                     for (si, ps) in p.sched.iter().enumerate() {
