@@ -536,5 +536,10 @@
   "No playlist selected": "Δεν έχει επιλεγεί playlist",
   "Scheduled Times": "Προγραμματισμένες ώρες",
   "Scheduled": "Προγραμματισμός",
-  "Items": "Στοιχεία"
+  "Items": "Στοιχεία",
+  "Songs in the database (double-click or + to add to the playlist)": "Τραγούδια της βάσης (διπλό κλικ ή + για προσθήκη στο playlist)",
+  "search artist, title, album...": "αναζήτηση καλλιτέχνη, τίτλου, άλμπουμ...",
+  "No songs found": "Δεν βρέθηκαν τραγούδια",
+  "Add all shown": "Προσθήκη όλων των εμφανιζόμενων",
+  "shown": "εμφανίζονται"
 }

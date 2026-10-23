@@ -135,6 +135,8 @@ pub struct ControlState {
     pub pl_clock: u64,
     pub pl_hours: u32,
     pub pl_sel: u64,
+    pub pl_q: String,
+    pub pl_kind: String,
     // force
     pub fc: Option<ForceClock>,
     pub fc_time: String,
@@ -3218,6 +3220,56 @@ impl App {
                 ui.checkbox(&mut p.random, tr("random order when loaded"));
                 ui.checkbox(&mut p.override_prev, tr("overrides previous playlist"));
             });
+            // ---- pick songs from the database
+            ui.label(RichText::new(tr("Songs in the database (double-click or + to add to the playlist)")).strong());
+            ui.horizontal(|ui| {
+                ui.add(egui::TextEdit::singleline(&mut self.cp.pl_q).desired_width(220.0).hint_text(tr("search artist, title, album...")));
+                if self.cp.pl_kind.is_empty() {
+                    self.cp.pl_kind = "music".into();
+                }
+                egui::ComboBox::from_id_salt("plkind").selected_text(self.cp.pl_kind.clone()).show_ui(ui, |ui| {
+                    for k in ["music", "jingle", "sweeper", "voice", "spot"] {
+                        ui.selectable_value(&mut self.cp.pl_kind, k.to_string(), k);
+                    }
+                });
+            });
+            let q = self.cp.pl_q.to_lowercase();
+            let hits: Vec<(u64, String, u64)> = self
+                .data
+                .tracks
+                .iter()
+                .filter(|t| t.enabled && t.kind == self.cp.pl_kind && (q.is_empty() || t.label().to_lowercase().contains(&q) || t.album.to_lowercase().contains(&q)))
+                .take(300)
+                .map(|t| (t.id, t.label(), t.duration_ms))
+                .collect();
+            let mut add_ids: Vec<u64> = Vec::new();
+            egui::ScrollArea::vertical().id_salt("plpick").max_height(190.0).auto_shrink([false, false]).show(ui, |ui| {
+                for (id, label, dur) in &hits {
+                    ui.horizontal(|ui| {
+                        if ui.small_button("+").clicked() {
+                            add_ids.push(*id);
+                        }
+                        let r = ui.add(egui::Label::new(format!("{label}   {}", fmt_ms(*dur))).sense(Sense::click()));
+                        if r.double_clicked() {
+                            add_ids.push(*id);
+                        }
+                    });
+                }
+                if hits.is_empty() {
+                    ui.label(RichText::new(tr("No songs found")).color(kit::TEXT_DIM));
+                }
+            });
+            ui.horizontal(|ui| {
+                if ui.button(tr("Add all shown")).clicked() {
+                    add_ids.extend(hits.iter().map(|h| h.0));
+                }
+                ui.label(RichText::new(format!("{} {}", hits.len(), tr("shown"))).small().color(kit::TEXT_DIM));
+            });
+            for id in add_ids {
+                let kind = self.data.track(id).map(|t| t.kind.clone()).unwrap_or_default();
+                p.items.push(PItem { track_id: id, overlay_pos: if kind == "sweeper" || kind == "voice" { "start".into() } else { String::new() }, ..Default::default() });
+            }
+            ui.separator();
             ui.horizontal(|ui| {
                 if ui.button(tr("Add selected library item")).clicked() {
                     if let Some(id) = self.cp.lib_sel.first().copied().or(self.lib_sel) {
@@ -3240,7 +3292,7 @@ impl App {
             });
             let mut rem = None;
             let mut swap = None;
-            egui::ScrollArea::vertical().id_salt("plitems").max_height(260.0).show(ui, |ui| {
+            egui::ScrollArea::vertical().id_salt("plitems").max_height(220.0).show(ui, |ui| {
                 for (i, it) in p.items.iter_mut().enumerate() {
                     ui.horizontal(|ui| {
                         let label = if !it.break_ref.is_empty() {

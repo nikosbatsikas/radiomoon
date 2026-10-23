@@ -538,5 +538,10 @@
   "No playlist selected": "No playlist selected",
   "Scheduled Times": "Scheduled Times",
   "Scheduled": "Scheduled",
-  "Items": "Items"
+  "Items": "Items",
+  "Songs in the database (double-click or + to add to the playlist)": "Songs in the database (double-click or + to add to the playlist)",
+  "search artist, title, album...": "search artist, title, album...",
+  "No songs found": "No songs found",
+  "Add all shown": "Add all shown",
+  "shown": "shown"
 }

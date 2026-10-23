@@ -528,6 +528,10 @@ impl Generator {
             self.clock_id = cid;
             self.row = 0;
         }
+        // a playlist placed in the main auto schedule: only its songs are played for the whole block (repeated if shorter)
+        if let Some(pl) = d.playlists.iter().find(|p| p.id == cid) {
+            return playlist_tracks(d, pl, false, self.t.date());
+        }
         let synthetic: Clock;
         let found = d.clocks.iter().find(|c| c.id == cid).filter(|c| !c.rows.is_empty());
         let c: &Clock = match found {

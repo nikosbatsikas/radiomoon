@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.17
+- Playlist editor: search the songs stored in the database and add them to the playlist with + or a double-click (or add all shown), choose music, jingles, sweepers, voices or spots.
+- A playlist placed in the Main auto schedule now plays only its own songs for the whole painted block, repeating if it is shorter than the block (no clock songs are mixed in).
+
 ## 0.5.16
 - Studio fits small screens and windows: the program starts maximized and the whole studio (player, playlist, library, jingles, buttons) scales down automatically instead of being cut off at the right and bottom.
 
