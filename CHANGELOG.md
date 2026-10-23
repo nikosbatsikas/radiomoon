@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.10
+- Build: compiler errors and warnings of the Linux build are shown as annotations of the workflow run.
+
 ## 0.5.9
 - Main auto schedule: the weekly grid now has half-hour steps (a clock can start at :00 and at :30; the previous hourly schedule is converted automatically). New look: coloured clock chips, neighbouring slots of the same clock drawn as one block, today and the current half hour highlighted, drag to paint, click a day name to fill the day or an hour to fill it on every day.
 
