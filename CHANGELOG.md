@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.16
+- Studio fits small screens and windows: the program starts maximized and the whole studio (player, playlist, library, jingles, buttons) scales down automatically instead of being cut off at the right and bottom.
+
 ## 0.5.15
 - Playlists page redesigned: a grid of all playlists (title, duration, items, schedules) on the left, and on the right the numbered items of the selected playlist (duration, intro, jingles tinted blue) with its scheduled times below. Double-click or right-click a playlist to edit or delete it.
 

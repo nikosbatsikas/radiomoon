@@ -387,6 +387,16 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // the studio is designed for 1250 x 700: on a smaller window or screen everything is scaled down to fit (nothing is cut off)
+        {
+            let z = ctx.zoom_factor();
+            let sz = ctx.screen_rect().size() * z;
+            let target = (sz.x / 1250.0).min(sz.y / 700.0).clamp(0.5, 1.0);
+            let target = if target > 0.97 { 1.0 } else { target };
+            if (target - z).abs() > 0.01 {
+                ctx.set_zoom_factor(target);
+            }
+        }
         let busy = self.player.as_ref().map(|p| p.elapsed_ms() > 0 || p.preview_active()).unwrap_or(false);
         ctx.request_repaint_after(Duration::from_millis(if busy { 66 } else { 250 }));
         if ctx.input(|i| !i.events.is_empty()) {

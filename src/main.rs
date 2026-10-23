@@ -86,7 +86,8 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1500.0, 900.0])
-            .with_min_inner_size([1250.0, 700.0])
+            .with_min_inner_size([800.0, 480.0])
+            .with_maximized(true)
             .with_title(format!("RadioMoon {}", app::VERSION))
             .with_icon(std::sync::Arc::new(egui::IconData {
                 rgba: image_rgba(),
