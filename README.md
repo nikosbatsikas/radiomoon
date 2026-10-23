@@ -38,7 +38,7 @@ The version is in `Cargo.toml` and is shown in the header and in **Control Panel
 - An older database opened by a newer program: a safety backup (`pre-upgrade-<old>-to-<new>.rmbak`) is saved in the backups folder, then the database is upgraded. No data is lost.
 - A newer database opened by an older program is refused with a message.
 
-To publish a release:
+To publish a release (automatic): change `version` in `Cargo.toml`, add its `## x.y.z` section to `CHANGELOG.md` and push to `main`. The *auto-tag* workflow creates the tag and the release and starts the build. (In *Settings > Actions > General > Workflow permissions* choose *Read and write*.) By hand, instead:
 
 1. Change `version` in `Cargo.toml` and add the changes to `CHANGELOG.md`.
 2. Commit, then create the tag `vX.Y.Z` (on GitHub: Releases > Draft a new release > new tag) matching the version.
