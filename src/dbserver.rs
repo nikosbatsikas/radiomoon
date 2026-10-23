@@ -32,6 +32,20 @@ impl DbServer {
             // A server is already running on this port (for example your own MySQL).
             return Ok(Self { child: None, graceful: false });
         }
+        // the Windows service of the installer: it may still be starting with Windows, wait for it instead of starting a second server
+        #[cfg(windows)]
+        {
+            let svc = quiet(Command::new("sc.exe").args(["query", "RadioMoonDB"])).status().map(|s| s.success()).unwrap_or(false);
+            if svc {
+                let t0 = Instant::now();
+                while t0.elapsed() < Duration::from_secs(45) {
+                    if port_open(port) {
+                        return Ok(Self { child: None, graceful: false });
+                    }
+                    std::thread::sleep(Duration::from_millis(300));
+                }
+            }
+        }
         let root = app_dir.join("mariadb");
         let bin = root.join("bin");
         let win = cfg!(windows);

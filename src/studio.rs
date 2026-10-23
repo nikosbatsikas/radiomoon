@@ -507,12 +507,18 @@ impl eframe::App for App {
         let mut actions: Vec<Action> = Vec::new();
         self.shortcuts(ctx, &mut actions);
 
+        self.ensure_logo(ctx);
         // ---- header ----
         egui::TopBottomPanel::top("header").exact_height(30.0).frame(egui::Frame::none().fill(Color32::BLACK)).show(ctx, |ui| {
             let r = ui.max_rect();
             let p = ui.painter().clone();
             let cy = r.center().y;
-            kit::draw_moon(&p, pos2(r.left() + 22.0, cy), 9.0, WHITE, Color32::BLACK);
+            match &self.about_tex {
+                Some(t) => {
+                    p.image(t.id(), Rect::from_center_size(pos2(r.left() + 22.0, cy), vec2(24.0, 24.0)), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+                }
+                None => kit::draw_moon(&p, pos2(r.left() + 22.0, cy), 9.0, WHITE, Color32::BLACK),
+            }
             p.text(pos2(r.left() + 40.0, cy), Align2::LEFT_CENTER, tr("RadioMoon"), FontId::proportional(20.0), WHITE);
             p.text(pos2(r.left() + 142.0, cy + 3.0), Align2::LEFT_CENTER, format!("v{VERSION}"), FontId::proportional(11.0), kit::GRAY);
             let _ = BUILD;
@@ -1128,11 +1134,7 @@ impl eframe::App for App {
 }
 
 impl App {
-    /// About window (same layout as the one of FM Analyzer).
-    fn about_window(&mut self, ctx: &egui::Context) {
-        if !self.about_open {
-            return;
-        }
+    fn ensure_logo(&mut self, ctx: &egui::Context) {
         if self.about_tex.is_none() {
             if let Ok(img) = image::load_from_memory(include_bytes!("../packaging/icon.png")) {
                 let rgba = img.to_rgba8();
@@ -1140,6 +1142,14 @@ impl App {
                 self.about_tex = Some(ctx.load_texture("about_logo", egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw()), egui::TextureOptions::LINEAR));
             }
         }
+    }
+
+    /// About window (same layout as the one of FM Analyzer).
+    fn about_window(&mut self, ctx: &egui::Context) {
+        if !self.about_open {
+            return;
+        }
+        self.ensure_logo(ctx);
         let (mut open, mut close) = (true, false);
         let dim = kit::TEXT_DIM;
         egui::Window::new(egui::RichText::new(tr("About")).strong())

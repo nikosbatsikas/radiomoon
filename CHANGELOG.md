@@ -2,6 +2,11 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.20
+- The Windows installer can install the database (MariaDB) as the Windows service RadioMoonDB (automatic start, local connections only); the program uses the running service, and the uninstaller removes it but keeps the data.
+- Auto volume (Control Panel > Sound outputs): keeps all songs at the same loudness with a target level and maximum boost and reduction.
+- The new icon is shown in the header of the studio (instead of the drawn moon).
+
 ## 0.5.19
 - New program icon (sunset moon with sound bars) for the studio, MPX Receiver and Transmitter, installer and packages.
 

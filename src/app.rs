@@ -726,10 +726,12 @@ impl App {
         let parts = if stitch { Some(self.build_stitch(&t, i)) } else { None };
         let events = self.overlay_events(i, &t);
         let path = self.map_path(&t.path);
+        let agc = if self.data.s.auto_volume { Some((self.data.s.auto_volume_target_db, self.data.s.auto_volume_boost_db, self.data.s.auto_volume_cut_db)) } else { None };
         let Some(p) = self.player.as_mut() else {
             self.status = "No audio output available".into();
             return;
         };
+        p.agc = agc;
         let res = match parts {
             Some(Ok(pts)) => p.play_sequence(&pts, t.gain_db, fade_ms),
             Some(Err(e)) => Err(anyhow::anyhow!(e)),

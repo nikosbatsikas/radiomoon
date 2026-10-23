@@ -24,7 +24,7 @@ Made automatically by the Release workflow.
 | Linux | x64, arm64 | `RadioMoon-<ver>-linux-<arch>-portable.tar.gz` | `.deb`, `.rpm` |
 | macOS | arm64 | `RadioMoon-<ver>-macos-arm64-portable.zip` | `.dmg` |
 
-The bundled database server (MariaDB) is included only in the Windows x64 packages. On every other platform RadioMoon uses a MySQL or MariaDB server that you install (Linux/macOS: `mariadb-server` or `mysql-server`); enter its address in **Control Panel > Database server**.
+The bundled database server (MariaDB) is included only in the Windows x64 packages. The Windows installer can install it as the Windows service `RadioMoonDB` (port 3307, local connections only, starts with Windows, data in `%PROGRAMDATA%\RadioMoon\data`); the service is removed when the program is uninstalled, the data is kept. On every other platform RadioMoon uses a MySQL or MariaDB server that you install (Linux/macOS: `mariadb-server` or `mysql-server`); enter its address in **Control Panel > Database server**.
 
 ## Portable or installed
 

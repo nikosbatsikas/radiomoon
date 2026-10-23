@@ -479,6 +479,8 @@ struct Deck {
 }
 
 pub struct Player {
+    /// automatic volume: (target dB RMS, max boost dB, max cut dB)
+    pub agc: Option<(f32, f32, f32)>,
     main: Out,
     monitor: Option<Out>,
     instants: Option<Out>,
@@ -519,6 +521,7 @@ impl Player {
             tap,
             live: None,
             pending_fade_in: None,
+            agc: None,
             decks: Vec::new(),
             jingles: Vec::new(),
             jingle_sinks: Vec::new(),
@@ -658,6 +661,10 @@ impl Player {
                 }
             }
         }
+        let parts: Vec<Src> = match self.agc {
+            Some((t, b, c)) => parts.into_iter().map(|p| Box::new(Agc::new(p, t, b, c)) as Src).collect(),
+            None => parts,
+        };
         let c = Ctl::new(self.volume, parts.len());
         for p in parts {
             self.bus.add(Ctrl { inner: p, c: c.clone(), ended: false });
@@ -886,5 +893,63 @@ impl Player {
                 self.overlays.push(c);
             }
         }
+    }
+}
+
+/// Automatic volume: keeps the loudness of the songs close to a target level (slow release, fast attack, holds in silence).
+pub struct Agc<S: Source<Item = f32>> {
+    inner: S,
+    ms: f32,
+    gain: f32,
+    target: f32,
+    min_gain: f32,
+    max_gain: f32,
+    a_ms: f32,
+    att: f32,
+    rel: f32,
+}
+
+impl<S: Source<Item = f32>> Agc<S> {
+    pub fn new(inner: S, target_db: f32, boost_db: f32, cut_db: f32) -> Self {
+        let n = (inner.sample_rate().max(8000) as f32) * (inner.channels().max(1) as f32);
+        Agc {
+            inner,
+            ms: 0.0,
+            gain: 1.0,
+            target: lin(target_db),
+            min_gain: lin(-cut_db.abs()),
+            max_gain: lin(boost_db.abs()),
+            a_ms: 1.0 / (0.6 * n),
+            att: 1.0 / (0.08 * n),
+            rel: 1.0 / (2.5 * n),
+        }
+    }
+}
+
+impl<S: Source<Item = f32>> Iterator for Agc<S> {
+    type Item = f32;
+    fn next(&mut self) -> Option<f32> {
+        let x = self.inner.next()?;
+        self.ms += (x * x - self.ms) * self.a_ms;
+        let rms = self.ms.sqrt();
+        let want = if rms < 0.004 { self.gain } else { (self.target / rms).clamp(self.min_gain, self.max_gain) };
+        let k = if want < self.gain { self.att } else { self.rel };
+        self.gain += (want - self.gain) * k;
+        Some((x * self.gain).clamp(-1.0, 1.0))
+    }
+}
+
+impl<S: Source<Item = f32>> Source for Agc<S> {
+    fn current_frame_len(&self) -> Option<usize> {
+        self.inner.current_frame_len()
+    }
+    fn channels(&self) -> u16 {
+        self.inner.channels()
+    }
+    fn sample_rate(&self) -> u32 {
+        self.inner.sample_rate()
+    }
+    fn total_duration(&self) -> Option<Duration> {
+        self.inner.total_duration()
     }
 }

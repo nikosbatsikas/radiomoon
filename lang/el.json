@@ -556,5 +556,11 @@
   "Send a gift to the author.": "Στείλτε ένα δώρο στον δημιουργό.",
   "Gift with PayPal": "Δώρο με PayPal",
   "CLOSE": "ΚΛΕΙΣΙΜΟ",
-  "Songs in the database (double-click or + to add; songs already in the playlist are hidden)": "Τραγούδια της βάσης (διπλό κλικ ή + για προσθήκη, όσα υπάρχουν ήδη στο playlist κρύβονται)"
+  "Songs in the database (double-click or + to add; songs already in the playlist are hidden)": "Τραγούδια της βάσης (διπλό κλικ ή + για προσθήκη, όσα υπάρχουν ήδη στο playlist κρύβονται)",
+  "Auto volume": "Αυτόματη ένταση",
+  "Auto volume: keep all the songs at the same loudness": "Αυτόματη ένταση: όλα τα τραγούδια στην ίδια ένταση",
+  "Target level": "Επίπεδο στόχος",
+  "Maximum boost (quiet songs)": "Μέγιστη ενίσχυση (χαμηλά τραγούδια)",
+  "Maximum reduction (loud songs)": "Μέγιστη μείωση (δυνατά τραγούδια)",
+  "The level of each song is followed while it plays and corrected slowly, so quiet songs are raised and loud songs are lowered. It applies to the next song that starts.": "Η ένταση κάθε τραγουδιού παρακολουθείται όσο παίζει και διορθώνεται αργά: τα χαμηλά τραγούδια ανεβαίνουν και τα δυνατά κατεβαίνουν. Ισχύει από το επόμενο τραγούδι που ξεκινά."
 }

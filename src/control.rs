@@ -1857,6 +1857,21 @@ impl App {
             self.apply_outputs();
             self.cp.msg = tr("Outputs applied");
         }
+        ui.add_space(6.0);
+        let mut av = false;
+        kit::card(ui, "Auto volume", |ui| {
+            let s = &mut self.data.s;
+            av |= ui.checkbox(&mut s.auto_volume, tr("Auto volume: keep all the songs at the same loudness")).changed();
+            ui.add_enabled_ui(s.auto_volume, |ui| {
+                av |= ui.add(egui::Slider::new(&mut s.auto_volume_target_db, -30.0..=-8.0).suffix(" dB").text(tr("Target level"))).drag_stopped();
+                av |= ui.add(egui::Slider::new(&mut s.auto_volume_boost_db, 0.0..=18.0).suffix(" dB").text(tr("Maximum boost (quiet songs)"))).drag_stopped();
+                av |= ui.add(egui::Slider::new(&mut s.auto_volume_cut_db, 0.0..=24.0).suffix(" dB").text(tr("Maximum reduction (loud songs)"))).drag_stopped();
+            });
+            ui.label(RichText::new(tr("The level of each song is followed while it plays and corrected slowly, so quiet songs are raised and loud songs are lowered. It applies to the next song that starts.")).small().color(kit::TEXT_DIM));
+        });
+        if av {
+            self.save_settings();
+        }
         ui.label(tr("The live rebroadcast sources and their schedule are in Scheduling > Live rebroadcast."));
         ui.label(tr("Mixing between songs uses each song's mix-in / mix-out points. VST/DSP plugins and A-B interchange output are not supported."));
     }
