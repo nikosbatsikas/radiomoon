@@ -1,35 +1,4 @@
-# 0.4.3
-- The MSI installer was removed (WiX 7 requires accepting a maintenance-fee EULA). Windows editions: setup .exe and portable .zip.
-
-# 0.4.2
-- Audio item editor: order is Data, Playback, Waveform, then the play buttons; everything fits in the window without a scroll bar.
-- Studio: the Delete button removes the selected item from the playlist (the song stays in the library).
-
-# 0.4.1
-- Control Panel: smaller fonts; all dialogs open with the same size and position (content scrolls inside).
-- Audio item editor: data and playback settings and the play buttons are at the top, the waveform is below; smaller window.
-- Browse buttons for all folder and file paths.
-- Fixed: Control Panel was drawn with a light background when Windows uses the light theme.
-
-# 0.4.0
-- The MPX receiver is now a separate program: RadioMoon-MPX-Receiver.exe (radiomoon-mpx-receiver on Linux). It is no longer part of RadioMoon.
-- Internet broadcast: any number of Icecast / Shoutcast servers at the same time, each with its own bitrate and settings.
-- AUTO mode starts playing the first song as soon as it is selected (and when the program starts in AUTO).
-- Control Panel: dark backgrounds and white text.
-
-# 0.3.0
-- MPX / FM multiplex: built-in stereo encoder (19 kHz pilot, 38 kHz, RDS PS + RadioText from the playing song) with output to a 192 kHz sound card and/or over IP (RTP L24 over UDP, or raw L24 over TCP). Control Panel page "MPX / FM multiplex".
-
-# 0.2.1
-- Clearer text: embedded DejaVu Sans font (Latin + Greek), brighter text colours, stronger borders, larger sizes.
-- Executable and window now have the RadioMoon icon.
-- Library lists use a proper column table (code, artist, title, category, duration).
-- Faster: missing-file checks cached, idle redraw rate lowered, `panic = abort` in release builds.
-
 # Changelog
-
-Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`; a release is made by pushing a tag
-`vMAJOR.MINOR.PATCH` that matches it (see README.txt, "Versioning and releases").
 
 ## 0.5.6
 - First release made automatically by the auto-tag workflow. Contains everything of 0.5.4 (edit windows keep the keyboard focus) and 0.5.5 (LIVE shown in the player, live source stops the automation and resumes it afterwards).
@@ -57,6 +26,39 @@ Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`; a release 
 - Windows installer: the program goes to Program Files (needs administrator rights) and the data (database, backups, settings) to %PROGRAMDATA%\RadioMoon, shared by all users. An existing %LOCALAPPDATA%\RadioMoon folder is still used if present.
 - Database layout moved to a `sql/` folder: `schema.sql` (latest) and `migrations/` (upgrade steps per version), embedded in the program.
 - New: Control Panel > Utilities > Import from Jazler RadioStar 2. Reads the old .mdb database (Access 2000-2003) directly on every platform and imports songs, spots, categories, playlists, campaigns, jingle pallets and play history, with a path-replace option. Existing data is never overwritten.
+
+## 0.4.3
+- The MSI installer was removed (WiX 7 requires accepting a maintenance-fee EULA). Windows editions: setup .exe and portable .zip.
+
+## 0.4.2
+- Audio item editor: order is Data, Playback, Waveform, then the play buttons; everything fits in the window without a scroll bar.
+- Studio: the Delete button removes the selected item from the playlist (the song stays in the library).
+
+## 0.4.1
+- Control Panel: smaller fonts; all dialogs open with the same size and position (content scrolls inside).
+- Audio item editor: data and playback settings and the play buttons are at the top, the waveform is below; smaller window.
+- Browse buttons for all folder and file paths.
+- Fixed: Control Panel was drawn with a light background when Windows uses the light theme.
+
+## 0.4.0
+- The MPX receiver is now a separate program: RadioMoon-MPX-Receiver.exe (radiomoon-mpx-receiver on Linux). It is no longer part of RadioMoon.
+- Internet broadcast: any number of Icecast / Shoutcast servers at the same time, each with its own bitrate and settings.
+- AUTO mode starts playing the first song as soon as it is selected (and when the program starts in AUTO).
+- Control Panel: dark backgrounds and white text.
+
+## 0.3.0
+- MPX / FM multiplex: built-in stereo encoder (19 kHz pilot, 38 kHz, RDS PS + RadioText from the playing song) with output to a 192 kHz sound card and/or over IP (RTP L24 over UDP, or raw L24 over TCP). Control Panel page "MPX / FM multiplex".
+
+## 0.2.1
+- Clearer text: embedded DejaVu Sans font (Latin + Greek), brighter text colours, stronger borders, larger sizes.
+- Executable and window now have the RadioMoon icon.
+- Library lists use a proper column table (code, artist, title, category, duration).
+- Faster: missing-file checks cached, idle redraw rate lowered, `panic = abort` in release builds.
+
+# Changelog
+
+Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`; a release is made by pushing a tag
+`vMAJOR.MINOR.PATCH` that matches it (see README.txt, "Versioning and releases").
 
 ## 0.2.0
 - New professional look: dark theme, card layout, full-size Control Panel with a navigation sidebar.
