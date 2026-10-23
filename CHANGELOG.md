@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.25
+- The icon next to the name in the header is removed.
+- The header buttons (modes, layout, LIVE, About, Control Panel) now get their width from the text, so longer Greek labels are no longer cut off.
+
 ## 0.5.24
 - The second screen is an option, off by default: switch it on in Control Panel > General settings (Station); then the "2nd screen" button appears in the header, and it can also open at program start.
 

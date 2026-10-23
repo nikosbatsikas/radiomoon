@@ -516,16 +516,10 @@ impl eframe::App for App {
             let r = ui.max_rect();
             let p = ui.painter().clone();
             let cy = r.center().y;
-            match &self.about_tex {
-                Some(t) => {
-                    p.image(t.id(), Rect::from_center_size(pos2(r.left() + 22.0, cy), vec2(24.0, 24.0)), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
-                }
-                None => kit::draw_moon(&p, pos2(r.left() + 22.0, cy), 9.0, WHITE, Color32::BLACK),
-            }
-            p.text(pos2(r.left() + 40.0, cy), Align2::LEFT_CENTER, tr("RadioMoon"), FontId::proportional(20.0), WHITE);
-            p.text(pos2(r.left() + 142.0, cy + 3.0), Align2::LEFT_CENTER, format!("v{VERSION}"), FontId::proportional(11.0), kit::GRAY);
+            p.text(pos2(r.left() + 12.0, cy), Align2::LEFT_CENTER, tr("RadioMoon"), FontId::proportional(20.0), WHITE);
+            p.text(pos2(r.left() + 114.0, cy + 3.0), Align2::LEFT_CENTER, format!("v{VERSION}"), FontId::proportional(11.0), kit::GRAY);
             let _ = BUILD;
-            let vr = Rect::from_min_size(pos2(r.left() + 190.0, r.top() + 4.0), vec2(130.0, 22.0));
+            let vr = Rect::from_min_size(pos2(r.left() + 170.0, r.top() + 4.0), vec2(120.0, 22.0));
             let mut vol = self.player.as_ref().map(|p| p.volume).unwrap_or(1.0);
             if ui.put(vr, egui::Slider::new(&mut vol, 0.0..=1.0).show_value(false)).changed() {
                 actions.push(Action::Volume(vol));
@@ -536,22 +530,22 @@ impl eframe::App for App {
                 x -= w;
                 Rect::from_min_size(pos2(x, r.top()), vec2(w, h))
             };
-            let cp_r = slot(140.0);
+            let cp_r = slot(kit::label_w(ui, "Control Panel", 110.0));
             if kit::button_at(ui, cp_r, "h_cp", None, "Control Panel", Color32::from_rgb(40, 60, 110), WHITE).clicked() {
                 actions.push(Action::OpenControl);
             }
             if self.data.s.second_screen {
-                let s2_r = slot(86.0);
+                let s2_r = slot(kit::label_w(ui, "2nd screen", 86.0));
                 if kit::button_at(ui, s2_r, "h_screen2", None, "2nd screen", if self.second_open { kit::BLUE } else { kit::DARK }, WHITE).clicked() {
                     self.second_open = !self.second_open;
                 }
             }
-            let ab_r = slot(64.0);
+            let ab_r = slot(kit::label_w(ui, "About", 64.0));
             if kit::button_at(ui, ab_r, "h_about", None, "About", kit::DARK, WHITE).clicked() {
                 self.about_open = true;
             }
             let live_on = self.player.as_ref().map(|p| p.live_active()).unwrap_or(false);
-            let live_r = slot(70.0);
+            let live_r = slot(kit::label_w(ui, "LIVE", 70.0));
             let live_resp = kit::button_at(ui, live_r, "h_live", None, "LIVE", if live_on { Color32::from_rgb(220, 120, 0) } else { kit::DARK }, WHITE);
             if live_resp.clicked() {
                 actions.push(Action::ToggleLive);
@@ -568,12 +562,13 @@ impl eframe::App for App {
                     ui.label(tr("No live source defined"));
                 }
             });
-            let lay_r = slot(90.0);
-            if kit::button_at(ui, lay_r, "h_lay", None, &format!("Layout: {layout}"), kit::DARK, WHITE).clicked() {
+            let lay_label = format!("Layout: {layout}");
+            let lay_r = slot(kit::label_w(ui, &lay_label, 90.0));
+            if kit::button_at(ui, lay_r, "h_lay", None, &lay_label, kit::DARK, WHITE).clicked() {
                 actions.push(Action::ToggleLayout);
             }
             for (m, label, col) in [(Mode::Offline, "OFFLINE", Color32::from_rgb(90, 90, 100)), (Mode::Manual, "MANUAL", kit::RED), (Mode::Auto, "AUTO", kit::GREEN)] {
-                let rr = slot(84.0);
+                let rr = slot(kit::label_w(ui, label, 84.0));
                 let fill = if self.mode == m { col } else { kit::DARK };
                 if kit::button_at(ui, rr, label, None, label, fill, WHITE).clicked() {
                     actions.push(Action::SetMode(m));

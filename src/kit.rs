@@ -286,6 +286,13 @@ pub fn draw_icon(p: &Painter, icon: Icon, c: Pos2, s: f32, col: Color32) {
     }
 }
 
+/// Width of a button that fits its (translated) label with some space around it.
+pub fn label_w(ui: &Ui, label: &str, min: f32) -> f32 {
+    let t = crate::i18n::tr(label);
+    let w = ui.fonts(|f| f.layout_no_wrap(t, FontId::proportional(14.0), Color32::WHITE).size().x);
+    (w + 30.0).max(min)
+}
+
 /// A flat button drawn into a fixed rectangle. Icon above, label below (or either alone).
 pub fn button_at(ui: &mut Ui, rect: Rect, id: &str, icon: Option<Icon>, label: &str, fill: Color32, fg: Color32) -> Response {
     let label = &crate::i18n::tr(label);
