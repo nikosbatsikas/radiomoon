@@ -264,7 +264,7 @@ fn text_row(ui: &mut egui::Ui, label: &str, v: &mut String) -> bool {
     let mut ch = false;
     ui.horizontal(|ui| {
         ui.label(tr(label));
-        ch = ui.text_edit_singleline(v).changed();
+        ch = ui.add(egui::TextEdit::singleline(v).desired_width((ui.available_width() - 8.0).max(60.0))).changed();
     });
     ch
 }
@@ -1460,34 +1460,36 @@ impl App {
         ui.add_space(6.0);
         let mut ch = false;
         let s = &mut self.data.s;
-        ui.horizontal(|ui| {
-            ui.label(tr("Radio station name"));
-            ch |= ui.text_edit_singleline(&mut s.station).lost_focus();
+        kit::card(ui, "Station", |ui| {
+            ui.horizontal(|ui| {
+                ui.label(tr("Radio station name"));
+                ch |= ui.add(egui::TextEdit::singleline(&mut s.station).desired_width((ui.available_width() - 8.0).max(60.0))).lost_focus();
+            });
+            ui.horizontal(|ui| {
+                ui.label(tr("Start mode"));
+                ch |= ui.radio_value(&mut s.start_mode, "manual".to_string(), tr("Manual")).changed();
+                ch |= ui.radio_value(&mut s.start_mode, "auto".to_string(), tr("Auto")).changed();
+            });
+            ui.horizontal(|ui| {
+                ch |= ui.add(egui::DragValue::new(&mut s.time_offset_s).range(-3600..=3600).prefix(tr("Time offset (seconds ahead of the clock): "))).changed();
+            });
+            ui.horizontal_wrapped(|ui| {
+                ch |= ui.add(egui::DragValue::new(&mut s.default_gain_db).range(-24.0..=24.0).prefix(tr("Default volume for new files (dB): "))).changed();
+                ch |= ui.add(egui::DragValue::new(&mut s.autocue_db).range(-90.0..=-10.0).prefix(tr("Autocue sensitivity songs (dB): "))).changed();
+                ch |= ui.add(egui::DragValue::new(&mut s.spot_autocue_db).range(-90.0..=-10.0).prefix(tr("spots (dB, -90 = play whole file): "))).changed();
+            });
+            ui.label(tr("Station details for reports:"));
+            ch |= ui.add(egui::TextEdit::multiline(&mut s.station_details).desired_width(f32::INFINITY).desired_rows(3)).lost_focus();
+            ui.horizontal(|ui| {
+                ui.label(tr("Alerts e-mail addresses (stored only)"));
+                ch |= ui.add(egui::TextEdit::singleline(&mut s.alert_emails).desired_width((ui.available_width() - 8.0).max(60.0))).lost_focus();
+            });
         });
-        ui.horizontal(|ui| {
-            ui.label(tr("Start mode"));
-            ch |= ui.radio_value(&mut s.start_mode, "manual".to_string(), tr("Manual")).changed();
-            ch |= ui.radio_value(&mut s.start_mode, "auto".to_string(), tr("Auto")).changed();
+        kit::card(ui, "Custom logs (text file per day)", |ui| {
+            ch |= ui.checkbox(&mut s.custom_log, tr("Enable custom logs")).changed();
+            path_row(ui, "Folder", &mut s.custom_log_path, true);
+            text_row(ui, "Line format ({date} {time} {kind} {artist} {title} {album} {code} {duration})", &mut s.custom_log_format);
         });
-        ui.horizontal(|ui| {
-            ch |= ui.add(egui::DragValue::new(&mut s.time_offset_s).range(-3600..=3600).prefix(tr("Time offset (seconds ahead of the clock): "))).changed();
-        });
-        ui.horizontal_wrapped(|ui| {
-            ch |= ui.add(egui::DragValue::new(&mut s.default_gain_db).range(-24.0..=24.0).prefix(tr("Default volume for new files (dB): "))).changed();
-            ch |= ui.add(egui::DragValue::new(&mut s.autocue_db).range(-90.0..=-10.0).prefix(tr("Autocue sensitivity songs (dB): "))).changed();
-            ch |= ui.add(egui::DragValue::new(&mut s.spot_autocue_db).range(-90.0..=-10.0).prefix(tr("spots (dB, -90 = play whole file): "))).changed();
-        });
-        ui.label(tr("Station details for reports:"));
-        ch |= ui.text_edit_multiline(&mut s.station_details).lost_focus();
-        ui.horizontal(|ui| {
-            ui.label(tr("Alerts e-mail addresses (stored only)"));
-            ch |= ui.text_edit_singleline(&mut s.alert_emails).lost_focus();
-        });
-        ui.separator();
-        ui.label(RichText::new(tr("Custom logs (text file per day)")).strong());
-        ch |= ui.checkbox(&mut s.custom_log, tr("Enable custom logs")).changed();
-        path_row(ui, "Folder", &mut s.custom_log_path, true);
-        text_row(ui, "Line format ({date} {time} {kind} {artist} {title} {album} {code} {duration})", &mut s.custom_log_format);
         if ch || ui.button(tr("Save")).clicked() {
             self.save_settings();
         }

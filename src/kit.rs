@@ -114,6 +114,7 @@ pub fn card<R>(ui: &mut Ui, title: &str, add: impl FnOnce(&mut Ui) -> R) -> R {
         .stroke(Stroke::new(1.0_f32, BORDER))
         .inner_margin(14.0)
         .show(ui, |ui| {
+            ui.set_min_width(ui.available_width()); // every card spans the whole page
             if !title.is_empty() {
                 ui.label(egui::RichText::new(crate::i18n::tr(title)).strong().size(14.0).color(ACCENT));
                 ui.add_space(2.0);
