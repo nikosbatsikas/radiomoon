@@ -70,7 +70,7 @@ jobs:
           V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           mkdir -p dist RadioMoon/lang
           cp target/release/radiomoon RadioMoon/radiomoon
-          cp target/release/radiomoon-mpx-receiver RadioMoon/
+          cp target/release/radiomoon-mpx-receiver target/release/radiomoon-mpx-transmitter RadioMoon/
           cp README.md CHANGELOG.md RadioMoon/
           cp lang/* RadioMoon/lang/
           touch RadioMoon/portable.flag
@@ -78,6 +78,9 @@ jobs:
           # receiver only (for a Raspberry Pi at the transmitter site): RadioMoon-MPX-Receiver-<ver>-linux-<arch>.tar.gz
           mkdir -p RadioMoon-MPX-Receiver
           cp target/release/radiomoon-mpx-receiver RadioMoon-MPX-Receiver/
+          mkdir -p RadioMoon-MPX-Transmitter
+          cp target/release/radiomoon-mpx-transmitter README.md RadioMoon-MPX-Transmitter/
+          tar czf dist/RadioMoon-MPX-Transmitter-$V-linux-${{ matrix.arch }}.tar.gz RadioMoon-MPX-Transmitter
           cp README.md RadioMoon-MPX-Receiver/
           tar czf dist/RadioMoon-MPX-Receiver-$V-linux-${{ matrix.arch }}.tar.gz RadioMoon-MPX-Receiver
           cp target/debian/*.deb dist/
@@ -107,6 +110,7 @@ jobs:
           mkdir -p $APP/Contents/MacOS $APP/Contents/Resources dist/dmg
           cp target/release/radiomoon $APP/Contents/MacOS/RadioMoon
           cp target/release/radiomoon-mpx-receiver $APP/Contents/MacOS/RadioMoon-MPX-Receiver
+          cp target/release/radiomoon-mpx-transmitter $APP/Contents/MacOS/RadioMoon-MPX-Transmitter
           sed "s/@VERSION@/$V/g" packaging/macos/Info.plist.in > $APP/Contents/Info.plist
           mkdir RadioMoon.iconset
           for s in 16 32 64 128 256; do sips -z $s $s packaging/icon.png --out RadioMoon.iconset/icon_${s}x${s}.png; done

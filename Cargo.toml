@@ -1,6 +1,6 @@
 [package]
 name = "radiomoon"
-version = "0.5.11"
+version = "0.5.12"
 edition = "2021"
 description = "RadioMoon - radio automation software"
 license = "LicenseRef-RadioMoon"
@@ -14,6 +14,10 @@ path = "src/main.rs"
 [[bin]]
 name = "radiomoon-mpx-receiver"
 path = "src/bin/mpx_receiver.rs"
+
+[[bin]]
+name = "radiomoon-mpx-transmitter"
+path = "src/bin/mpx_transmitter.rs"
 
 [build-dependencies]
 winres = "0.1"
@@ -58,6 +62,7 @@ recommends = "mariadb-server"
 assets = [
   ["target/release/radiomoon", "usr/bin/", "755"],
   ["target/release/radiomoon-mpx-receiver", "usr/bin/", "755"],
+  ["target/release/radiomoon-mpx-transmitter", "usr/bin/", "755"],
   ["packaging/linux/radiomoon.desktop", "usr/share/applications/", "644"],
   ["packaging/icon.png", "usr/share/icons/hicolor/256x256/apps/radiomoon.png", "644"],
   ["README.md", "usr/share/doc/radiomoon/README", "644"],
@@ -67,6 +72,7 @@ assets = [
 assets = [
   { source = "target/release/radiomoon", dest = "/usr/bin/radiomoon", mode = "755" },
   { source = "target/release/radiomoon-mpx-receiver", dest = "/usr/bin/radiomoon-mpx-receiver", mode = "755" },
+  { source = "target/release/radiomoon-mpx-transmitter", dest = "/usr/bin/radiomoon-mpx-transmitter", mode = "755" },
   { source = "packaging/linux/radiomoon.desktop", dest = "/usr/share/applications/radiomoon.desktop", mode = "644" },
   { source = "packaging/icon.png", dest = "/usr/share/icons/hicolor/256x256/apps/radiomoon.png", mode = "644" },
 ]

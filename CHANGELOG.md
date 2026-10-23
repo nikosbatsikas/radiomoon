@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.12
+- New stand-alone program **RadioMoon-MPX-Transmitter**: takes a folder of audio files (random order), an internet stream or a sound input, builds the FM multiplex (stereo, pilot, RDS with RadioText from the playing file) and sends it to a 192 kHz sound card and/or over IP. It runs by itself, like the MPX Receiver, with the MPX analyzer included.
+- Included in the Windows installer and portable zip, Linux packages and tar.gz, and macOS app bundle.
+
 ## 0.5.11
 - Fixed: the build error in the half-hour schedule grid (0.5.9 and 0.5.10 did not compile) and the compiler warnings.
 - Auto mode no longer starts with the same songs every time: songs with an equal rank are chosen at random.

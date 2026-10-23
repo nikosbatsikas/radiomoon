@@ -21,6 +21,7 @@ $stage = Join-Path $PSScriptRoot "stage\RadioMoon"
 New-Item -ItemType Directory -Force "$stage\lang", "dist" | Out-Null
 Copy-Item "target\$target\release\radiomoon.exe" "$stage\RadioMoon.exe"
 Copy-Item "target\$target\release\radiomoon-mpx-receiver.exe" "$stage\RadioMoon-MPX-Receiver.exe"
+Copy-Item "target\$target\release\radiomoon-mpx-transmitter.exe" "$stage\RadioMoon-MPX-Transmitter.exe"
 Copy-Item "README.md", "CHANGELOG.md" $stage
 Copy-Item "lang\*" "$stage\lang"
 

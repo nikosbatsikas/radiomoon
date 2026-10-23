@@ -53,6 +53,7 @@ Name: "{commonappdata}\RadioMoon"; Permissions: users-modify
 [Icons]
 Name: "{group}\RadioMoon"; Filename: "{app}\RadioMoon.exe"
 Name: "{group}\RadioMoon MPX Receiver"; Filename: "{app}\RadioMoon-MPX-Receiver.exe"
+Name: "{group}\RadioMoon MPX Transmitter"; Filename: "{app}\RadioMoon-MPX-Transmitter.exe"
 Name: "{autodesktop}\RadioMoon"; Filename: "{app}\RadioMoon.exe"; Tasks: desktopicon
 
 [Run]

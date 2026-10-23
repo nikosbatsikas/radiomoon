@@ -121,3 +121,8 @@ Control Panel > Scheduling > Live rebroadcast.
 ## Not included
 
 Weather, VST plug-ins, microphone recording of voice tracks.
+
+
+## MPX Transmitter (stand-alone)
+
+`RadioMoon-MPX-Transmitter` (`radiomoon-mpx-transmitter` on Linux/macOS) needs no RadioMoon database. Choose a folder (random order), a stream URL or a sound input, set the outputs (192 kHz card and/or IP to the MPX Receiver), RDS and levels, then press Start. Enable *Start transmitting when the program starts* for unattended use. Settings are stored in `mpx-transmitter.json` (ProgramData, or next to the exe when `portable.flag` exists).
