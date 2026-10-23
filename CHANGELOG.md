@@ -31,6 +31,9 @@
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`; a release is made by pushing a tag
 `vMAJOR.MINOR.PATCH` that matches it (see README.txt, "Versioning and releases").
 
+## 0.5.6
+- First release made automatically by the auto-tag workflow. Contains everything of 0.5.4 (edit windows keep the keyboard focus) and 0.5.5 (LIVE shown in the player, live source stops the automation and resumes it afterwards).
+
 ## 0.5.5
 - Live rebroadcast: the player shows a blinking LIVE (with the source name) while a live source is on the air. "Stop automation" now really stops the playlist and switches to MANUAL during the live source; when it ends, the previous mode returns and AUTO plays the next item.
 
