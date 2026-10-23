@@ -565,5 +565,7 @@
   "Imports songs, spots, jingles, categories, playlists, campaigns, jingle pallets and play history from a Jazler RadioStar 2 or a MegaMix database (.mdb, Access 2000-2003); the type is detected automatically. Existing data is kept; nothing is overwritten or deleted. User passwords are not imported.": "Εισάγει τραγούδια, spots, jingles, κατηγορίες, playlists, καμπάνιες, παλέτες jingles και ιστορικό από βάση Jazler RadioStar 2 ή MegaMix (.mdb, Access 2000-2003)· ο τύπος αναγνωρίζεται αυτόματα. Τα υπάρχοντα δεδομένα διατηρούνται, τίποτα δεν αντικαθίσταται ή διαγράφεται. Οι κωδικοί χρηστών δεν εισάγονται.",
   "MegaMix songs": "Τραγούδια MegaMix",
   "MegaMix jingles / effects": "Jingles / εφέ MegaMix",
-  "MegaMix commercials": "Διαφημίσεις MegaMix"
+  "MegaMix commercials": "Διαφημίσεις MegaMix",
+  "Nothing is playing": "Δεν παίζει τίποτα",
+  "2nd screen": "2η οθόνη"
 }

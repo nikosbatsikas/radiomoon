@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.23
+- F10 switches the window to full screen and back (studio and second screen).
+- Dual screen: the "2nd screen" button in the header opens an on-air window for the second monitor with the clock, the song on air with its countdown, and the next songs. Move it to the other monitor and press F10 for full screen.
+
 ## 0.5.22
 - The blue RadioMoon tile in the studio is replaced by the new program icon.
 

@@ -567,5 +567,7 @@
   "Imports songs, spots, jingles, categories, playlists, campaigns, jingle pallets and play history from a Jazler RadioStar 2 or a MegaMix database (.mdb, Access 2000-2003); the type is detected automatically. Existing data is kept; nothing is overwritten or deleted. User passwords are not imported.": "Imports songs, spots, jingles, categories, playlists, campaigns, jingle pallets and play history from a Jazler RadioStar 2 or a MegaMix database (.mdb, Access 2000-2003); the type is detected automatically. Existing data is kept; nothing is overwritten or deleted. User passwords are not imported.",
   "MegaMix songs": "MegaMix songs",
   "MegaMix jingles / effects": "MegaMix jingles / effects",
-  "MegaMix commercials": "MegaMix commercials"
+  "MegaMix commercials": "MegaMix commercials",
+  "Nothing is playing": "Nothing is playing",
+  "2nd screen": "2nd screen"
 }
