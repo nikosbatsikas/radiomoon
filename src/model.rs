@@ -471,6 +471,9 @@ pub struct Settings {
     pub station_details: String,
     pub logo_path: String,
     pub start_mode: String,
+    /// second screen (on-air window for a second monitor): off by default, switched on in the Control Panel
+    pub second_screen: bool,
+    pub second_screen_auto: bool,
     pub classic_auto: bool,
     pub classic_decks: usize,
     pub auto_hours: u32,
@@ -538,6 +541,8 @@ impl Default for Settings {
             station_details: String::new(),
             logo_path: String::new(),
             start_mode: "manual".into(),
+            second_screen: false,
+            second_screen_auto: false,
             classic_auto: false,
             classic_decks: 11,
             auto_hours: 2,

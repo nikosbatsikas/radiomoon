@@ -540,9 +540,11 @@ impl eframe::App for App {
             if kit::button_at(ui, cp_r, "h_cp", None, "Control Panel", Color32::from_rgb(40, 60, 110), WHITE).clicked() {
                 actions.push(Action::OpenControl);
             }
-            let s2_r = slot(86.0);
-            if kit::button_at(ui, s2_r, "h_screen2", None, "2nd screen", if self.second_open { kit::BLUE } else { kit::DARK }, WHITE).clicked() {
-                self.second_open = !self.second_open;
+            if self.data.s.second_screen {
+                let s2_r = slot(86.0);
+                if kit::button_at(ui, s2_r, "h_screen2", None, "2nd screen", if self.second_open { kit::BLUE } else { kit::DARK }, WHITE).clicked() {
+                    self.second_open = !self.second_open;
+                }
             }
             let ab_r = slot(64.0);
             if kit::button_at(ui, ab_r, "h_about", None, "About", kit::DARK, WHITE).clicked() {
@@ -1260,6 +1262,13 @@ fn toggle_fullscreen(ctx: &egui::Context) {
 impl App {
     /// Second window for the second monitor: big clock, the song on air and the next songs. F10 = full screen.
     fn second_screen(&mut self, ctx: &egui::Context) {
+        if !self.data.s.second_screen {
+            self.second_open = false;
+            self.second_auto_done = true;
+        } else if !self.second_auto_done {
+            self.second_auto_done = true;
+            self.second_open = self.data.s.second_screen_auto;
+        }
         if !self.second_open {
             return;
         }

@@ -569,5 +569,7 @@
   "MegaMix jingles / effects": "MegaMix jingles / effects",
   "MegaMix commercials": "MegaMix commercials",
   "Nothing is playing": "Nothing is playing",
-  "2nd screen": "2nd screen"
+  "2nd screen": "2nd screen",
+  "Second screen (on-air window for a second monitor, button in the header)": "Second screen (on-air window for a second monitor, button in the header)",
+  "Open the second screen when the program starts": "Open the second screen when the program starts"
 }

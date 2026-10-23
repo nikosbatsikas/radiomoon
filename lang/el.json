@@ -567,5 +567,7 @@
   "MegaMix jingles / effects": "Jingles / εφέ MegaMix",
   "MegaMix commercials": "Διαφημίσεις MegaMix",
   "Nothing is playing": "Δεν παίζει τίποτα",
-  "2nd screen": "2η οθόνη"
+  "2nd screen": "2η οθόνη",
+  "Second screen (on-air window for a second monitor, button in the header)": "Δεύτερη οθόνη (παράθυρο on-air για δεύτερο monitor, κουμπί στην κεφαλίδα)",
+  "Open the second screen when the program starts": "Άνοιγμα της δεύτερης οθόνης στην εκκίνηση του προγράμματος"
 }

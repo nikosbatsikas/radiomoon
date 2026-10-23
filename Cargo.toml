@@ -1,6 +1,6 @@
 [package]
 name = "radiomoon"
-version = "0.5.23"
+version = "0.5.24"
 edition = "2021"
 description = "RadioMoon - radio automation software"
 license = "LicenseRef-RadioMoon"
