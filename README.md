@@ -116,7 +116,7 @@ Control Panel > Scheduling > Live rebroadcast.
 - **Sources:** add as many as you need. Each is a sound card input, or an internet radio stream (enter a URL: MP3 or AAC over HTTP/HTTPS; HLS is not supported), with its own level. *Go live* puts it on the air at once.
 - **Schedule:** each entry picks a source, the days, a start and an end time (HH:MM, over midnight allowed) and whether to mute the automation. The source goes on the air at the start and off at the end.
 - **LIVE button** in the studio header: click to start or stop the selected source; right-click to choose another. Stopping a scheduled source by hand keeps it off until its slot ends.
-- The live audio is mixed into the main output, so it is also in the internet broadcast and MPX. With *mute the automation* the playlist keeps running silently underneath, so the schedule stays in time.
+- The live audio is mixed into the main output, so it is also in the internet broadcast and MPX. The player shows a blinking **LIVE** with the source name. With *Stop automation* the playlist stops and the studio goes to MANUAL while the source is live; afterwards the previous mode returns and AUTO continues with the next item.
 
 ## Not included
 

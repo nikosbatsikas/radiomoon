@@ -446,6 +446,11 @@ impl eframe::App for App {
         let pos = self.player.as_ref().map(|p| p.pos_ms()).unwrap_or(0);
         let paused = self.player.as_ref().map(|p| p.is_paused()).unwrap_or(false);
         let (pv_active, pv_el) = self.player.as_ref().map(|p| (p.preview_active(), p.preview_elapsed_ms())).unwrap_or((false, 0));
+        let live_label: Option<String> = if self.player.as_ref().map(|p| p.live_active()).unwrap_or(false) {
+            Some(self.data.s.live_sources.get(self.live_sel).map(|x| x.name.clone()).unwrap_or_else(|| "LIVE".into()))
+        } else {
+            None
+        };
         let starts_naive = self.starts();
         let starts: Vec<DateTime<Local>> = starts_naive.iter().map(|n| n.and_local_timezone(Local).single().unwrap_or(now)).collect();
         let from = self.current.map(|c| c + 1).unwrap_or(0);
@@ -550,7 +555,13 @@ impl eframe::App for App {
             let dur = ct.as_ref().map(|t| t.duration_ms).unwrap_or(0);
             let frac = if dur > 0 { (pos as f32 / dur as f32).min(1.0) } else { 0.0 };
 
-            if let Some(t) = &ct {
+            if let Some(name) = &live_label {
+                let on = (now.timestamp_millis() / 500) % 2 == 0;
+                p.circle_filled(pos2(x0 + 14.0, r.top() + 34.0), 11.0, if on { kit::BAD } else { kit::BAD.gamma_multiply(0.35) });
+                p.text(pos2(x0 + 36.0, r.top() + 34.0), Align2::LEFT_CENTER, "LIVE", FontId::proportional(40.0), WHITE);
+                p.text(pos2(x0, r.top() + 68.0), Align2::LEFT_CENTER, name, FontId::proportional(20.0), kit::GRAY);
+                ctx.request_repaint_after(std::time::Duration::from_millis(250));
+            } else if let Some(t) = &ct {
                 p.text(pos2(x0, r.top() + 20.0), Align2::LEFT_CENTER, t.artist.to_uppercase(), FontId::proportional(20.0), WHITE);
                 p.text(pos2(x0, r.top() + 46.0), Align2::LEFT_CENTER, &t.title, FontId::proportional(28.0), WHITE);
                 let meta = format!("{} | {} | {} | {}", t.kind, t.cat1, t.genre, fmt_ms(t.duration_ms));

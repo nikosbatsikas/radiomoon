@@ -135,6 +135,8 @@ pub struct App {
     pub live_sel: usize,
     pub live_slot: Option<usize>,
     pub live_dismissed: Option<usize>,
+    /// mode before a live source stopped the automation
+    pub live_prev_mode: Option<Mode>,
     pub last_live_check: Instant,
 }
 
@@ -188,6 +190,7 @@ impl App {
             live_sel: 0,
             live_slot: None,
             live_dismissed: None,
+            live_prev_mode: None,
             last_live_check: Instant::now(),
         };
         app.reload_all();
@@ -425,10 +428,17 @@ impl App {
             return false;
         };
         let Some(p) = self.player.as_mut() else { return false };
-        match p.start_live(&src.url, &src.device, src.gain_db, mute) {
+        match p.start_live(&src.url, &src.device, src.gain_db, false) {
             Ok(_) => {
                 self.live_slot = slot;
                 self.live_sel = idx;
+                if mute && self.live_prev_mode.is_none() {
+                    // the automation stops while the live source is on the air; it is resumed afterwards
+                    self.live_prev_mode = Some(self.mode);
+                    self.stop();
+                    self.mode = Mode::Manual;
+                    self.gen = None;
+                }
                 self.status = format!("{}: {}", tr("Live source on air"), src.name);
                 true
             }
@@ -447,7 +457,22 @@ impl App {
         if let Some(i) = self.live_slot.take() {
             self.live_dismissed = Some(i);
         }
+        self.live_resume_automation();
         self.status = tr("Live source stopped");
+    }
+
+    /// After the live source: back to the mode the studio was in; AUTO continues with the next item.
+    fn live_resume_automation(&mut self) {
+        if let Some(m) = self.live_prev_mode.take() {
+            self.mode = m;
+            self.gen = None;
+            if m == Mode::Auto {
+                self.autoplay_pending = true;
+                self.auto_fill();
+                self.expand_pending();
+                self.auto_start();
+            }
+        }
     }
 
     /// Starts and ends the scheduled live sources (checked every second).
@@ -506,6 +531,7 @@ impl App {
                         p.stop_live();
                     }
                     self.live_slot = None;
+                    self.live_resume_automation();
                     self.status = tr("Scheduled live source ended");
                 }
             }

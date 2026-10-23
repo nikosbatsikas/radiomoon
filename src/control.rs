@@ -1588,7 +1588,7 @@ impl App {
                         ch |= ui.add(egui::TextEdit::singleline(&mut sl.start).desired_width(48.0)).changed();
                         ui.label(tr("to"));
                         ch |= ui.add(egui::TextEdit::singleline(&mut sl.end).desired_width(48.0)).changed();
-                        ch |= ui.checkbox(&mut sl.mute, tr("Mute automation")).changed();
+                        ch |= ui.checkbox(&mut sl.mute, tr("Stop automation")).changed();
                         if ui.button(tr("Delete")).clicked() {
                             del_slot = Some(i);
                         }
@@ -1615,8 +1615,8 @@ impl App {
             ch = true;
         }
         kit::card(ui, "Options", |ui| {
-            ch |= ui.checkbox(&mut self.data.s.live_mute_automation, tr("Mute the automation while live (it keeps running silently underneath)")).changed();
-            ui.label(RichText::new(tr("This applies to sources started by hand. Each schedule entry has its own setting. Right-click the LIVE button in the studio to choose a source.")).color(kit::GRAY).small());
+            ch |= ui.checkbox(&mut self.data.s.live_mute_automation, tr("Stop the automation while live (it continues afterwards)")).changed();
+            ui.label(RichText::new(tr("While a source is live the studio shows LIVE in the player. With the automation stopped, the playlist is stopped and the mode switches to MANUAL; when the source ends the previous mode returns and AUTO plays the next item. This applies to sources started by hand; each schedule entry has its own setting. Right-click the LIVE button in the studio to choose a source.")).color(kit::GRAY).small());
         });
         if let Some(p) = self.player.as_ref() {
             if p.live_active() {
