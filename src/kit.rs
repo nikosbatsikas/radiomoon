@@ -2,61 +2,84 @@
 use eframe::egui::{self, pos2, vec2, Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense, Shape, Stroke, Ui};
 use std::f32::consts::PI;
 
-pub const GRAY: Color32 = Color32::from_rgb(236, 240, 248);
-pub const BLUE: Color32 = Color32::from_rgb(33, 102, 240);
-pub const GREEN: Color32 = Color32::from_rgb(34, 150, 60);
-pub const RED: Color32 = Color32::from_rgb(170, 30, 30);
-pub const DARK: Color32 = Color32::from_rgb(34, 34, 38);
+// Palette of FM Analyzer: dark instrument look
+pub const BG: Color32 = Color32::from_rgb(0x0b, 0x0e, 0x12);
+pub const PANEL: Color32 = Color32::from_rgb(0x11, 0x15, 0x1b);
+pub const CARD: Color32 = Color32::from_rgb(0x17, 0x1c, 0x24);
+pub const BORDER: Color32 = Color32::from_rgb(0x26, 0x2d, 0x38);
+pub const INSET: Color32 = Color32::from_rgb(0x08, 0x0a, 0x0d);
+pub const SIDEBAR: Color32 = Color32::from_rgb(0x08, 0x0a, 0x0d);
+pub const CONTROL: Color32 = Color32::from_rgb(0x20, 0x27, 0x31);
+pub const CONTROL_HOVER: Color32 = Color32::from_rgb(0x29, 0x32, 0x3e);
+pub const CONTROL_ACTIVE: Color32 = Color32::from_rgb(0x31, 0x3c, 0x4a);
+pub const TEXT: Color32 = Color32::from_rgb(0xd6, 0xdc, 0xe4);
+pub const TEXT_DIM: Color32 = Color32::from_rgb(0x7a, 0x85, 0x93);
+pub const ACCENT: Color32 = Color32::from_rgb(0x38, 0xb6, 0xff);
+pub const GOOD: Color32 = Color32::from_rgb(0x34, 0xd3, 0x86);
+pub const WARN: Color32 = Color32::from_rgb(0xf5, 0xb0, 0x3a);
+pub const BAD: Color32 = Color32::from_rgb(0xff, 0x52, 0x5a);
 
-pub const ACCENT: Color32 = Color32::from_rgb(59, 130, 246);
-pub const BG: Color32 = Color32::from_rgb(8, 9, 12);
-pub const PANEL: Color32 = Color32::from_rgb(13, 15, 19);
-pub const CARD: Color32 = Color32::from_rgb(18, 21, 27);
-pub const BORDER: Color32 = Color32::from_rgb(78, 88, 110);
-pub const SIDEBAR: Color32 = Color32::from_rgb(5, 6, 8);
+// Names used all over the program (button fills carry white text, so they are the deeper shades)
+pub const GRAY: Color32 = TEXT;
+pub const BLUE: Color32 = Color32::from_rgb(0x1f, 0x7f, 0xc4);
+pub const GREEN: Color32 = Color32::from_rgb(0x1f, 0x9d, 0x62);
+pub const RED: Color32 = Color32::from_rgb(0xc4, 0x36, 0x40);
+pub const DARK: Color32 = CONTROL;
 
 pub fn visuals() -> egui::Visuals {
     let mut v = egui::Visuals::dark();
-    v.panel_fill = BG;
-    v.window_fill = PANEL;
-    v.extreme_bg_color = Color32::from_rgb(4, 5, 7);
-    v.faint_bg_color = Color32::from_rgb(16, 18, 23);
-    v.window_rounding = 10.0.into();
-    v.menu_rounding = 8.0.into();
+    v.dark_mode = true;
+    v.override_text_color = Some(TEXT);
+    v.panel_fill = PANEL;
+    v.window_fill = CARD;
+    v.extreme_bg_color = INSET;
+    v.faint_bg_color = Color32::from_rgb(0x1b, 0x21, 0x2a);
+    v.code_bg_color = INSET;
+    v.window_rounding = 6.0.into();
+    v.menu_rounding = 6.0.into();
     v.window_stroke = Stroke::new(1.0_f32, BORDER);
     v.window_shadow = egui::epaint::Shadow { offset: vec2(0.0, 10.0), blur: 28.0, spread: 0.0, color: Color32::from_black_alpha(170) };
     v.popup_shadow = egui::epaint::Shadow { offset: vec2(0.0, 6.0), blur: 16.0, spread: 0.0, color: Color32::from_black_alpha(140) };
-    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, BORDER);
-    v.widgets.noninteractive.rounding = 6.0.into();
-    v.widgets.inactive.rounding = 6.0.into();
-    v.widgets.hovered.rounding = 6.0.into();
-    v.widgets.active.rounding = 6.0.into();
-    v.widgets.open.rounding = 6.0.into();
-    v.widgets.inactive.weak_bg_fill = Color32::from_rgb(30, 34, 44);
-    v.widgets.inactive.bg_fill = Color32::from_rgb(30, 34, 44);
-    v.widgets.hovered.weak_bg_fill = Color32::from_rgb(44, 50, 66);
-    v.widgets.hovered.bg_fill = Color32::from_rgb(44, 50, 66);
-    v.widgets.hovered.bg_stroke = Stroke::new(1.0_f32, ACCENT);
-    v.widgets.active.weak_bg_fill = ACCENT.gamma_multiply(0.8);
-    v.widgets.active.bg_fill = ACCENT.gamma_multiply(0.8);
-    v.selection.bg_fill = ACCENT.gamma_multiply(0.45);
+    v.hyperlink_color = ACCENT;
+    v.warn_fg_color = WARN;
+    v.error_fg_color = BAD;
+    v.selection.bg_fill = ACCENT.gamma_multiply(0.35);
     v.selection.stroke = Stroke::new(1.0_f32, ACCENT);
-    v.hyperlink_color = Color32::from_rgb(120, 175, 255);
-    v.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, Color32::from_gray(228));
-    v.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, Color32::from_gray(240));
-    v.widgets.hovered.fg_stroke = Stroke::new(1.5_f32, Color32::WHITE);
-    v.widgets.active.fg_stroke = Stroke::new(1.5_f32, Color32::WHITE);
-    v.override_text_color = None;
+    let r: egui::Rounding = 4.0.into();
+    let w = &mut v.widgets;
+    w.noninteractive.bg_fill = CARD;
+    w.noninteractive.weak_bg_fill = CARD;
+    w.noninteractive.bg_stroke = Stroke::new(1.0_f32, BORDER);
+    w.noninteractive.fg_stroke = Stroke::new(1.0_f32, TEXT);
+    w.noninteractive.rounding = r;
+    w.inactive.bg_fill = CONTROL;
+    w.inactive.weak_bg_fill = CONTROL;
+    w.inactive.bg_stroke = Stroke::new(1.0_f32, BORDER);
+    w.inactive.fg_stroke = Stroke::new(1.0_f32, TEXT);
+    w.inactive.rounding = r;
+    w.hovered.bg_fill = CONTROL_HOVER;
+    w.hovered.weak_bg_fill = CONTROL_HOVER;
+    w.hovered.bg_stroke = Stroke::new(1.0_f32, ACCENT.gamma_multiply(0.6));
+    w.hovered.fg_stroke = Stroke::new(1.5_f32, TEXT);
+    w.hovered.rounding = r;
+    w.hovered.expansion = 0.0;
+    w.active.bg_fill = CONTROL_ACTIVE;
+    w.active.weak_bg_fill = CONTROL_ACTIVE;
+    w.active.bg_stroke = Stroke::new(1.0_f32, ACCENT);
+    w.active.fg_stroke = Stroke::new(1.5_f32, TEXT);
+    w.active.rounding = r;
+    w.active.expansion = 0.0;
+    w.open = w.active;
     v
 }
 
-/// Embeds a clear font (Latin + Greek) so text looks the same on every system.
+/// Same fonts as FM Analyzer (egui's built-in ones), with an embedded DejaVu Sans as the fallback for Greek.
 fn install_fonts(ctx: &egui::Context) {
     use egui::{FontData, FontDefinitions, FontFamily};
     let mut fd = FontDefinitions::default();
     fd.font_data.insert("dejavu".into(), FontData::from_static(include_bytes!("../assets/fonts/DejaVuSans.ttf")));
     fd.font_data.insert("dejavu-bold".into(), FontData::from_static(include_bytes!("../assets/fonts/DejaVuSans-Bold.ttf")));
-    fd.families.entry(FontFamily::Proportional).or_default().insert(0, "dejavu".into());
+    fd.families.entry(FontFamily::Proportional).or_default().push("dejavu".into());
     fd.families.entry(FontFamily::Monospace).or_default().push("dejavu".into());
     ctx.set_fonts(fd);
 }
@@ -68,15 +91,16 @@ pub fn apply_style(ctx: &egui::Context) {
     install_fonts(ctx);
     let mut style = (*ctx.style()).clone();
     style.text_styles = std::collections::BTreeMap::from([
-        (TextStyle::Heading, FontId::new(23.0, FontFamily::Proportional)),
-        (TextStyle::Body, FontId::new(15.0, FontFamily::Proportional)),
+        (TextStyle::Heading, FontId::new(20.0, FontFamily::Proportional)),
+        (TextStyle::Body, FontId::new(14.5, FontFamily::Proportional)),
         (TextStyle::Monospace, FontId::new(13.5, FontFamily::Monospace)),
-        (TextStyle::Button, FontId::new(15.0, FontFamily::Proportional)),
-        (TextStyle::Small, FontId::new(13.0, FontFamily::Proportional)),
+        (TextStyle::Button, FontId::new(14.5, FontFamily::Proportional)),
+        (TextStyle::Small, FontId::new(12.0, FontFamily::Proportional)),
     ]);
-    style.spacing.item_spacing = vec2(8.0, 7.0);
-    style.spacing.button_padding = vec2(12.0, 6.0);
-    style.spacing.interact_size.y = 28.0;
+    style.spacing.item_spacing = vec2(8.0, 6.0);
+    style.spacing.button_padding = vec2(10.0, 4.0);
+    style.spacing.interact_size.y = 26.0;
+    style.spacing.slider_width = 140.0;
     style.spacing.window_margin = egui::Margin::same(14.0);
     style.visuals = visuals();
     ctx.set_style(style);
@@ -310,7 +334,7 @@ pub fn cp_text_sizes(ctx: &egui::Context, small: bool) {
         return;
     }
     ctx.style_mut(|st| {
-        let (h, b, sm, m) = if small { (19.0, 13.0, 11.5, 12.0) } else { (23.0, 15.0, 13.0, 13.5) };
+        let (h, b, sm, m) = if small { (16.0, 13.5, 10.5, 13.0) } else { (20.0, 14.5, 12.0, 13.5) };
         st.text_styles = std::collections::BTreeMap::from([
             (TextStyle::Heading, FontId::new(h, FontFamily::Proportional)),
             (TextStyle::Body, FontId::new(b, FontFamily::Proportional)),
@@ -318,8 +342,8 @@ pub fn cp_text_sizes(ctx: &egui::Context, small: bool) {
             (TextStyle::Button, FontId::new(b, FontFamily::Proportional)),
             (TextStyle::Small, FontId::new(sm, FontFamily::Proportional)),
         ]);
-        st.spacing.item_spacing = if small { vec2(7.0, 5.0) } else { vec2(8.0, 7.0) };
-        st.spacing.interact_size.y = if small { 24.0 } else { 28.0 };
-        st.spacing.button_padding = if small { vec2(10.0, 4.0) } else { vec2(12.0, 6.0) };
+        st.spacing.item_spacing = vec2(8.0, 6.0);
+        st.spacing.interact_size.y = if small { 24.0 } else { 26.0 };
+        st.spacing.button_padding = vec2(10.0, 4.0);
     });
 }

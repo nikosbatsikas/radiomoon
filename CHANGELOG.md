@@ -31,6 +31,10 @@
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`; a release is made by pushing a tag
 `vMAJOR.MINOR.PATCH` that matches it (see README.txt, "Versioning and releases").
 
+## 0.5.3
+- New look: colours and fonts of FM Analyzer (dark instrument palette, egui's own fonts with DejaVu as the Greek fallback).
+- The tabs fit the window: the library tabs of the studio use the full width, the Control Panel menu shrinks its rows to fit the window height.
+
 ## 0.5.2
 - Live rebroadcast: any number of sources (sound inputs and internet streams), each with its own level, and a weekly schedule (days, start and end time, mute automation per entry; over midnight is supported). New page Scheduling > Live rebroadcast. Right-click the LIVE button in the studio to choose a source. The single source of 0.5.0/0.5.1 is converted automatically.
 

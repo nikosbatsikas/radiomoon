@@ -297,7 +297,7 @@ impl App {
         let screen = ctx.screen_rect();
         let size = vec2((screen.width() - 80.0).clamp(900.0, 1600.0), (screen.height() - 80.0).max(560.0));
         let mut close = false;
-        let head_bg = Color32::from_rgb(10, 12, 16);
+        let head_bg = kit::INSET;
         egui::Window::new(tr("rm_control_panel"))
             .title_bar(false)
             .resizable(false)
@@ -324,21 +324,25 @@ impl App {
                     ui.allocate_ui_with_layout(vec2(232.0, body_h), egui::Layout::top_down(egui::Align::LEFT), |ui| {
                         let side = ui.max_rect();
                         ui.painter().rect_filled(side, egui::Rounding { nw: 0.0, ne: 0.0, sw: 10.0, se: 0.0 }, kit::SIDEBAR);
+                        // all entries fit the height of the window: the row height shrinks when the window is low
+                        let n_items: usize = NAV.iter().map(|g| g.1.len()).sum();
+                        let fixed = NAV.len() as f32 * (10.0 + 18.0) + 12.0 + 26.0 + if self.data.s.users_enabled { 34.0 } else { 0.0 };
+                        let item_h = ((body_h - fixed - 8.0) / n_items as f32).clamp(20.0, 34.0);
                         egui::ScrollArea::vertical().id_salt("cpnav").auto_shrink([false, false]).show(ui, |ui| {
                             for (group, pages) in NAV.iter() {
-                                ui.add_space(14.0);
+                                ui.add_space(10.0);
                                 let (gr, _) = ui.allocate_exact_size(vec2(216.0, 18.0), Sense::hover());
                                 ui.painter().text(pos2(gr.left() + 18.0, gr.center().y), Align2::LEFT_CENTER, tr(group).to_uppercase(), FontId::proportional(11.0), kit::GRAY);
                                 for (pg, name, perm) in pages.iter() {
                                     let allowed = self.can(perm);
-                                    let (rect, resp) = ui.allocate_exact_size(vec2(216.0, 34.0), Sense::click());
+                                    let (rect, resp) = ui.allocate_exact_size(vec2(216.0, item_h), Sense::click());
                                     let sel = self.cp.page == *pg;
                                     let painter = ui.painter().clone();
                                     if sel {
                                         painter.rect_filled(rect.shrink2(vec2(8.0, 1.0)), 6.0, kit::ACCENT.gamma_multiply(0.28));
-                                        painter.rect_filled(Rect::from_min_size(rect.min + vec2(8.0, 6.0), vec2(3.0, 22.0)), 2.0, kit::ACCENT);
+                                        painter.rect_filled(Rect::from_min_size(rect.min + vec2(8.0, item_h * 0.18), vec2(3.0, item_h * 0.64)), 2.0, kit::ACCENT);
                                     } else if resp.hovered() && allowed {
-                                        painter.rect_filled(rect.shrink2(vec2(8.0, 1.0)), 6.0, Color32::from_rgb(36, 41, 53));
+                                        painter.rect_filled(rect.shrink2(vec2(8.0, 1.0)), 6.0, kit::CONTROL_HOVER);
                                     }
                                     let col = if !allowed { Color32::from_gray(150) } else if sel { Color32::WHITE } else { Color32::WHITE };
                                     painter.text(pos2(rect.left() + 26.0, rect.center().y), Align2::LEFT_CENTER, tr(name), FontId::proportional(13.0), col);
@@ -393,7 +397,7 @@ impl App {
                                 }
                                 if !self.cp.msg.is_empty() {
                                     ui.add_space(10.0);
-                                    ui.colored_label(Color32::from_rgb(120, 220, 140), &self.cp.msg.clone());
+                                    ui.colored_label(kit::GOOD, &self.cp.msg.clone());
                                 }
                             });
                         });
@@ -1345,7 +1349,7 @@ impl App {
                 }
             }
         });
-        ui.colored_label(Color32::from_rgb(120, 220, 140), &self.cp.fl_msg.clone());
+        ui.colored_label(kit::GOOD, &self.cp.fl_msg.clone());
         ui.label(tr("Saved logs:"));
         ui.label(self.data.finals.iter().map(|f| f.date.clone()).collect::<Vec<_>>().join(", "));
         ui.separator();
@@ -2121,16 +2125,16 @@ impl App {
                         let h = peaks[idx].powf(0.7) * rect.height() * 0.46;
                         let x = rect.left() + c as f32 + 0.5;
                         let inside = ms >= t.mix_in_ms as f32 && (t.mix_out_ms == 0 || ms <= t.mix_out_ms as f32);
-                        let col = if inside { Color32::from_rgb(70, 160, 255) } else { Color32::from_rgb(88, 94, 108) };
+                        let col = if inside { kit::ACCENT } else { Color32::from_rgb(88, 94, 108) };
                         p.line_segment([pos2(x, mid - h), pos2(x, mid + h)], Stroke::new(1.0_f32, col));
                     }
                 } else {
                     p.text(rect.center(), Align2::CENTER_CENTER, tr("analysing waveform..."), FontId::proportional(13.0), kit::GRAY);
                 }
                 let marks = [
-                    (t.mix_in_ms, "Mix start", Color32::from_rgb(60, 220, 90)),
-                    (t.mix_out_ms, "Mix end", Color32::from_rgb(255, 170, 60)),
-                    (t.intro_ms, "Intro end", Color32::from_rgb(70, 170, 255)),
+                    (t.mix_in_ms, "Mix start", kit::GOOD),
+                    (t.mix_out_ms, "Mix end", kit::WARN),
+                    (t.intro_ms, "Intro end", kit::ACCENT),
                     (t.hook_in_ms, "Hook in", Color32::from_rgb(190, 120, 255)),
                     (t.hook_out_ms, "Hook out", Color32::from_rgb(255, 110, 190)),
                 ];
@@ -2458,7 +2462,7 @@ impl App {
             match &lines {
                 Some(l) => {
                     for t in l {
-                        ui.colored_label(Color32::from_rgb(120, 220, 140), t);
+                        ui.colored_label(kit::GOOD, t);
                     }
                     ui.add(egui::ProgressBar::new(peak.min(1.0)).desired_width(360.0).text(format!("{:.1} kHz  ({:.0}%)", peak * 75.0, peak * 100.0)));
                 }

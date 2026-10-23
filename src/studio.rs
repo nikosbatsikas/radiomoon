@@ -365,7 +365,7 @@ impl App {
                 ui.add_space(8.0);
                 let go = ui.button(tr("Log in")).clicked();
                 if !self.login_err.is_empty() {
-                    ui.colored_label(Color32::from_rgb(255, 90, 70), &self.login_err);
+                    ui.colored_label(kit::BAD, &self.login_err);
                 }
                 if go {
                     self.login();
@@ -563,7 +563,7 @@ impl eframe::App for App {
             }
 
             let wr = Rect::from_min_max(pos2(x0, r.top() + 84.0), pos2(rx - 34.0, r.bottom() - 8.0));
-            p.rect_filled(wr, 0.0, Color32::from_rgb(8, 8, 10));
+            p.rect_filled(wr, 0.0, kit::INSET);
             if !peaks.is_empty() {
                 let cols = (wr.width() / 2.0) as usize;
                 let mid = wr.center().y;
@@ -577,7 +577,7 @@ impl eframe::App for App {
                 }
                 if let Some(t) = &ct {
                     if dur > 0 {
-                        for (m, col) in [(t.mix_in_ms, Color32::from_rgb(60, 220, 90)), (t.mix_out_ms, Color32::from_rgb(255, 170, 60)), (t.intro_ms, Color32::from_rgb(60, 160, 230))] {
+                        for (m, col) in [(t.mix_in_ms, kit::GOOD), (t.mix_out_ms, kit::WARN), (t.intro_ms, Color32::from_rgb(60, 160, 230))] {
                             if m > 0 {
                                 let mx = wr.left() + (m as f32 / dur as f32).min(1.0) * wr.width();
                                 p.line_segment([pos2(mx, wr.top()), pos2(mx, wr.bottom())], Stroke::new(1.0_f32, col));
@@ -625,7 +625,7 @@ impl eframe::App for App {
                 let a = -PI / 2.0 + 2.0 * PI * s as f32 / 60.0;
                 let q = pos2(cc.x + 58.0 * a.cos(), cc.y + 58.0 * a.sin());
                 let on = s <= sec;
-                p.circle_filled(q, if s % 5 == 0 { 3.2 } else { 2.0 }, if on { Color32::from_rgb(60, 190, 255) } else { Color32::from_rgb(50, 60, 80) });
+                p.circle_filled(q, if s % 5 == 0 { 3.2 } else { 2.0 }, if on { kit::ACCENT } else { Color32::from_rgb(50, 60, 80) });
             }
             p.text(pos2(cc.x, cc.y - 24.0), Align2::CENTER_CENTER, now.format("%A").to_string(), FontId::proportional(13.0), kit::GRAY);
             p.text(pos2(cc.x, cc.y), Align2::CENTER_CENTER, now.format("%H:%M:%S").to_string(), FontId::proportional(24.0), WHITE);
@@ -658,7 +658,7 @@ impl eframe::App for App {
         });
 
         // ---- status bar ----
-        egui::TopBottomPanel::bottom("status").exact_height(22.0).frame(egui::Frame::none().fill(Color32::from_rgb(8, 8, 10))).show(ctx, |ui| {
+        egui::TopBottomPanel::bottom("status").exact_height(22.0).frame(egui::Frame::none().fill(kit::INSET)).show(ctx, |ui| {
             let scan = self.scan_status.lock().map(|s| s.clone()).unwrap_or_default();
             let who = self.user.as_ref().map(|u| format!("   [{}]", u.name)).unwrap_or_default();
             let live = if self.streamers.is_empty() { String::new() } else { format!("   [LIVE: {}]", self.streamers.iter().map(|(_, _, s)| s.status_text()).collect::<Vec<_>>().join(" | ")) };
@@ -719,11 +719,11 @@ impl eframe::App for App {
                     let r1 = tp.text(pos2(tx, rect.top() + 14.0), Align2::LEFT_CENTER, format!("AT {}", starts[i].format("%H:%M:%S")), FontId::proportional(11.0), Color32::from_gray(190));
                     let mut nx = r1.right() + 10.0;
                     if !t.is_overlay() {
-                        let r2 = tp.text(pos2(nx, rect.top() + 14.0), Align2::LEFT_CENTER, format!("Dur: {}", fmt_dur(t.duration_ms)), FontId::proportional(11.0), Color32::from_rgb(60, 220, 90));
+                        let r2 = tp.text(pos2(nx, rect.top() + 14.0), Align2::LEFT_CENTER, format!("Dur: {}", fmt_dur(t.duration_ms)), FontId::proportional(11.0), kit::GOOD);
                         nx = r2.right() + 10.0;
                     }
                     if !t.fixed_start.is_empty() {
-                        tp.text(pos2(nx, rect.top() + 14.0), Align2::LEFT_CENTER, tr("EXACT TIME"), FontId::proportional(11.0), Color32::from_rgb(255, 170, 60));
+                        tp.text(pos2(nx, rect.top() + 14.0), Align2::LEFT_CENTER, tr("EXACT TIME"), FontId::proportional(11.0), kit::WARN);
                     }
                     let mut title = if t.kind == "music" && !t.artist.is_empty() { format!("{} - {}", t.artist, t.title) } else { t.title.clone() };
                     if t.is_overlay() {
@@ -793,7 +793,7 @@ impl eframe::App for App {
                         ui.label(egui::RichText::new(tr("No ad breaks ahead")).size(12.0).color(kit::GRAY));
                     }
                     for (tm, items, tot) in breaks.iter() {
-                        ui.label(egui::RichText::new(format!("{tm}  Ad break")).strong().size(13.0).color(Color32::from_rgb(255, 170, 60)));
+                        ui.label(egui::RichText::new(format!("{tm}  Ad break")).strong().size(13.0).color(kit::WARN));
                         for it in items {
                             ui.label(egui::RichText::new(format!("  - {it}")).size(12.0));
                         }
@@ -804,10 +804,10 @@ impl eframe::App for App {
                 ui.separator();
                 ui.label(egui::RichText::new(tr("Problems")).strong().size(15.0).color(kit::GRAY));
                 if problems.is_empty() {
-                    ui.label(egui::RichText::new(tr("None")).size(12.0).color(Color32::from_rgb(60, 220, 90)));
+                    ui.label(egui::RichText::new(tr("None")).size(12.0).color(kit::GOOD));
                 }
                 for pr in problems.iter() {
-                    ui.label(egui::RichText::new(pr).size(12.0).color(Color32::from_rgb(255, 90, 70)));
+                    ui.label(egui::RichText::new(pr).size(12.0).color(kit::BAD));
                 }
                 ui.separator();
                 ui.label(egui::RichText::new(tr("Memos")).strong().size(15.0).color(kit::GRAY));
@@ -923,7 +923,7 @@ impl eframe::App for App {
         }
 
         // ---- database (centre) ----
-        egui::CentralPanel::default().frame(egui::Frame::none().fill(Color32::from_rgb(20, 20, 22)).inner_margin(4.0)).show(ctx, |ui| {
+        egui::CentralPanel::default().frame(egui::Frame::none().fill(kit::PANEL).inner_margin(4.0)).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new(tr("Database")).size(14.0).color(kit::GRAY));
                 if self.mode == Mode::Auto && ui.small_button(tr("Rebuild upcoming auto items")).clicked() {
@@ -941,10 +941,10 @@ impl eframe::App for App {
                 ("memo", "Memos", Color32::from_rgb(230, 140, 40)),
             ];
             let (trect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 46.0), Sense::hover());
-            let tw = (trect.width() / 7.0).min(100.0);
+            let tw = trect.width() / 7.0;
             for (i, (k, lbl, col)) in tabs.iter().enumerate() {
                 let rr = Rect::from_min_size(pos2(trect.left() + i as f32 * tw, trect.top()), vec2(tw - 2.0, 46.0));
-                let fill = if self.lib_kind == *k { Color32::from_rgb(54, 54, 60) } else { Color32::from_rgb(30, 30, 34) };
+                let fill = if self.lib_kind == *k { kit::CONTROL_ACTIVE } else { kit::CONTROL };
                 if kit::button_at(ui, rr, &format!("tab{i}"), None, lbl, fill, WHITE).clicked() {
                     actions.push(Action::Tab(*k));
                 }
@@ -979,7 +979,7 @@ impl eframe::App for App {
                     let w = ui.available_width();
                     let cols = [0.0, 0.30 * w, 0.68 * w, 0.78 * w, w];
                     let (hr, _) = ui.allocate_exact_size(vec2(w, 22.0), Sense::hover());
-                    ui.painter_at(hr).rect_filled(hr, 0.0, Color32::from_rgb(40, 40, 46));
+                    ui.painter_at(hr).rect_filled(hr, 0.0, kit::CONTROL_HOVER);
                     let heads = if is_memo { ["Category", "Title", "", ""] } else { ["Artist", "Title", "Dur", "Category"] };
                     for (k, name) in heads.iter().enumerate() {
                         kit::cell_text(ui, hr, hr.left() + cols[k], hr.left() + cols[k + 1], name, 12.5, kit::GRAY);
