@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.13
+- Start in AUTO no longer replays the playlist of the last run: the schedule builds a new playlist, so the songs differ at every start.
+- "Add selected" in AUTO mode queues the track right after the current song (and after earlier manual items) instead of after all the generated hours, so it is really played.
+
 ## 0.5.12
 - New stand-alone program **RadioMoon-MPX-Transmitter**: takes a folder of audio files (random order), an internet stream or a sound input, builds the FM multiplex (stereo, pilot, RDS with RadioText from the playing file) and sends it to a 192 kHz sound card and/or over IP. It runs by itself, like the MPX Receiver, with the MPX analyzer included.
 - Included in the Windows installer and portable zip, Linux packages and tar.gz, and macOS app bundle.

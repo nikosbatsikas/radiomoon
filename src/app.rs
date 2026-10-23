@@ -205,6 +205,9 @@ impl App {
         if app.data.s.start_mode == "auto" {
             app.mode = Mode::Auto;
             app.autoplay_pending = true;
+            // the playlist of the last run is not replayed: the schedule builds a new one (different songs at every start)
+            app.log.clear();
+            app.save_log();
         }
         if app.data.s.mpx.autostart {
             app.start_mpx();

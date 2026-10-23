@@ -219,7 +219,17 @@ impl App {
                     if self.lib_kind == "sweeper" || self.lib_kind == "voice" {
                         t.overlay_pos = "start".into();
                     }
-                    if matches!(a, Action::AddSel) {
+                    if matches!(a, Action::AddSel) && self.mode == Mode::Auto {
+                        // in AUTO the schedule has already filled the next hours: a manual item is queued right after the
+                        // current song (and after the manual items added before it), so it is really played
+                        let from = self.current.map(|c| c + 1).unwrap_or(0).min(self.log.len());
+                        let mut pos = from;
+                        while pos < self.log.len() && self.log[pos].src == "manual" {
+                            pos += 1;
+                        }
+                        self.log.insert(pos, t);
+                        self.sel = Some(pos);
+                    } else if matches!(a, Action::AddSel) {
                         self.log.push(t);
                     } else {
                         let pos = self.current.map(|c| c + 1).unwrap_or(0).min(self.log.len());
