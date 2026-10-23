@@ -13,10 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Update the release descriptions
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # a push that changes the version is handled by auto-tag (it writes the notes of the new release itself)
+          if [ "${{ github.event_name }}" = "push" ] && ! git diff HEAD~1 HEAD --quiet -- Cargo.toml 2>/dev/null; then
+            if git diff HEAD~1 HEAD -- Cargo.toml | grep -q '^[+-]version'; then
+              echo "Version changed in this push - auto-tag writes the release notes."
+              exit 0
+            fi
+          fi
           for TAG in $(gh release list --limit 200 --json tagName -q '.[].tagName'); do
             V="${TAG#v}"
             awk -v v="$V" '$0 ~ "^## " v "([^0-9.]|$)" {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
