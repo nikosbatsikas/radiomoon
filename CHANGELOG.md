@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.9
+- Main auto schedule: the weekly grid now has half-hour steps (a clock can start at :00 and at :30; the previous hourly schedule is converted automatically). New look: coloured clock chips, neighbouring slots of the same clock drawn as one block, today and the current half hour highlighted, drag to paint, click a day name to fill the day or an hour to fill it on every day.
+
 ## 0.5.8
 - Live rebroadcast: cross-fade (0-15 s, default 3 s, setting in Scheduling > Live rebroadcast). At the start the automation fades out while the live source fades in; at the end the live source fades out while the automation fades in with its next item, so both are heard together during the transition.
 

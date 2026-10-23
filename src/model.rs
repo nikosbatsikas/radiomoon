@@ -484,6 +484,7 @@ pub struct Settings {
     pub next_day_window_min: u32,
     pub rules: Vec<Rule>,
     pub cat_names: Vec<String>,
+    /// one clock id per half hour: weekday * 48 + hour * 2 + (minute >= 30); older versions stored 168 hourly values
     pub clock_grid: Vec<u64>,
     pub prios: Vec<Priority>,
     pub out_main: String,
@@ -545,7 +546,7 @@ impl Default for Settings {
             next_day_window_min: 120,
             rules: vec![],
             cat_names: vec!["Category 1".into(), "Category 2".into(), "Category 3".into()],
-            clock_grid: vec![0; 168],
+            clock_grid: vec![0; 336],
             prios: vec![
                 pr(1, "Station ID", false, false, false),
                 pr(2, "Break start announcement", false, false, true),

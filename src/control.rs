@@ -8,7 +8,7 @@ use crate::export;
 use crate::library::{self, ImportOpts};
 use crate::model::*;
 use crate::player;
-use chrono::{Datelike, Duration, Local, NaiveDateTime};
+use chrono::{Datelike, Duration, Local, NaiveDateTime, Timelike};
 use eframe::egui::{self, pos2, vec2, Align2, Color32, FontId, Rect, RichText, Sense, Stroke};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -1072,44 +1072,120 @@ impl App {
             self.del_doc(id);
         }
         ui.separator();
-        ui.label(RichText::new(tr("Clocks schedule (weekday x hour). Pick a clock, then click cells.")).strong());
+        ui.label(RichText::new(tr("Clocks schedule (weekday x half hour). Pick a clock, then click or drag over the cells. Click a day name to fill the whole day, an hour to fill that hour on every day.")).strong());
         let names: Vec<(u64, String, [u8; 3])> = self.data.clocks.iter().map(|c| (c.id, c.name.clone(), c.color)).collect();
+        // ---- brush: the clocks as coloured chips
         ui.horizontal_wrapped(|ui| {
-            ui.selectable_value(&mut self.cp.grid_brush, 0, tr("(none)"));
-            for (id, n, _) in &names {
-                ui.selectable_value(&mut self.cp.grid_brush, *id, n);
-            }
-        });
-        let mut grid = self.data.s.clock_grid.clone();
-        grid.resize(168, 0);
-        let mut changed = false;
-        egui::Grid::new("clockgrid").spacing([2.0, 2.0]).show(ui, |ui| {
-            ui.label("");
-            for d in DAYS {
-                ui.label(tr(d));
-            }
-            ui.end_row();
-            for h in 0..24 {
-                ui.label(format!("{h:02}"));
-                for d in 0..7 {
-                    let cid = grid[d * 24 + h];
-                    let col = names.iter().find(|n| n.0 == cid).map(|n| Color32::from_rgb(n.2[0], n.2[1], n.2[2])).unwrap_or(Color32::from_gray(40));
-                    let (r, resp) = ui.allocate_exact_size(egui::vec2(60.0, 16.0), egui::Sense::click_and_drag());
-                    ui.painter().rect_filled(r, 2.0, col);
-                    let name = names.iter().find(|n| n.0 == cid).map(|n| n.1.clone()).unwrap_or_default();
-                    ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, name, egui::FontId::proportional(10.0), Color32::WHITE);
-                    if resp.clicked() || (resp.hovered() && ui.input(|i| i.pointer.primary_down())) {
-                        if grid[d * 24 + h] != self.cp.grid_brush {
-                            grid[d * 24 + h] = self.cp.grid_brush;
-                            changed = true;
-                        }
-                    }
+            let mut chip = |ui: &mut egui::Ui, id: u64, label: &str, col: Color32| {
+                let on = self.cp.grid_brush == id;
+                let fg = if (col.r() as u32 * 299 + col.g() as u32 * 587 + col.b() as u32 * 114) / 1000 > 150 { Color32::BLACK } else { Color32::WHITE };
+                let b = egui::Button::new(RichText::new(label).color(fg)).fill(col).stroke(if on { Stroke::new(2.0, Color32::WHITE) } else { Stroke::new(1.0, kit::BORDER) });
+                if ui.add(b).clicked() {
+                    self.cp.grid_brush = id;
                 }
-                ui.end_row();
+            };
+            chip(ui, 0, &tr("(none)"), kit::CONTROL);
+            for (id, n, c) in &names {
+                chip(ui, *id, n, Color32::from_rgb(c[0], c[1], c[2]));
             }
         });
+        ui.add_space(4.0);
+        // 48 slots a day: index = weekday * 48 + hour * 2 + (minute >= 30)
+        let mut grid = self.data.s.clock_grid.clone();
+        if grid.len() == 168 {
+            grid = (0..336).map(|i| grid[(i / 48) * 24 + (i % 48) / 2]).collect(); // older versions: one clock per hour
+        }
+        grid.resize(336, 0);
+        let mut changed = false;
+        let (label_w, head_h, row_h) = (46.0f32, 26.0f32, 14.0f32);
+        let total_w = ui.available_width().max(400.0);
+        let col_w = ((total_w - label_w) / 7.0).max(60.0);
+        let (rect, resp) = ui.allocate_exact_size(egui::vec2(label_w + col_w * 7.0, head_h + row_h * 48.0), egui::Sense::click_and_drag());
+        let painter = ui.painter_at(rect);
+        painter.rect_filled(rect, 8.0, kit::INSET);
+        let clock_of = |id: u64| names.iter().find(|n| n.0 == id);
+        // day headers
+        let now = Local::now();
+        let (now_d, now_slot) = (now.weekday().num_days_from_monday() as usize, (now.hour() * 2 + now.minute() / 30) as usize);
+        for d in 0..7 {
+            let x0 = rect.left() + label_w + d as f32 * col_w;
+            let hr = Rect::from_min_size(pos2(x0, rect.top()), egui::vec2(col_w, head_h));
+            let today = d == now_d;
+            painter.text(hr.center(), Align2::CENTER_CENTER, tr(DAYS[d]), FontId::proportional(13.5), if today { kit::ACCENT } else { kit::TEXT });
+            if today {
+                painter.rect_filled(Rect::from_min_size(pos2(x0 + 6.0, rect.top() + head_h - 3.0), egui::vec2(col_w - 12.0, 2.0)), 1.0, kit::ACCENT);
+            }
+        }
+        // hour labels and the cells (neighbouring half hours with the same clock are drawn as one block)
+        for h in 0..24 {
+            let y = rect.top() + head_h + h as f32 * 2.0 * row_h;
+            painter.text(pos2(rect.left() + label_w - 8.0, y + 1.0), Align2::RIGHT_TOP, format!("{h:02}:00"), FontId::proportional(11.0), kit::TEXT_DIM);
+            if h > 0 {
+                painter.line_segment([pos2(rect.left() + label_w - 4.0, y), pos2(rect.right() - 4.0, y)], Stroke::new(1.0, kit::BORDER.gamma_multiply(0.7)));
+            }
+        }
+        for d in 0..7 {
+            let x0 = rect.left() + label_w + d as f32 * col_w;
+            let mut i = 0;
+            while i < 48 {
+                let cid = grid[d * 48 + i];
+                let mut j = i + 1;
+                while j < 48 && grid[d * 48 + j] == cid && (j % 2 != 0 || cid != 0) {
+                    j += 1;
+                }
+                // blocks of an assigned clock continue over the hour lines, empty slots are not merged
+                let top = rect.top() + head_h + i as f32 * row_h;
+                let block = Rect::from_min_max(pos2(x0 + 2.0, top + 1.0), pos2(x0 + col_w - 2.0, top + (j - i) as f32 * row_h - 1.0));
+                match clock_of(cid) {
+                    Some(c) => {
+                        let col = Color32::from_rgb(c.2[0], c.2[1], c.2[2]);
+                        painter.rect_filled(block, 4.0, col.gamma_multiply(0.85));
+                        let fg = if (col.r() as u32 * 299 + col.g() as u32 * 587 + col.b() as u32 * 114) / 1000 > 150 { Color32::BLACK } else { Color32::WHITE };
+                        let galley_pos = pos2(block.center().x, block.top() + (block.height().min(row_h * 2.0)) / 2.0);
+                        painter.text(galley_pos, Align2::CENTER_CENTER, &c.1, FontId::proportional(11.0), fg);
+                    }
+                    None => painter.rect_filled(block, 3.0, kit::CARD),
+                }
+                i = j;
+            }
+        }
+        // the current half hour
+        let ny = rect.top() + head_h + now_slot as f32 * row_h;
+        painter.rect_stroke(Rect::from_min_size(pos2(rect.left() + label_w + now_d as f32 * col_w + 1.0, ny), egui::vec2(col_w - 2.0, row_h)), 3.0, Stroke::new(1.5, Color32::WHITE));
+        // painting with the mouse: click, drag, day header, hour label
+        let pressed = resp.clicked() || resp.dragged() || resp.drag_started();
+        if pressed {
+            if let Some(pos) = resp.interact_pointer_pos() {
+                let (rx, ry) = (pos.x - rect.left(), pos.y - rect.top());
+                let brush = self.cp.grid_brush;
+                if rx >= label_w && ry >= head_h {
+                    let d = (((rx - label_w) / col_w) as usize).min(6);
+                    let i = (((ry - head_h) / row_h) as usize).min(47);
+                    if grid[d * 48 + i] != brush {
+                        grid[d * 48 + i] = brush;
+                        changed = true;
+                    }
+                } else if rx >= label_w && resp.clicked() {
+                    let d = (((rx - label_w) / col_w) as usize).min(6);
+                    for i in 0..48 {
+                        grid[d * 48 + i] = brush;
+                    }
+                    changed = true;
+                } else if ry >= head_h && resp.clicked() {
+                    let h = (((ry - head_h) / (row_h * 2.0)) as usize).min(23);
+                    for d in 0..7 {
+                        grid[d * 48 + h * 2] = brush;
+                        grid[d * 48 + h * 2 + 1] = brush;
+                    }
+                    changed = true;
+                }
+            }
+        }
         if changed {
             self.data.s.clock_grid = grid;
+            self.save_settings();
+        } else if self.data.s.clock_grid.len() != 336 {
+            self.data.s.clock_grid = grid; // convert an old hourly schedule once
             self.save_settings();
         }
         ui.separator();

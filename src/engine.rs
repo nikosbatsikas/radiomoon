@@ -505,7 +505,9 @@ impl Generator {
     fn next_items(&mut self, d: &Data, rem: Option<i64>) -> Vec<Track> {
         let wd = self.t.date().weekday().num_days_from_monday() as usize;
         let hr = self.t.hour() as usize;
-        let cid = self.force_clock.unwrap_or_else(|| d.s.clock_grid.get(wd * 24 + hr).copied().unwrap_or(0));
+        let slot = if self.t.minute() >= 30 { 1 } else { 0 };
+        let g = &d.s.clock_grid;
+        let cid = self.force_clock.unwrap_or_else(|| (if g.len() == 168 { g.get(wd * 24 + hr) } else { g.get(wd * 48 + hr * 2 + slot) }).copied().unwrap_or(0));
         if cid != self.clock_id {
             self.clock_id = cid;
             self.row = 0;
