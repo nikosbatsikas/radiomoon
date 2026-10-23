@@ -31,6 +31,9 @@
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`; a release is made by pushing a tag
 `vMAJOR.MINOR.PATCH` that matches it (see README.txt, "Versioning and releases").
 
+## 0.5.4
+- Fixed: in the edit windows (song title, campaign, clock, playlist, force clock ...) every text field accepted one letter and then lost the keyboard focus. The window changed its identity whenever the title changed.
+
 ## 0.5.3
 - New look: colours and fonts of FM Analyzer (dark instrument palette, egui's own fonts with DejaVu as the Greek fallback).
 - The tabs fit the window: the library tabs of the studio use the full width, the Control Panel menu shrinks its rows to fit the window height.

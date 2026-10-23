@@ -231,10 +231,14 @@ fn ms_edit(ui: &mut egui::Ui, label: &str, v: &mut u64) {
 }
 
 /// Same size and position for every dialog of the Control Panel.
-fn dialog<'a>(ctx: &egui::Context, title: impl Into<egui::WidgetText>) -> egui::Window<'a> {
+fn dialog<'a>(ctx: &egui::Context, title: impl Into<String>) -> egui::Window<'a> {
+    let title: String = title.into();
+    // The window id must not depend on text the user edits (a title such as "Edit: <song title>"): a new id on every
+    // key press would rebuild the window and drop the keyboard focus after each letter.
+    let key = title.split(|c| c == ':' || c == '(').next().unwrap_or("").trim().to_string();
     let sc = ctx.screen_rect();
     let size = vec2((sc.width() - 120.0).clamp(560.0, 860.0), (sc.height() - 100.0).clamp(420.0, 700.0));
-    egui::Window::new(title).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, [0.0, 0.0]).fixed_size(size)
+    egui::Window::new(title).id(egui::Id::new(("rm_dialog", key))).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, [0.0, 0.0]).fixed_size(size)
 }
 
 /// Text field with a Browse button (folder or file).
