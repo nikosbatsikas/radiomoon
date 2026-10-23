@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.19
+- New program icon (sunset moon with sound bars) for the studio, MPX Receiver and Transmitter, installer and packages.
+
 ## 0.5.18
 - The songs that were already played leave the playlist; the list starts with the song on air.
 - Playlist editor: a song can be only once in a playlist (songs already added are hidden in the picker).
