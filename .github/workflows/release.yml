@@ -123,8 +123,16 @@ jobs:
         run: |
           V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           [ "v$V" = "${GITHUB_REF_NAME}" ] || { echo "Tag ${GITHUB_REF_NAME} does not match Cargo.toml version $V"; exit 1; }
+      - name: Release notes from CHANGELOG.md
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          awk -v v="$V" '$0 ~ "^## " v "([^0-9.]|$)" {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "RadioMoon $V" > notes.md
+          cat notes.md
       - uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')
         with:
           files: out/*
-          generate_release_notes: true
+          body_path: notes.md
+          generate_release_notes: false
