@@ -68,9 +68,9 @@ Both the generator (Control Panel > MPX > Signal analysis) and the receiver show
 
 The receiver also runs on a **Raspberry Pi 3/4/5 with 64-bit Raspberry Pi OS**: download `RadioMoon-MPX-Receiver-<ver>-linux-arm64.tar.gz`, extract it and run `./radiomoon-mpx-receiver` (needs a desktop session and `libasound2`). A 192 kHz capable USB or HAT sound card is required for the composite output.
 
-## Import from Jazler RadioStar 2
+## Import from Jazler RadioStar 2 / MegaMix
 
-Control Panel > Utilities > Import from Jazler RadioStar 2. Select the old `.mdb` database (Access 2000-2003), press **Scan file**, choose what to import (songs, spots and campaigns, playlists, jingle pallets, play history) and press **Start import**.
+Control Panel > Utilities > Import from Jazler / MegaMix. The type of the database is detected automatically; for MegaMix the songs, jingles / effects, commercials, artists, styles / categories / eras and playlists are imported (the music sequence rules are not converted). Select the old `.mdb` database (Access 2000-2003), press **Scan file**, choose what to import (songs, spots and campaigns, playlists, jingle pallets, play history) and press **Start import**.
 
 - If the audio files are on another drive or folder, use the old/new path-start fields.
 - Existing data is never overwritten: known file paths and same-named categories, playlists, campaigns and pallets are skipped.
@@ -100,7 +100,7 @@ Control Panel > Backup & restore: a daily automatic backup (default 03:00, keeps
 | Libraries | Songs (3 categories + vocal + properties, intro, mix points, hooks, volume, song separation, playlister code, mass change, normalize, statistics), Spots (campaigns, breaks, priorities, playlister import), Jingles, Assets, Sweepers, Voice tracks, Memos, Instant jingle pallets, Stitcher |
 | Scheduling | Main auto schedule (clocks, 7x24 grid, randomness, artist separation, next-day separation, restrictive rules, classic auto), Playlists, Force clocks, Final log creator, Log viewer |
 | Settings | General, Sound outputs, Shortcuts, Users & security, Audio folder mappings, Internet broadcast, MPX, Backup & restore, Database server |
-| Utilities | Internet updater files, Import from Jazler RadioStar 2, Integrity check, Broadcasting reports, Reset database |
+| Utilities | Internet updater files, Import from Jazler / MegaMix, Integrity check, Broadcasting reports, Reset database |
 
 ## First steps
 

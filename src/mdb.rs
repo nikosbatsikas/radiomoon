@@ -184,6 +184,22 @@ impl Mdb {
                 out.push((name, id & 0x00FF_FFFF));
             }
         }
+        // Some databases (MegaMix) have table definitions whose catalog row is not readable: they are found by their first column.
+        for pg in 3..self.npages as u32 {
+            if out.iter().any(|x| x.1 == pg) || self.page(pg as usize).first() != Some(&2) {
+                continue;
+            }
+            if let Some(t) = self.tdef("?", pg) {
+                let name = match t.cols.first().map(|c| c.name.as_str()) {
+                    Some("MediaID") if t.cols.len() > 20 => "Media",
+                    Some("PlayListItemID") => "PlayListItems",
+                    _ => continue,
+                };
+                if !out.iter().any(|x| x.0 == name) {
+                    out.push((name.to_string(), pg));
+                }
+            }
+        }
         out
     }
 

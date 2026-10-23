@@ -92,7 +92,7 @@ const NAV: [(&str, &[(Page, &str, &str)]); 4] = [
         "Utilities",
         &[
             (Page::Updater, "Internet updater", "utilities"),
-            (Page::Jazler, "Import from Jazler RadioStar 2", "utilities"),
+            (Page::Jazler, "Import from Jazler / MegaMix", "utilities"),
             (Page::Integrity, "Integrity check", "utilities"),
             (Page::Reports, "Broadcasting reports", "utilities"),
             (Page::Reset, "Reset database", "db_reset"),
@@ -2022,8 +2022,8 @@ impl App {
 
     fn page_jazler(&mut self, ui: &mut egui::Ui) {
         use std::sync::atomic::Ordering;
-        ui.heading(tr("Import from Jazler RadioStar 2"));
-        ui.label(tr("Imports songs, spots, categories, playlists, campaigns, jingle pallets and play history from a Jazler RadioStar 2 database (.mdb, Access 2000-2003). Existing data is kept; nothing is overwritten or deleted. User passwords are not imported."));
+        ui.heading(tr("Import from Jazler / MegaMix"));
+        ui.label(tr("Imports songs, spots, jingles, categories, playlists, campaigns, jingle pallets and play history from a Jazler RadioStar 2 or a MegaMix database (.mdb, Access 2000-2003); the type is detected automatically. Existing data is kept; nothing is overwritten or deleted. User passwords are not imported."));
         ui.add_space(6.0);
         let busy = self.cp.jz_busy.load(Ordering::SeqCst);
         if self.cp.jz_done.swap(false, Ordering::SeqCst) {

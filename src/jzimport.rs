@@ -109,6 +109,17 @@ fn hm_part(dt: &str) -> String {
 /// Number of items found in the file, for the preview before the import.
 pub fn preview(path: &Path) -> Result<Vec<(String, usize)>, String> {
     let m = Mdb::open(path)?;
+    if m.table("snDatabase").is_none() && m.table("Media").is_some() {
+        let media = rows(&m, "Media");
+        let count = |f: &dyn Fn(i64) -> bool| media.iter().filter(|r| f(n(r, "MediaType"))).count();
+        return Ok(vec![
+            ("MegaMix songs".to_string(), count(&|t| t == 0)),
+            ("MegaMix jingles / effects".to_string(), count(&|t| t != 0 && t != 6)),
+            ("MegaMix commercials".to_string(), count(&|t| t == 6)),
+            ("Artists".to_string(), rows(&m, "Artist").len()),
+            ("Playlists".to_string(), rows(&m, "PlayListBase").len()),
+        ]);
+    }
     let mut v = Vec::new();
     for (label, table) in [("Songs", "snDatabase"), ("Artists", "snArtists"), ("Spots", "Com_Files"), ("Campaigns", "Com_List"), ("Playlists", "Playlists_Titles"), ("Jingle pallet buttons", "PalleteData"), ("Play history entries", "snMusicBroadcasts")] {
         let c = m.table(table).map(|t| m.rows(&t).len()).unwrap_or(0);
@@ -124,8 +135,11 @@ pub fn preview(path: &Path) -> Result<Vec<(String, usize)>, String> {
 /// (such files are not added twice); new tracks get ids starting at `first_id`.
 pub fn read(path: &Path, o: &Opts, existing: &HashMap<String, u64>, first_id: u64) -> Result<Imported, String> {
     let m = Mdb::open(path)?;
+    if m.table("snDatabase").is_none() && m.table("Media").is_some() {
+        return read_megamix(&m, o, existing, first_id);
+    }
     if m.table("snDatabase").is_none() {
-        return Err("This does not look like a Jazler RadioStar 2 database (table snDatabase not found).".into());
+        return Err("This does not look like a Jazler RadioStar 2 or MegaMix database (tables snDatabase / Media not found).".into());
     }
     let mut out = Imported::default();
     let mut next = first_id;
@@ -426,6 +440,101 @@ pub fn read(path: &Path, o: &Opts, existing: &HashMap<String, u64>, first_id: u6
         out.history.sort_by(|a, b| a.1.cmp(&b.1));
         out.report.push(format!("Play history: {c} entries of the last {} days", o.history_days));
     }
+    Ok(out)
+}
+
+/// MegaMix database: songs, jingles / effects and commercials (table Media), artists, styles, categories, eras and playlists.
+/// Times are in whole seconds. The music sequence rules (MusicSeq*) are not converted.
+fn read_megamix(m: &Mdb, o: &Opts, existing: &HashMap<String, u64>, first_id: u64) -> Result<Imported, String> {
+    let mut out = Imported::default();
+    let mut next = first_id;
+    let mut by_path: HashMap<String, u64> = existing.clone();
+    let mut names: HashMap<&str, HashMap<i64, String>> = HashMap::new();
+    for (lib, table, idcol) in [("song1", "Style", "StyleID"), ("song2", "Category", "CategoryID"), ("song3", "Era", "EraID")] {
+        let mut map = HashMap::new();
+        for r in rows(m, table) {
+            let name = clean(&s(&r, "Title"));
+            if name.is_empty() {
+                continue;
+            }
+            map.insert(n(&r, idcol), name.clone());
+            out.cats.push(Category { id: 0, lib: lib.to_string(), name, color: [90, 110, 140], comment: String::new() });
+        }
+        names.insert(lib, map);
+    }
+    let nm = |lib: &str, id: i64| -> String { names.get(lib).and_then(|x| x.get(&id)).cloned().unwrap_or_default() };
+    let artists: HashMap<i64, String> = rows(m, "Artist").iter().map(|r| (n(r, "ArtistID"), clean(&s(r, "Name")))).collect();
+    let mut ids: HashMap<i64, u64> = HashMap::new();
+    let (mut songs, mut other, mut spots, mut dup) = (0usize, 0usize, 0usize, 0usize);
+    for r in rows(m, "Media") {
+        let old = n(&r, "MediaID");
+        let p = fix_path(&s(&r, "MediaFile"), &o.replace_from, &o.replace_to);
+        let p = if p.is_empty() { fix_path(&s(&r, "URLMediaFile"), &o.replace_from, &o.replace_to) } else { p };
+        if p.is_empty() {
+            continue;
+        }
+        let key = p.to_lowercase();
+        if let Some(id) = by_path.get(&key) {
+            ids.insert(old, *id);
+            dup += 1;
+            continue;
+        }
+        let typ = n(&r, "MediaType");
+        let (kind, want) = match typ {
+            0 => ("music", o.songs),
+            6 => ("spot", o.spots),
+            _ => ("jingle", o.songs),
+        };
+        if !want {
+            continue;
+        }
+        let dur = f(&r, "DurrationLT");
+        let mix = f(&r, "MixTimeLT");
+        let intro = f(&r, "IntroLT");
+        let music = kind == "music";
+        out.tracks.push(Track {
+            id: next,
+            kind: kind.into(),
+            title: s(&r, "Title"),
+            artist: if music { artists.get(&n(&r, "ArtistID")).cloned().unwrap_or_default() } else { String::new() },
+            album: if music { clean(&s(&r, "CDTitle")) } else { String::new() },
+            path: p,
+            duration_ms: ms(dur),
+            cat1: if music { nm("song1", n(&r, "StyleID")) } else { String::new() },
+            cat2: if music { nm("song2", n(&r, "CategoryID")) } else { String::new() },
+            cat3: if music { nm("song3", n(&r, "EraID")) } else { String::new() },
+            enabled: true,
+            intro_ms: if intro > 0.0 && intro < dur { ms(intro) } else { 0 },
+            mix_in_ms: ms(f(&r, "StartTimeLT")),
+            mix_out_ms: if mix > 0.0 && mix < dur - 0.05 { ms(mix) } else { 0 },
+            notes: clean(&s(&r, "Other")),
+            ..Default::default()
+        });
+        by_path.insert(key, next);
+        ids.insert(old, next);
+        match kind {
+            "music" => songs += 1,
+            "spot" => spots += 1,
+            _ => other += 1,
+        }
+        next += 1;
+    }
+    out.report.push(format!("MegaMix: {songs} songs, {other} jingles / effects, {spots} commercials imported, {dup} already in the library"));
+    if o.playlists {
+        let items = rows(m, "PlayListItems");
+        for r in rows(m, "PlayListBase") {
+            let pid = n(&r, "PlayListBaseID");
+            let mut list: Vec<(i64, u64)> = items.iter().filter(|i| n(i, "PlayListBaseID") == pid).filter_map(|i| ids.get(&n(i, "MediaID")).map(|t| (n(i, "PlayListItemID"), *t))).collect();
+            list.sort_by_key(|x| x.0);
+            let title = clean(&s(&r, "Title"));
+            if title.is_empty() || list.is_empty() {
+                continue;
+            }
+            out.playlists.push(Playlist { name: title, random: b(&r, "RandomizeOnStartup"), items: list.into_iter().map(|x| PItem { track_id: x.1, ..Default::default() }).collect(), ..Default::default() });
+        }
+        out.report.push(format!("Playlists: {}", out.playlists.len()));
+    }
+    out.report.push("The music sequence rules (MusicSeq*) and customers are not converted; build the clocks in the Main auto schedule.".to_string());
     Ok(out)
 }
 

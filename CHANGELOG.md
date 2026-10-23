@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.21
+- Import of a MegaMix database (.mdb): songs, jingles / effects, commercials, artists, styles, categories, eras and playlists. The import page now detects Jazler RadioStar 2 and MegaMix files automatically.
+
 ## 0.5.20
 - The Windows installer can install the database (MariaDB) as the Windows service RadioMoonDB (automatic start, local connections only); the program uses the running service, and the uninstaller removes it but keeps the data.
 - Auto volume (Control Panel > Sound outputs): keeps all songs at the same loudness with a target level and maximum boost and reduction.

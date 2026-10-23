@@ -487,8 +487,6 @@
   "All servers that are marked \"Use this server\" are started together. The title of the playing song is sent to every server. Jingles, spots and sweepers that are played through the main output are part of the stream.": "Όλοι οι διακομιστές με την επιλογή «Χρήση αυτού του διακομιστή» ξεκινούν μαζί. Ο τίτλος του τραγουδιού στέλνεται σε κάθε διακομιστή. Τα jingles, οι διαφημίσεις και τα sweepers που παίζουν από την κύρια έξοδο ανήκουν στη ροή.",
   "Browse...": "Αναζήτηση...",
   "Select an item in the playlist first": "Επιλέξτε πρώτα ένα στοιχείο στη λίστα",
-  "Import from Jazler RadioStar 2": "Εισαγωγή από Jazler RadioStar 2",
-  "Imports songs, spots, categories, playlists, campaigns, jingle pallets and play history from a Jazler RadioStar 2 database (.mdb, Access 2000-2003). Existing data is kept; nothing is overwritten or deleted. User passwords are not imported.": "Εισάγει τραγούδια, σποτ, κατηγορίες, playlists, καμπάνιες, παλέτες jingle και ιστορικό αναπαραγωγής από βάση Jazler RadioStar 2 (.mdb, Access 2000-2003). Τα υπάρχοντα δεδομένα διατηρούνται· τίποτα δεν διαγράφεται ή αντικαθίσταται. Οι κωδικοί χρηστών δεν εισάγονται.",
   "Database file (.mdb)": "Αρχείο βάσης (.mdb)",
   "Scan file": "Έλεγχος αρχείου",
   "Songs and artists": "Τραγούδια και καλλιτέχνες",
@@ -562,5 +560,10 @@
   "Target level": "Επίπεδο στόχος",
   "Maximum boost (quiet songs)": "Μέγιστη ενίσχυση (χαμηλά τραγούδια)",
   "Maximum reduction (loud songs)": "Μέγιστη μείωση (δυνατά τραγούδια)",
-  "The level of each song is followed while it plays and corrected slowly, so quiet songs are raised and loud songs are lowered. It applies to the next song that starts.": "Η ένταση κάθε τραγουδιού παρακολουθείται όσο παίζει και διορθώνεται αργά: τα χαμηλά τραγούδια ανεβαίνουν και τα δυνατά κατεβαίνουν. Ισχύει από το επόμενο τραγούδι που ξεκινά."
+  "The level of each song is followed while it plays and corrected slowly, so quiet songs are raised and loud songs are lowered. It applies to the next song that starts.": "Η ένταση κάθε τραγουδιού παρακολουθείται όσο παίζει και διορθώνεται αργά: τα χαμηλά τραγούδια ανεβαίνουν και τα δυνατά κατεβαίνουν. Ισχύει από το επόμενο τραγούδι που ξεκινά.",
+  "Import from Jazler / MegaMix": "Εισαγωγή από Jazler / MegaMix",
+  "Imports songs, spots, jingles, categories, playlists, campaigns, jingle pallets and play history from a Jazler RadioStar 2 or a MegaMix database (.mdb, Access 2000-2003); the type is detected automatically. Existing data is kept; nothing is overwritten or deleted. User passwords are not imported.": "Εισάγει τραγούδια, spots, jingles, κατηγορίες, playlists, καμπάνιες, παλέτες jingles και ιστορικό από βάση Jazler RadioStar 2 ή MegaMix (.mdb, Access 2000-2003)· ο τύπος αναγνωρίζεται αυτόματα. Τα υπάρχοντα δεδομένα διατηρούνται, τίποτα δεν αντικαθίσταται ή διαγράφεται. Οι κωδικοί χρηστών δεν εισάγονται.",
+  "MegaMix songs": "Τραγούδια MegaMix",
+  "MegaMix jingles / effects": "Jingles / εφέ MegaMix",
+  "MegaMix commercials": "Διαφημίσεις MegaMix"
 }
