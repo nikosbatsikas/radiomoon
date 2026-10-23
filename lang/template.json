@@ -533,5 +533,10 @@
   "Station": "",
   "Cross-fade at the start and end of the live source (seconds)": "",
   "At the start the automation fades out while the live source fades in, and the other way round at the end, so both are heard together during the transition. With the automation not stopped, only the live source fades in and out.": "",
-  "Clocks schedule (weekday x half hour). Pick a clock or a playlist (▶, played at the start of its block), then click or drag over the cells. Click a day name to fill the whole day, an hour to fill that hour on every day.": ""
+  "Clocks schedule (weekday x half hour). Pick a clock or a playlist (▶, played at the start of its block), then click or drag over the cells. Click a day name to fill the whole day, an hour to fill that hour on every day.": "",
+  "Edit selected": "Edit selected",
+  "No playlist selected": "No playlist selected",
+  "Scheduled Times": "Scheduled Times",
+  "Scheduled": "Scheduled",
+  "Items": "Items"
 }

@@ -134,6 +134,7 @@ pub struct ControlState {
     pub pl_days: [bool; 7],
     pub pl_clock: u64,
     pub pl_hours: u32,
+    pub pl_sel: u64,
     // force
     pub fc: Option<ForceClock>,
     pub fc_time: String,
@@ -231,6 +232,16 @@ fn ms_edit(ui: &mut egui::Ui, label: &str, v: &mut u64) {
 }
 
 /// Same size and position for every dialog of the Control Panel.
+/// 2:56:39 style total of a playlist
+fn hms(ms: u64) -> String {
+    let s = ms / 1000;
+    if s >= 3600 {
+        format!("{}:{:02}:{:02}", s / 3600, (s / 60) % 60, s % 60)
+    } else {
+        format!("{}:{:02}", s / 60, s % 60)
+    }
+}
+
 fn dialog<'a>(ctx: &egui::Context, title: impl Into<String>) -> egui::Window<'a> {
     let title: String = title.into();
     // The window id must not depend on text the user edits (a title such as "Edit: <song title>"): a new id on every
@@ -1246,7 +1257,6 @@ impl App {
         }
     }
 
-    // ---------------------------------------------------------------- playlists
     fn page_playlists(&mut self, ui: &mut egui::Ui) {
         ui.heading(tr("Playlists"));
         ui.horizontal_wrapped(|ui| {
@@ -1284,32 +1294,134 @@ impl App {
                 }
             }
         });
-        let mut edit = None;
-        let mut del = None;
-        for p in &self.data.playlists {
-            ui.horizontal(|ui| {
-                ui.label(format!("{} ({} items, {} schedule(s))", p.name, p.items.len(), p.sched.len()));
-                if ui.small_button(tr("edit")).clicked() {
-                    edit = Some(p.clone());
+        let pls = self.data.playlists.clone();
+        let dur_of = |d: &engine::Data, p: &Playlist| -> u64 { p.items.iter().filter_map(|it| d.track(it.track_id)).map(|t| t.eff_ms()).sum() };
+        let mut edit: Option<Playlist> = None;
+        let mut del: Option<u64> = None;
+        let mut new_sel = self.cp.pl_sel;
+        if !pls.iter().any(|p| p.id == new_sel) {
+            new_sel = pls.first().map(|p| p.id).unwrap_or(0);
+        }
+        let sel_pl = pls.iter().find(|p| p.id == new_sel).cloned();
+        ui.horizontal(|ui| {
+            ui.add_enabled_ui(sel_pl.is_some(), |ui| {
+                if ui.button(tr("Edit selected")).clicked() {
+                    edit = sel_pl.clone();
                 }
-                if ui.small_button(tr("delete")).clicked() {
-                    del = Some(p.id);
+                if ui.button(tr("Delete selected")).clicked() {
+                    del = sel_pl.as_ref().map(|p| p.id);
                 }
             });
-        }
+        });
+        ui.add_space(4.0);
+        let total = ui.available_width();
+        let right_w = 330.0f32.min(total * 0.42);
+        let h = (ui.available_height() - 6.0).max(320.0);
+        let purple = Color32::from_rgb(0x5a, 0x2d, 0x91);
+        ui.horizontal_top(|ui| {
+            // ---- left grid: all the playlists
+            ui.allocate_ui_with_layout(vec2((total - right_w - 12.0).max(200.0), h), egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                let w = ui.available_width();
+                let (hr, _) = ui.allocate_exact_size(vec2(w, 22.0), Sense::hover());
+                let cols = [0.0_f32, w * 0.52, w * 0.66, w * 0.80];
+                for (i, t) in ["Title", "Duration", "Items", "Scheduled"].iter().enumerate() {
+                    ui.painter().text(pos2(hr.left() + cols[i] + 8.0, hr.center().y), Align2::LEFT_CENTER, tr(t), FontId::proportional(12.0), kit::TEXT_DIM);
+                }
+                ui.painter().line_segment([pos2(hr.left(), hr.bottom()), pos2(hr.right(), hr.bottom())], Stroke::new(1.0_f32, kit::BORDER));
+                egui::ScrollArea::vertical().id_salt("plgrid").max_height(h - 26.0).auto_shrink([false, false]).show(ui, |ui| {
+                    for p in &pls {
+                        let (r, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 26.0), Sense::click());
+                        let on = p.id == new_sel;
+                        if on {
+                            ui.painter().rect_filled(r, 2.0, purple);
+                        } else if resp.hovered() {
+                            ui.painter().rect_filled(r, 2.0, kit::CONTROL_HOVER);
+                        }
+                        let fg = if on { Color32::WHITE } else { kit::TEXT };
+                        let pt = |x: f32, txt: String, bold: bool| {
+                            ui.painter().text(pos2(r.left() + x + 8.0, r.center().y), Align2::LEFT_CENTER, txt, FontId::proportional(if bold { 13.5 } else { 12.5 }), fg);
+                        };
+                        pt(cols[0], p.name.clone(), true);
+                        pt(cols[1], hms(dur_of(&self.data, p)), true);
+                        pt(cols[2], p.items.len().to_string(), false);
+                        pt(cols[3], if p.sched.is_empty() { "-".to_string() } else { p.sched.len().to_string() }, false);
+                        if resp.clicked() {
+                            new_sel = p.id;
+                        }
+                        if resp.double_clicked() {
+                            edit = Some(p.clone());
+                        }
+                        resp.context_menu(|ui| {
+                            if ui.button(tr("edit")).clicked() {
+                                edit = Some(p.clone());
+                                ui.close_menu();
+                            }
+                            if ui.button(tr("delete")).clicked() {
+                                del = Some(p.id);
+                                ui.close_menu();
+                            }
+                        });
+                    }
+                });
+            });
+            // ---- right panel: the items of the selected playlist and its scheduled times
+            ui.allocate_ui_with_layout(vec2(right_w, h), egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                egui::Frame::none().fill(kit::INSET).rounding(6.0).inner_margin(6.0).show(ui, |ui| {
+                    ui.set_width(right_w - 14.0);
+                    match &sel_pl {
+                        None => {
+                            ui.label(RichText::new(tr("No playlist selected")).color(kit::TEXT_DIM));
+                        }
+                        Some(p) => {
+                            ui.label(RichText::new(format!("{} ({})", p.name, hms(dur_of(&self.data, p)))).color(kit::WARN).italics());
+                            egui::ScrollArea::vertical().id_salt("plitems_r").max_height((h - 150.0).max(120.0)).auto_shrink([false, false]).show(ui, |ui| {
+                                for (i, it) in p.items.iter().enumerate() {
+                                    let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 40.0), Sense::hover());
+                                    let t = self.data.track(it.track_id);
+                                    let jingle = it.break_ref.is_empty() && t.map(|t| t.kind != "music").unwrap_or(false);
+                                    let bg = if !it.break_ref.is_empty() { Color32::from_rgb(0x3a, 0x2f, 0x14) } else if jingle { Color32::from_rgb(0x1c, 0x24, 0x4a) } else { kit::CARD };
+                                    ui.painter().rect_filled(r.shrink2(vec2(0.0, 1.0)), 3.0, bg);
+                                    let (title, dur, intro) = if !it.break_ref.is_empty() {
+                                        (format!("Break {}", it.break_ref), String::new(), 0)
+                                    } else if let Some(t) = t {
+                                        (t.label(), format!("Dur: {}", fmt_ms(t.eff_ms())), t.intro_ms)
+                                    } else {
+                                        ("(missing)".to_string(), String::new(), 0)
+                                    };
+                                    ui.painter().text(pos2(r.left() + 6.0, r.top() + 4.0), Align2::LEFT_TOP, format!("{}", i + 1), FontId::proportional(10.0), kit::TEXT_DIM);
+                                    ui.painter().text(pos2(r.left() + 24.0, r.top() + 3.0), Align2::LEFT_TOP, dur, FontId::proportional(10.0), kit::GOOD);
+                                    if intro > 0 {
+                                        ui.painter().text(pos2(r.left() + 110.0, r.top() + 3.0), Align2::LEFT_TOP, format!("INTRO: {:.1}s", intro as f64 / 1000.0), FontId::proportional(10.0), kit::BAD);
+                                    }
+                                    let g = ui.painter().layout_no_wrap(title, FontId::proportional(14.0), kit::TEXT);
+                                    let clip = ui.painter().with_clip_rect(Rect::from_min_max(pos2(r.left() + 6.0, r.top()), pos2(r.right() - 4.0, r.bottom())));
+                                    clip.galley(pos2(r.left() + 24.0, r.top() + 16.0), g, kit::TEXT);
+                                }
+                            });
+                            ui.add_space(6.0);
+                            ui.label(RichText::new(tr("Scheduled Times")).small().color(kit::TEXT_DIM));
+                            egui::Frame::none().fill(kit::PANEL).rounding(4.0).inner_margin(6.0).show(ui, |ui| {
+                                ui.set_min_height(60.0);
+                                ui.set_width(ui.available_width());
+                                if p.sched.is_empty() {
+                                    ui.label(RichText::new("-").color(kit::TEXT_DIM));
+                                }
+                                for s in &p.sched {
+                                    let when = if s.date.is_empty() { (0..7).filter(|d| (s.weekdays >> d) & 1 == 1).map(|d| tr(DAYS[d])).collect::<Vec<_>>().join(",") } else { s.date.clone() };
+                                    ui.label(format!("{when}  {}{}", s.time, if s.immediate { "  (immediately)" } else { "" }));
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+        });
+        self.cp.pl_sel = new_sel;
         if edit.is_some() {
             self.cp.pl = edit;
         }
         if let Some(id) = del {
             self.del_doc(id);
-        }
-        ui.separator();
-        ui.label(RichText::new(tr("Scheduling timetable")).strong());
-        for p in &self.data.playlists {
-            for s in &p.sched {
-                let when = if s.date.is_empty() { (0..7).filter(|d| (s.weekdays >> d) & 1 == 1).map(|d| DAYS[d]).collect::<Vec<_>>().join(",") } else { s.date.clone() };
-                ui.label(format!("{when} {}  {}{}", s.time, p.name, if s.immediate { "  (starts immediately)" } else { "" }));
-            }
         }
     }
 

@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.15
+- Playlists page redesigned: a grid of all playlists (title, duration, items, schedules) on the left, and on the right the numbered items of the selected playlist (duration, intro, jingles tinted blue) with its scheduled times below. Double-click or right-click a playlist to edit or delete it.
+
 ## 0.5.14
 - Playlists can be called from the Main auto schedule by time: pick a playlist (purple, marked with a triangle) as the brush and paint it on the half-hour grid; it starts at the beginning of each painted block, then the clock continues.
 
