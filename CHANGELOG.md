@@ -2,6 +2,11 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.18
+- The songs that were already played leave the playlist; the list starts with the song on air.
+- Playlist editor: a song can be only once in a playlist (songs already added are hidden in the picker).
+- New About window (button in the header) in the style of FM Analyzer: logo, version, authors, features, project link and gift button.
+
 ## 0.5.17
 - Playlist editor: search the songs stored in the database and add them to the playlist with + or a double-click (or add all shown), choose music, jingles, sweepers, voices or spots.
 - A playlist placed in the Main auto schedule now plays only its own songs for the whole painted block, repeating if it is shorter than the block (no clock songs are mixed in).

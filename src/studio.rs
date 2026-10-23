@@ -531,6 +531,10 @@ impl eframe::App for App {
             if kit::button_at(ui, cp_r, "h_cp", None, "Control Panel", Color32::from_rgb(40, 60, 110), WHITE).clicked() {
                 actions.push(Action::OpenControl);
             }
+            let ab_r = slot(64.0);
+            if kit::button_at(ui, ab_r, "h_about", None, "About", kit::DARK, WHITE).clicked() {
+                self.about_open = true;
+            }
             let live_on = self.player.as_ref().map(|p| p.live_active()).unwrap_or(false);
             let live_r = slot(70.0);
             let live_resp = kit::button_at(ui, live_r, "h_live", None, "LIVE", if live_on { Color32::from_rgb(220, 120, 0) } else { kit::DARK }, WHITE);
@@ -1109,6 +1113,7 @@ impl eframe::App for App {
             }
         });
 
+        self.about_window(ctx);
         ctx.style_mut(|st| st.visuals.override_text_color = if self.cp_open { Some(Color32::WHITE) } else { None });
         kit::cp_text_sizes(ctx, self.cp_open);
         if self.cp_open {
@@ -1119,5 +1124,102 @@ impl eframe::App for App {
             self.handle(a);
         }
         let _ = engine::dstr(now.date_naive());
+    }
+}
+
+impl App {
+    /// About window (same layout as the one of FM Analyzer).
+    fn about_window(&mut self, ctx: &egui::Context) {
+        if !self.about_open {
+            return;
+        }
+        if self.about_tex.is_none() {
+            if let Ok(img) = image::load_from_memory(include_bytes!("../packaging/icon.png")) {
+                let rgba = img.to_rgba8();
+                let size = [rgba.width() as usize, rgba.height() as usize];
+                self.about_tex = Some(ctx.load_texture("about_logo", egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw()), egui::TextureOptions::LINEAR));
+            }
+        }
+        let (mut open, mut close) = (true, false);
+        let dim = kit::TEXT_DIM;
+        egui::Window::new(egui::RichText::new(tr("About")).strong())
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+            .fixed_size(vec2(440.0, 0.0))
+            .frame(egui::Frame::window(&ctx.style()).fill(kit::CARD).stroke(Stroke::new(1.0_f32, kit::ACCENT.gamma_multiply(0.5))).inner_margin(egui::Margin::same(22.0)))
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    if let Some(t) = &self.about_tex {
+                        ui.add(egui::Image::new((t.id(), vec2(88.0, 88.0))));
+                    }
+                    ui.add_space(6.0);
+                    ui.label(egui::RichText::new("RADIOMOON").size(28.0).strong().color(kit::TEXT));
+                    ui.label(egui::RichText::new(format!("Version {VERSION}")).monospace().color(kit::GOOD));
+                    ui.add_space(4.0);
+                    ui.label(egui::RichText::new(tr("Radio automation for Windows, Linux and macOS")).color(dim));
+                });
+                ui.add_space(14.0);
+                ui.separator();
+                ui.add_space(10.0);
+                ui.label(egui::RichText::new(tr("CREATED BY")).small().strong().color(kit::ACCENT));
+                ui.add_space(4.0);
+                egui::Grid::new("about_credits").num_columns(2).spacing([16.0, 8.0]).show(ui, |ui| {
+                    ui.label(egui::RichText::new("Nikos Batsikas").size(15.0).strong().color(kit::TEXT));
+                    ui.label(egui::RichText::new(tr("Author - idea, design, testing")).color(dim));
+                    ui.end_row();
+                    ui.label(egui::RichText::new("Claude").size(15.0).strong().color(kit::TEXT));
+                    ui.label(egui::RichText::new(tr("AI pair programmer by Anthropic")).color(dim));
+                    ui.end_row();
+                });
+                ui.add_space(12.0);
+                ui.label(egui::RichText::new(tr("FEATURES")).small().strong().color(kit::ACCENT));
+                ui.add_space(2.0);
+                for line in [
+                    "Auto schedule with clocks, playlists, breaks and force clocks",
+                    "Crossfade player, instant jingles, live rebroadcast",
+                    "Multi-server streaming and FM multiplex (MPX) with RDS",
+                    "MPX receiver and transmitter, with analyzer",
+                    "Jazler RadioStar 2 database import",
+                ] {
+                    ui.label(egui::RichText::new(format!("\u{2022}  {}", tr(line))).color(kit::TEXT));
+                }
+                ui.add_space(12.0);
+                ui.label(egui::RichText::new(tr("PROJECT")).small().strong().color(kit::ACCENT));
+                ui.add_space(2.0);
+                ui.hyperlink_to("github.com/nikosbatsikas/radiomoon", "https://github.com/nikosbatsikas/radiomoon");
+                ui.label(egui::RichText::new("Written in Rust - egui / eframe - rodio - MySQL / MariaDB").size(11.5).color(dim));
+                ui.label(egui::RichText::new("\u{A9} 2026 Nikos Batsikas").size(11.5).color(dim));
+                ui.add_space(14.0);
+                egui::Frame::none().fill(kit::INSET).stroke(Stroke::new(1.0_f32, kit::BORDER)).rounding(6.0).inner_margin(egui::Margin::same(12.0)).show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            ui.label(egui::RichText::new(tr("Like RadioMoon?")).strong().color(kit::TEXT));
+                            ui.label(egui::RichText::new(tr("Send a gift to the author.")).size(11.5).color(dim));
+                        });
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            let btn = egui::Button::new(egui::RichText::new(tr("Gift with PayPal")).strong().size(13.5).color(Color32::from_rgb(0x00, 0x30, 0x87)))
+                                .fill(Color32::from_rgb(0xFF, 0xC4, 0x39))
+                                .stroke(Stroke::new(1.0_f32, Color32::from_rgb(0x00, 0x70, 0xBA)))
+                                .rounding(14.0)
+                                .min_size(vec2(170.0, 30.0));
+                            if ui.add(btn).on_hover_text("paypal.me/nikosbatsikas").clicked() {
+                                ui.ctx().open_url(egui::OpenUrl::new_tab("https://paypal.me/nikosbatsikas"));
+                            }
+                        });
+                    });
+                });
+                ui.add_space(14.0);
+                ui.vertical_centered(|ui| {
+                    if ui.add(egui::Button::new(egui::RichText::new(tr("CLOSE")).strong().color(Color32::WHITE)).fill(kit::BLUE).min_size(vec2(110.0, 28.0))).clicked() {
+                        close = true;
+                    }
+                });
+            });
+        if !open || close {
+            self.about_open = false;
+        }
     }
 }

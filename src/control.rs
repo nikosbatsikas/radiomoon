@@ -3221,7 +3221,7 @@ impl App {
                 ui.checkbox(&mut p.override_prev, tr("overrides previous playlist"));
             });
             // ---- pick songs from the database
-            ui.label(RichText::new(tr("Songs in the database (double-click or + to add to the playlist)")).strong());
+            ui.label(RichText::new(tr("Songs in the database (double-click or + to add; songs already in the playlist are hidden)")).strong());
             ui.horizontal(|ui| {
                 ui.add(egui::TextEdit::singleline(&mut self.cp.pl_q).desired_width(220.0).hint_text(tr("search artist, title, album...")));
                 if self.cp.pl_kind.is_empty() {
@@ -3238,7 +3238,7 @@ impl App {
                 .data
                 .tracks
                 .iter()
-                .filter(|t| t.enabled && t.kind == self.cp.pl_kind && (q.is_empty() || t.label().to_lowercase().contains(&q) || t.album.to_lowercase().contains(&q)))
+                .filter(|t| t.enabled && t.kind == self.cp.pl_kind && !p.items.iter().any(|it| it.track_id == t.id) && (q.is_empty() || t.label().to_lowercase().contains(&q) || t.album.to_lowercase().contains(&q)))
                 .take(300)
                 .map(|t| (t.id, t.label(), t.duration_ms))
                 .collect();
@@ -3266,6 +3266,9 @@ impl App {
                 ui.label(RichText::new(format!("{} {}", hits.len(), tr("shown"))).small().color(kit::TEXT_DIM));
             });
             for id in add_ids {
+                if p.items.iter().any(|it| it.track_id == id) {
+                    continue; // a song is only once in a playlist
+                }
                 let kind = self.data.track(id).map(|t| t.kind.clone()).unwrap_or_default();
                 p.items.push(PItem { track_id: id, overlay_pos: if kind == "sweeper" || kind == "voice" { "start".into() } else { String::new() }, ..Default::default() });
             }
@@ -3273,7 +3276,7 @@ impl App {
             ui.horizontal(|ui| {
                 if ui.button(tr("Add selected library item")).clicked() {
                     if let Some(id) = self.cp.lib_sel.first().copied().or(self.lib_sel) {
-                        if self.data.track(id).is_some() {
+                        if self.data.track(id).is_some() && !p.items.iter().any(|it| it.track_id == id) {
                             let kind = self.data.track(id).map(|t| t.kind.clone()).unwrap_or_default();
                             p.items.push(PItem { track_id: id, overlay_pos: if kind == "sweeper" || kind == "voice" { "start".into() } else { String::new() }, ..Default::default() });
                         }

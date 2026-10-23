@@ -128,6 +128,8 @@ pub struct App {
     pub streamers: Vec<(usize, u32, Streamer)>,
     pub mpx_tap: Option<u32>,
     pub autoplay_pending: bool,
+    pub about_open: bool,
+    pub about_tex: Option<eframe::egui::TextureHandle>,
     pub mpx: Option<MpxHandle>,
     pub last_backup_day: String,
     pub last_backup_check: Instant,
@@ -184,6 +186,8 @@ impl App {
             streamers: Vec::new(),
             mpx_tap: None,
             autoplay_pending: false,
+            about_open: false,
+            about_tex: None,
             mpx: None,
             last_backup_day: String::new(),
             last_backup_check: Instant::now(),
@@ -738,6 +742,18 @@ impl App {
                 self.scroll_to = Some(i);
                 self.log[i].fixed_start.clear();
                 self.after_play(i);
+                // the songs that were already played leave the playlist (the overlays of the new song stay with it)
+                let mut j = i;
+                while j > 0 && self.log[j - 1].is_overlay() {
+                    j -= 1;
+                }
+                if j > 0 {
+                    self.log.drain(0..j);
+                    self.current = Some(i - j);
+                    self.scroll_to = Some(i - j);
+                    self.sel = self.sel.and_then(|x| x.checked_sub(j));
+                    self.save_log();
+                }
             }
             Err(e) => {
                 self.status = format!("Cannot play '{}': {e}", t.title);
