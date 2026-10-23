@@ -673,10 +673,19 @@ impl eframe::App for App {
             p.text(pos2(cc.x, cc.y + 22.0), Align2::CENTER_CENTER, now.format("%d %B %Y").to_string(), FontId::proportional(12.0), kit::GRAY);
 
             let lr = Rect::from_min_size(pos2(rx + 150.0, r.top() + 8.0), vec2(130.0, r.height() - 16.0));
-            p.rect_filled(lr, 4.0, Color32::from_rgb(18, 50, 130));
-            kit::draw_moon(&p, pos2(lr.center().x, lr.top() + 48.0), 30.0, WHITE, Color32::from_rgb(18, 50, 130));
-            p.text(pos2(lr.center().x, lr.bottom() - 30.0), Align2::CENTER_CENTER, tr("RadioMoon"), FontId::proportional(22.0), WHITE);
-            p.text(pos2(lr.center().x, lr.bottom() - 12.0), Align2::CENTER_CENTER, tr("FM"), FontId::proportional(14.0), Color32::from_rgb(120, 190, 255));
+            // the program icon instead of the old blue tile
+            let side = (lr.width() - 6.0).min(lr.height() - 30.0).max(40.0);
+            let ir = Rect::from_min_size(pos2(lr.center().x - side / 2.0, lr.top() + 2.0), vec2(side, side));
+            match &self.about_tex {
+                Some(t) => {
+                    p.image(t.id(), ir, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+                }
+                None => {
+                    p.rect_filled(lr, 4.0, Color32::from_rgb(18, 50, 130));
+                    kit::draw_moon(&p, pos2(lr.center().x, lr.top() + 48.0), 30.0, WHITE, Color32::from_rgb(18, 50, 130));
+                }
+            }
+            p.text(pos2(lr.center().x, lr.bottom() - 14.0), Align2::CENTER_CENTER, tr("RadioMoon"), FontId::proportional(18.0), WHITE);
 
             let bx = rx + 290.0;
             let bh = r.height();

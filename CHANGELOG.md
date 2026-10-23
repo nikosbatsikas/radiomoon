@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.22
+- The blue RadioMoon tile in the studio is replaced by the new program icon.
+
 ## 0.5.21
 - Import of a MegaMix database (.mdb): songs, jingles / effects, commercials, artists, styles, categories, eras and playlists. The import page now detects Jazler RadioStar 2 and MegaMix files automatically.
 
