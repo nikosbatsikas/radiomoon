@@ -31,9 +31,18 @@ use std::path::PathBuf;
 
 const WHITE: egui::Color32 = egui::Color32::WHITE;
 
+fn tcp_open(host: &str, port: u16) -> bool {
+    use std::net::ToSocketAddrs;
+    (host, port).to_socket_addrs().ok().and_then(|mut a| a.next()).map(|a| std::net::TcpStream::connect_timeout(&a, std::time::Duration::from_millis(300)).is_ok()).unwrap_or(false)
+}
+
+/// The usual ports of a database on this computer: the RadioMoon service / bundled server, then the system MariaDB / MySQL.
+const COMMON_PORTS: [u16; 2] = [3307, 3306];
+
 /// Starts the bundled database server when there is one, then connects. A missing bundled server is not an error by itself:
-/// the database may be a MariaDB / MySQL service of the system (Linux, macOS) or of another computer.
-fn open_db(cfg: &config::Config, exe_dir: &std::path::Path, data: &std::path::Path) -> anyhow::Result<(dbserver::DbServer, Db)> {
+/// the database may be a MariaDB / MySQL service of the system or of another computer. When the configured port does not
+/// answer, the usual ports of this computer are tried too; the configuration that worked is returned (it is then saved).
+fn open_db(cfg: &config::Config, exe_dir: &std::path::Path, data: &std::path::Path) -> anyhow::Result<(dbserver::DbServer, Db, config::Config)> {
     let mut start_err: Option<anyhow::Error> = None;
     let server = if cfg.is_local() {
         match dbserver::DbServer::start(exe_dir, data, cfg.port) {
@@ -46,12 +55,25 @@ fn open_db(cfg: &config::Config, exe_dir: &std::path::Path, data: &std::path::Pa
     } else {
         dbserver::DbServer::none()
     };
-    match Db::connect(cfg) {
-        Ok(db) => Ok((server, db)),
-        Err(c) => match start_err {
-            Some(e) => Err(anyhow::anyhow!("{e:#}\n\n{c:#}")),
-            None => Err(c),
-        },
+    let first = Db::connect(cfg);
+    let err = match first {
+        Ok(db) => return Ok((server, db, cfg.clone())),
+        Err(c) => c,
+    };
+    if cfg.is_local() {
+        for p in COMMON_PORTS {
+            if p != cfg.port && tcp_open("127.0.0.1", p) {
+                let mut c2 = cfg.clone();
+                c2.port = p;
+                if let Ok(db) = Db::connect(&c2) {
+                    return Ok((server, db, c2));
+                }
+            }
+        }
+    }
+    match start_err {
+        Some(e) => Err(anyhow::anyhow!("{e:#}\n\n{err:#}")),
+        None => Err(err),
     }
 }
 
@@ -67,7 +89,8 @@ struct ConnectApp {
 impl ConnectApp {
     fn test(&mut self) -> bool {
         let r = (|| -> anyhow::Result<()> {
-            let _conn = open_db(&self.cfg, &self.exe_dir, &self.data)?;
+            let (_s, _d, used) = open_db(&self.cfg, &self.exe_dir, &self.data)?;
+            self.cfg = used;
             Ok(())
         })();
         match r {
@@ -176,10 +199,11 @@ fn main() -> eframe::Result<()> {
     let data = data_dir(&exe_dir);
     let cfg = config::load(&data);
 
-    let startup = (|| -> anyhow::Result<(dbserver::DbServer, Db, String)> {
-        let (server, db) = open_db(&cfg, &exe_dir, &data)?;
+    let orig_port = cfg.port;
+    let startup = (|| -> anyhow::Result<(dbserver::DbServer, Db, String, config::Config)> {
+        let (server, db, used) = open_db(&cfg, &exe_dir, &data)?;
         let msg = db.ensure_schema(app::VERSION, &data.join("backups"))?;
-        Ok((server, db, msg))
+        Ok((server, db, msg, used))
     })();
 
     let options = eframe::NativeOptions {
@@ -197,15 +221,27 @@ fn main() -> eframe::Result<()> {
     };
 
     match startup {
-        Ok((server, db, msg)) => eframe::run_native(
+        Ok((server, db, msg, cfg)) => {
+            if cfg.port != orig_port {
+                config::save(&data, &cfg); // the port that answered is remembered
+            }
+            eframe::run_native(
             "RadioMoon",
             options,
             Box::new(move |cc| {
                 kit::apply_style(&cc.egui_ctx);
                 Ok(Box::new(App::new(server, db, cfg, data, exe_dir, msg)))
             }),
-        ),
+            )
+        }
         Err(e) => {
+            // suggest the port of a database that answers on this computer
+            let mut cfg = cfg;
+            if cfg.is_local() && !tcp_open("127.0.0.1", cfg.port) {
+                if let Some(p) = COMMON_PORTS.iter().find(|p| tcp_open("127.0.0.1", **p)) {
+                    cfg.port = *p;
+                }
+            }
             // the interface language is stored in the database, which is not reachable here: Greek is used when the system language is Greek
             if std::env::var("LANG").map(|l| l.starts_with("el")).unwrap_or(false) || std::env::var("LANGUAGE").map(|l| l.starts_with("el")).unwrap_or(false) {
                 i18n::set_language("el", &[exe_dir.join("lang")]);
