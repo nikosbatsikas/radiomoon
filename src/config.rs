@@ -25,7 +25,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Config { host: "127.0.0.1".into(), port: 3307, user: "root".into(), password: String::new(), database: "radiomoon".into() }
+        Config { host: "127.0.0.1".into(), port: if cfg!(windows) { 3307 } else { 3306 }, user: "root".into(), password: String::new(), database: "radiomoon".into() }
     }
 }
 

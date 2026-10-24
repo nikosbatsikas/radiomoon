@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.28
+- Linux / macOS: a database service of the system (MariaDB / MySQL) is used when there is no bundled server; the program no longer stops with "Database server not found" but tries the connection. The default port is 3306 there (3307 on Windows). The connection window explains how to create a database user for the system server.
+
 ## 0.5.27
 - Fix of the build error of 0.5.26 (connection window).
 

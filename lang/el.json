@@ -578,5 +578,6 @@
   "Save and start RadioMoon": "Αποθήκευση και εκκίνηση του RadioMoon",
   "Save only": "Μόνο αποθήκευση",
   "Saved.": "Αποθηκεύτηκε.",
-  "For the database server of the installer (Windows service RadioMoonDB) use address 127.0.0.1, port 3307, user root, empty password.": "Για τον database server του installer (υπηρεσία Windows RadioMoonDB) βάλτε διεύθυνση 127.0.0.1, θύρα 3307, χρήστης root, κενός κωδικός."
+  "For the database server of the installer (Windows service RadioMoonDB) use address 127.0.0.1, port 3307, user root, empty password.": "Για τον database server του installer (υπηρεσία Windows RadioMoonDB) βάλτε διεύθυνση 127.0.0.1, θύρα 3307, χρήστης root, κενός κωδικός.",
+  "System MariaDB / MySQL (Linux, macOS): the port is usually 3306. The root user of the system server often cannot log in with a password; create a user, for example: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'password'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\"": "MariaDB / MySQL του συστήματος (Linux, macOS): η θύρα είναι συνήθως 3306. Ο χρήστης root του συστήματος συχνά δεν μπορεί να συνδεθεί με κωδικό· φτιάξτε χρήστη, π.χ.: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'κωδικός'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\""
 }

@@ -31,6 +31,30 @@ use std::path::PathBuf;
 
 const WHITE: egui::Color32 = egui::Color32::WHITE;
 
+/// Starts the bundled database server when there is one, then connects. A missing bundled server is not an error by itself:
+/// the database may be a MariaDB / MySQL service of the system (Linux, macOS) or of another computer.
+fn open_db(cfg: &config::Config, exe_dir: &std::path::Path, data: &std::path::Path) -> anyhow::Result<(dbserver::DbServer, Db)> {
+    let mut start_err: Option<anyhow::Error> = None;
+    let server = if cfg.is_local() {
+        match dbserver::DbServer::start(exe_dir, data, cfg.port) {
+            Ok(s) => s,
+            Err(e) => {
+                start_err = Some(e);
+                dbserver::DbServer::none()
+            }
+        }
+    } else {
+        dbserver::DbServer::none()
+    };
+    match Db::connect(cfg) {
+        Ok(db) => Ok((server, db)),
+        Err(c) => match start_err {
+            Some(e) => Err(anyhow::anyhow!("{e:#}\n\n{c:#}")),
+            None => Err(c),
+        },
+    }
+}
+
 /// Shown when the database cannot be reached at start: the connection can be entered and tested here.
 struct ConnectApp {
     cfg: config::Config,
@@ -43,8 +67,7 @@ struct ConnectApp {
 impl ConnectApp {
     fn test(&mut self) -> bool {
         let r = (|| -> anyhow::Result<()> {
-            let _server = if self.cfg.is_local() { dbserver::DbServer::start(&self.exe_dir, &self.data, self.cfg.port).ok() } else { None };
-            let _db = Db::connect(&self.cfg)?;
+            let _conn = open_db(&self.cfg, &self.exe_dir, &self.data)?;
             Ok(())
         })();
         match r {
@@ -111,6 +134,10 @@ impl eframe::App for ConnectApp {
                 ui.label(&self.status);
             }
             ui.add_space(10.0);
+            if !cfg!(windows) {
+                ui.label(egui::RichText::new(tr("System MariaDB / MySQL (Linux, macOS): the port is usually 3306. The root user of the system server often cannot log in with a password; create a user, for example: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'password'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\"")).small().color(egui::Color32::GRAY));
+                ui.add_space(4.0);
+            }
             ui.label(egui::RichText::new(tr("For the database server of the installer (Windows service RadioMoonDB) use address 127.0.0.1, port 3307, user root, empty password.")).small().color(egui::Color32::GRAY));
         });
     }
@@ -150,8 +177,7 @@ fn main() -> eframe::Result<()> {
     let cfg = config::load(&data);
 
     let startup = (|| -> anyhow::Result<(dbserver::DbServer, Db, String)> {
-        let server = if cfg.is_local() { dbserver::DbServer::start(&exe_dir, &data, cfg.port)? } else { dbserver::DbServer::none() };
-        let db = Db::connect(&cfg)?;
+        let (server, db) = open_db(&cfg, &exe_dir, &data)?;
         let msg = db.ensure_schema(app::VERSION, &data.join("backups"))?;
         Ok((server, db, msg))
     })();
