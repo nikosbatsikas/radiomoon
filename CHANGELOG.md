@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.26
+- If the database cannot be reached at start, a connection window opens (server address, port, user, password, database name) with Test connection, Save and start RadioMoon, and Save only, instead of only showing an error.
+
 ## 0.5.25
 - The icon next to the name in the header is removed.
 - The header buttons (modes, layout, LIVE, About, Control Panel) now get their width from the text, so longer Greek labels are no longer cut off.

@@ -571,5 +571,14 @@
   "Nothing is playing": "Nothing is playing",
   "2nd screen": "2nd screen",
   "Second screen (on-air window for a second monitor, button in the header)": "Second screen (on-air window for a second monitor, button in the header)",
-  "Open the second screen when the program starts": "Open the second screen when the program starts"
+  "Open the second screen when the program starts": "Open the second screen when the program starts",
+  "Connection works.": "Connection works.",
+  "RadioMoon could not connect to the database": "RadioMoon could not connect to the database",
+  "Enter the connection of your MariaDB / MySQL server:": "Enter the connection of your MariaDB / MySQL server:",
+  "Server address": "Server address",
+  "Test connection": "Test connection",
+  "Save and start RadioMoon": "Save and start RadioMoon",
+  "Save only": "Save only",
+  "Saved.": "Saved.",
+  "For the database server of the installer (Windows service RadioMoonDB) use address 127.0.0.1, port 3307, user root, empty password.": "For the database server of the installer (Windows service RadioMoonDB) use address 127.0.0.1, port 3307, user root, empty password."
 }

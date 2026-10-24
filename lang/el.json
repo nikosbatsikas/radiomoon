@@ -569,5 +569,14 @@
   "Nothing is playing": "Δεν παίζει τίποτα",
   "2nd screen": "2η οθόνη",
   "Second screen (on-air window for a second monitor, button in the header)": "Δεύτερη οθόνη (παράθυρο on-air για δεύτερο monitor, κουμπί στην κεφαλίδα)",
-  "Open the second screen when the program starts": "Άνοιγμα της δεύτερης οθόνης στην εκκίνηση του προγράμματος"
+  "Open the second screen when the program starts": "Άνοιγμα της δεύτερης οθόνης στην εκκίνηση του προγράμματος",
+  "Connection works.": "Η σύνδεση λειτουργεί.",
+  "RadioMoon could not connect to the database": "Το RadioMoon δεν μπόρεσε να συνδεθεί στη βάση δεδομένων",
+  "Enter the connection of your MariaDB / MySQL server:": "Βάλτε τη σύνδεση του MariaDB / MySQL server σας:",
+  "Server address": "Διεύθυνση server",
+  "Test connection": "Δοκιμή σύνδεσης",
+  "Save and start RadioMoon": "Αποθήκευση και εκκίνηση του RadioMoon",
+  "Save only": "Μόνο αποθήκευση",
+  "Saved.": "Αποθηκεύτηκε.",
+  "For the database server of the installer (Windows service RadioMoonDB) use address 127.0.0.1, port 3307, user root, empty password.": "Για τον database server του installer (υπηρεσία Windows RadioMoonDB) βάλτε διεύθυνση 127.0.0.1, θύρα 3307, χρήστης root, κενός κωδικός."
 }

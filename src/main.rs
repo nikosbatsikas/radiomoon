@@ -31,14 +31,87 @@ use std::path::PathBuf;
 
 const WHITE: egui::Color32 = egui::Color32::WHITE;
 
-struct ErrorApp(String);
+/// Shown when the database cannot be reached at start: the connection can be entered and tested here.
+struct ConnectApp {
+    cfg: config::Config,
+    error: String,
+    status: String,
+    data: PathBuf,
+    exe_dir: PathBuf,
+}
 
-impl eframe::App for ErrorApp {
+impl ConnectApp {
+    fn test(&mut self) -> bool {
+        let r = (|| -> anyhow::Result<()> {
+            let _server = if self.cfg.is_local() { dbserver::DbServer::start(&self.exe_dir, &self.data, self.cfg.port).ok() } else { None };
+            let _db = Db::connect(&self.cfg)?;
+            Ok(())
+        })();
+        match r {
+            Ok(()) => {
+                self.status = i18n::tr("Connection works.");
+                true
+            }
+            Err(e) => {
+                self.status = format!("{e:#}");
+                false
+            }
+        }
+    }
+}
+
+impl eframe::App for ConnectApp {
     fn update(&mut self, ctx: &egui::Context, _f: &mut eframe::Frame) {
+        let tr = i18n::tr;
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading(egui::RichText::new("RadioMoon could not start").color(WHITE));
+            ui.heading(egui::RichText::new(tr("RadioMoon could not connect to the database")).color(WHITE));
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new(&self.error).color(egui::Color32::from_rgb(255, 140, 120)));
+            ui.add_space(10.0);
+            ui.label(tr("Enter the connection of your MariaDB / MySQL server:"));
+            ui.add_space(4.0);
+            egui::Grid::new("conn").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
+                ui.label(tr("Server address"));
+                ui.add(egui::TextEdit::singleline(&mut self.cfg.host).desired_width(260.0));
+                ui.end_row();
+                ui.label(tr("Port"));
+                ui.add(egui::DragValue::new(&mut self.cfg.port).range(1..=65535));
+                ui.end_row();
+                ui.label(tr("User"));
+                ui.add(egui::TextEdit::singleline(&mut self.cfg.user).desired_width(260.0));
+                ui.end_row();
+                ui.label(tr("Password"));
+                ui.add(egui::TextEdit::singleline(&mut self.cfg.password).password(true).desired_width(260.0));
+                ui.end_row();
+                ui.label(tr("Database name"));
+                ui.add(egui::TextEdit::singleline(&mut self.cfg.database).desired_width(260.0));
+                ui.end_row();
+            });
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                if ui.button(tr("Test connection")).clicked() {
+                    self.test();
+                }
+                if ui.button(tr("Save and start RadioMoon")).clicked() {
+                    if self.test() {
+                        config::save(&self.data, &self.cfg);
+                        if let Ok(exe) = std::env::current_exe() {
+                            let _ = std::process::Command::new(exe).spawn();
+                        }
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                }
+                if ui.button(tr("Save only")).clicked() {
+                    config::save(&self.data, &self.cfg);
+                    self.status = tr("Saved.");
+                }
+            });
             ui.add_space(8.0);
-            ui.label(&self.0);
+            if !self.status.is_empty() {
+                ui.label(&self.status);
+            }
+            ui.add_space(10.0);
+            ui.label(egui::RichText::new(tr("For the database server of the installer (Windows service RadioMoonDB) use address 127.0.0.1, port 3307, user root, empty password.")).small().color(egui::Color32::GRAY));
         });
     }
 }
@@ -106,7 +179,19 @@ fn main() -> eframe::Result<()> {
                 Ok(Box::new(App::new(server, db, cfg, data, exe_dir, msg)))
             }),
         ),
-        Err(e) => eframe::run_native("RadioMoon", options, Box::new(move |_cc| Ok(Box::new(ErrorApp(format!("{e:#}")))))),
+        Err(e) => {
+            // the interface language is stored in the database, which is not reachable here: Greek is used when the system language is Greek\n            if std::env::var("LANG").map(|l| l.starts_with("el")).unwrap_or(false) || std::env::var("LANGUAGE").map(|l| l.starts_with("el")).unwrap_or(false) {
+                i18n::set_language("el", &[exe_dir.join("lang")]);
+            }
+            eframe::run_native(
+                "RadioMoon",
+                options,
+                Box::new(move |cc| {
+                    kit::apply_style(&cc.egui_ctx);
+                    Ok(Box::new(ConnectApp { cfg, error: format!("{e:#}"), status: String::new(), data, exe_dir }))
+                }),
+            )
+        }
     }
 }
 
