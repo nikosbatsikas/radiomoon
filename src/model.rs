@@ -379,6 +379,8 @@ pub struct MpxCfg {
     pub card_device: String,
     pub ip_on: bool,
     pub ip_proto: String, // udp | tcp
+    /// "l24" = uncompressed 24-bit, "flac" = lossless FLAC (bit-exact, smaller)
+    pub ip_codec: String,
     pub ip_host: String,
     pub ip_port: u16,
     pub rds_on: bool,
@@ -406,6 +408,7 @@ impl Default for MpxCfg {
             card_device: String::new(),
             ip_on: false,
             ip_proto: "udp".into(),
+            ip_codec: "l24".into(),
             ip_host: "127.0.0.1".into(),
             ip_port: 5004,
             rds_on: true,

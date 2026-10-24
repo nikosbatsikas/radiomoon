@@ -1,8 +1,10 @@
 //! RadioMoon MPX Receiver - a small separate program for the transmitter site.
-//! Receives the MPX stream sent by RadioMoon over IP (UDP/RTP L24 or TCP) and plays it on a 192 kHz sound card.
+//! Receives the MPX stream sent by RadioMoon over IP (UDP/RTP or TCP; L24 or FLAC) and plays it on a 192 kHz sound card.
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 #[path = "../mpxdsp.rs"]
 mod mpxdsp;
+#[path = "../mpxflac.rs"]
+mod mpxflac;
 #[path = "../mpxio.rs"]
 mod mpxio;
 #[path = "../mpxscope.rs"]
@@ -89,11 +91,12 @@ impl eframe::App for App {
             let mut ch = false;
             ui.horizontal(|ui| {
                 ui.label("Protocol");
-                ch |= ui.radio_value(&mut self.s.proto, "udp".to_string(), "UDP (RTP L24)").changed();
-                ch |= ui.radio_value(&mut self.s.proto, "tcp".to_string(), "TCP (raw L24)").changed();
+                ch |= ui.radio_value(&mut self.s.proto, "udp".to_string(), "UDP (RTP)").changed();
+                ch |= ui.radio_value(&mut self.s.proto, "tcp".to_string(), "TCP").changed();
                 ui.label("Port");
                 ch |= ui.add(egui::DragValue::new(&mut self.s.port).range(1..=65535)).changed();
             });
+            ui.label(RichText::new("The format is detected automatically: L24 uncompressed or FLAC lossless. Lost packets are concealed without a jump of the pilot or RDS phase.").small());
             ui.horizontal(|ui| {
                 ui.label("Sound device");
                 let shown = if self.s.device.is_empty() { "Default".to_string() } else { self.s.device.clone() };

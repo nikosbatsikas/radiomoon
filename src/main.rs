@@ -16,6 +16,7 @@ mod model;
 mod mdb;
 mod mpx;
 mod mpxdsp;
+mod mpxflac;
 mod mpxio;
 mod mpxscope;
 mod player;

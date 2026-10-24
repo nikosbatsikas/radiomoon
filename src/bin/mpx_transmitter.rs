@@ -9,6 +9,8 @@ mod model;
 mod mpx;
 #[path = "../mpxdsp.rs"]
 mod mpxdsp;
+#[path = "../mpxflac.rs"]
+mod mpxflac;
 #[path = "../mpxio.rs"]
 mod mpxio;
 #[path = "../mpxscope.rs"]
@@ -180,11 +182,16 @@ impl eframe::App for App {
                         ui.label("Device");
                         restart |= combo(ui, "out", &mut c.card_device, &self.outs);
                     });
-                    restart |= ui.checkbox(&mut c.ip_on, "Send over IP (24-bit, 192 kHz, about 4.6 Mbit/s)").changed();
+                    restart |= ui.checkbox(&mut c.ip_on, "Send over IP (24-bit, 192 kHz)").changed();
+                    ui.horizontal(|ui| {
+                        ui.label("Format");
+                        restart |= ui.radio_value(&mut c.ip_codec, "l24".to_string(), "L24 uncompressed (4.6 Mbit/s)").changed();
+                        restart |= ui.radio_value(&mut c.ip_codec, "flac".to_string(), "FLAC lossless (bit-exact, about 3-4 Mbit/s)").changed();
+                    });
                     ui.horizontal(|ui| {
                         ui.label("Protocol");
-                        restart |= ui.radio_value(&mut c.ip_proto, "udp".to_string(), "UDP (RTP L24)").changed();
-                        restart |= ui.radio_value(&mut c.ip_proto, "tcp".to_string(), "TCP (raw L24)").changed();
+                        restart |= ui.radio_value(&mut c.ip_proto, "udp".to_string(), "UDP (RTP)").changed();
+                        restart |= ui.radio_value(&mut c.ip_proto, "tcp".to_string(), "TCP").changed();
                         ui.label("Address");
                         restart |= ui.add(egui::TextEdit::singleline(&mut c.ip_host).desired_width(130.0)).changed();
                         ui.label("Port");

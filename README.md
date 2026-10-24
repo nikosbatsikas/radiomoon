@@ -62,7 +62,16 @@ Control Panel > Internet broadcast: add several servers, each Icecast 2 (host, p
 
 ## MPX / FM multiplex
 
-Control Panel > MPX: generates the FM composite signal (stereo pilot, 38 kHz, RDS) and sends it to a 192 kHz sound card and/or over IP (RTP L24 over UDP, or TCP). The separate program `RadioMoon-MPX-Receiver` receives the IP stream and plays it on a sound card at the transmitter site.
+Control Panel > MPX: generates the FM composite signal (stereo pilot, 38 kHz, RDS) and sends it to a 192 kHz sound card and/or over IP (UDP/RTP or TCP). The separate program `RadioMoon-MPX-Receiver` receives the IP stream and plays it on a sound card at the transmitter site.
+
+IP formats (Outputs > Format):
+
+| Format | Bitrate | Quality |
+|---|---|---|
+| L24 uncompressed | 4.6 Mbit/s | 24-bit, 192 kHz |
+| FLAC lossless | about 3-4 Mbit/s (depends on the audio) | bit-exact, identical to L24 |
+
+With FLAC every 2 ms packet (384 samples) is one complete, standard FLAC frame (24-bit, mono, 192 kHz; RTP payload type 98, or over TCP a stream starting with `RMF1` followed by 16-bit length + frame). The receiver detects the format by itself. A lost UDP packet is concealed by repeating the last 2 ms: that is a whole number of cycles of 19, 38 and 57 kHz, so pilot, stereo and RDS stay in phase and the timing stays exact. FLAC needs MPX Receiver 0.5.30 or newer.
 
 Both the generator (Control Panel > MPX > Signal analysis) and the receiver show an analyzer: the spectrum from 0 to 96 kHz with markers at 19, 38 and 57 kHz, the waveform of the composite signal, the levels of the pilot, RDS, L+R and L-R, and the current and maximum peak deviation in kHz and % (100% = 75 kHz). *Reset* clears the maximum.
 

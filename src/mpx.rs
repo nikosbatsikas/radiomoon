@@ -1,7 +1,9 @@
 //! MPX output: runs the generator (mpxdsp) on the on-air audio and sends the composite signal to a
-//! 192 kHz sound card and/or over IP (RTP L24 over UDP, or a raw L24 stream over TCP).
+//! 192 kHz sound card and/or over IP: uncompressed 24-bit (RTP L24 over UDP, raw L24 over TCP) or lossless FLAC
+//! (one FLAC frame per RTP packet, or length-prefixed frames over TCP).
 use crate::model::MpxCfg;
 use crate::mpxdsp::{to_l24, MpxEncoder, MpxParams, RdsData};
+use crate::mpxflac::{encode_frame, to_i24, BLOCK, PT_FLAC, PT_L24, TCP_FLAC_MAGIC};
 use crate::mpxio::{card_thread, get, set, Queue, Text, FS};
 use std::io::Write;
 use std::net::{TcpStream, UdpSocket};
@@ -10,7 +12,14 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-const PKT: usize = 240; // samples per IP packet (1.25 ms)
+const PKT: usize = 240; // L24: samples per IP packet (1.25 ms)
+
+fn rtp_header(out: &mut Vec<u8>, pt: u8, seq: u16, ts: u32, ssrc: u32) {
+    out.extend_from_slice(&[0x80, pt]);
+    out.extend_from_slice(&seq.to_be_bytes());
+    out.extend_from_slice(&ts.to_be_bytes());
+    out.extend_from_slice(&ssrc.to_be_bytes());
+}
 
 // ---------------------------------------------------------------- IP sender
 
@@ -18,22 +27,29 @@ fn ip_thread(cfg: MpxCfg, q: Arc<Queue>, stop: Arc<AtomicBool>, status: Text) {
     std::thread::spawn(move || {
         let addr = format!("{}:{}", cfg.ip_host, cfg.ip_port);
         let tcp = cfg.ip_proto == "tcp";
+        let flac = cfg.ip_codec == "flac";
+        let pkt = if flac { BLOCK } else { PKT };
         let mut udp: Option<UdpSocket> = None;
         let mut tcps: Option<TcpStream> = None;
         let (mut seq, mut ts) = (0u16, 0u32);
-        let ssrc: u32 = 0x524D_4D58; // "RMMX"
+        let mut frame_no: u32 = 0;
+        let ssrc: u32 = 0x524D_4D58 ^ (std::process::id() << 8); // "RMMX", different at every start
         let mut credit = 0.0f64;
         let mut last = Instant::now();
-        let mut samples = Vec::with_capacity(PKT);
-        let mut payload = Vec::with_capacity(PKT * 3 + 12);
-        let mut sent: u64 = 0;
+        let mut samples = Vec::with_capacity(pkt);
+        let mut ints: Vec<i32> = Vec::with_capacity(pkt);
+        let mut payload = Vec::with_capacity(pkt * 6 + 16);
+        let (mut sent, mut raw): (u64, u64) = (0, 0);
         let mut last_status = Instant::now();
         while !stop.load(Ordering::Relaxed) {
             if tcp && tcps.is_none() {
                 set(&status, &format!("IP: connecting to {addr} ..."));
                 match TcpStream::connect(&addr) {
-                    Ok(s) => {
+                    Ok(mut s) => {
                         let _ = s.set_nodelay(true);
+                        if flac && s.write_all(TCP_FLAC_MAGIC).is_err() {
+                            continue;
+                        }
                         tcps = Some(s);
                     }
                     Err(e) => {
@@ -60,23 +76,40 @@ fn ip_thread(cfg: MpxCfg, q: Arc<Queue>, stop: Arc<AtomicBool>, status: Text) {
             credit += now.duration_since(last).as_secs_f64() * FS as f64 * factor;
             last = now;
             let mut idle = true;
-            while credit >= PKT as f64 && q.len() >= q.prefill.min(PKT * 4).max(PKT) {
+            while credit >= pkt as f64 && q.len() >= q.prefill.min(pkt * 4).max(pkt) {
                 samples.clear();
-                if !q.pop_n(PKT, &mut samples) {
+                if !q.pop_n(pkt, &mut samples) {
                     break;
                 }
-                credit -= PKT as f64;
+                credit -= pkt as f64;
                 idle = false;
                 payload.clear();
-                if !tcp {
-                    payload.extend_from_slice(&[0x80, 97]);
-                    payload.extend_from_slice(&seq.to_be_bytes());
-                    payload.extend_from_slice(&ts.to_be_bytes());
-                    payload.extend_from_slice(&ssrc.to_be_bytes());
-                    seq = seq.wrapping_add(1);
-                    ts = ts.wrapping_add(PKT as u32);
+                raw += (pkt * 3) as u64;
+                if flac {
+                    ints.clear();
+                    to_i24(&samples, &mut ints);
+                    let frame = encode_frame(&ints, frame_no);
+                    frame_no = (frame_no + 1) & 0x7FFF_FFFF;
+                    if tcp {
+                        payload.extend_from_slice(&(frame.len() as u16).to_be_bytes());
+                        payload.extend_from_slice(&frame);
+                    } else {
+                        // one frame per packet (at most about 1170 bytes, below the internet MTU); flags byte 0
+                        rtp_header(&mut payload, PT_FLAC, seq, ts, ssrc);
+                        payload.push(0);
+                        payload.extend_from_slice(&(frame.len() as u16).to_be_bytes());
+                        payload.extend_from_slice(&frame);
+                    }
+                } else {
+                    if !tcp {
+                        rtp_header(&mut payload, PT_L24, seq, ts, ssrc);
+                    }
+                    to_l24(&samples, &mut payload);
                 }
-                to_l24(&samples, &mut payload);
+                if !tcp {
+                    seq = seq.wrapping_add(1);
+                    ts = ts.wrapping_add(pkt as u32);
+                }
                 sent += payload.len() as u64;
                 if let Some(s) = &udp {
                     let _ = s.send(&payload);
@@ -87,13 +120,22 @@ fn ip_thread(cfg: MpxCfg, q: Arc<Queue>, stop: Arc<AtomicBool>, status: Text) {
                     }
                 }
             }
-            if credit > (PKT * 40) as f64 {
+            if credit > (pkt * 40) as f64 {
                 credit = 0.0; // the producer stalled: do not send a burst afterwards
             }
             if last_status.elapsed() > Duration::from_millis(500) {
+                let secs = last_status.elapsed().as_secs_f64();
                 last_status = Instant::now();
-                set(&status, &format!("IP ({}): {addr}, {:.2} Mbit/s, buffer {} ms, dropped {}", if tcp { "TCP" } else { "UDP/RTP" }, 0.0 + sent as f64 * 8.0 / 0.5 / 1e6, q.ms(), q.drops.load(Ordering::Relaxed)));
+                let kind = match (tcp, flac) {
+                    (false, false) => "UDP/RTP, L24".to_string(),
+                    (true, false) => "TCP, L24".to_string(),
+                    (false, true) => "UDP/RTP, FLAC lossless".to_string(),
+                    (true, true) => "TCP, FLAC lossless".to_string(),
+                };
+                let ratio = if flac && sent > 0 { format!(" (L24 would be {:.2})", raw as f64 * 8.0 / secs / 1e6) } else { String::new() };
+                set(&status, &format!("IP ({kind}): {addr}, {:.2} Mbit/s{ratio}, buffer {} ms, dropped {}", sent as f64 * 8.0 / secs / 1e6, q.ms(), q.drops.load(Ordering::Relaxed)));
                 sent = 0;
+                raw = 0;
             }
             if idle {
                 std::thread::sleep(Duration::from_millis(1));

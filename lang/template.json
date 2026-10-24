@@ -581,5 +581,12 @@
   "Save only": "Save only",
   "Saved.": "Saved.",
   "For the database server of the installer (Windows service RadioMoonDB) use address 127.0.0.1, port 3307, user root, empty password.": "For the database server of the installer (Windows service RadioMoonDB) use address 127.0.0.1, port 3307, user root, empty password.",
-  "System MariaDB / MySQL (Linux, macOS): the port is usually 3306. The root user of the system server often cannot log in with a password; create a user, for example: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'password'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\"": "System MariaDB / MySQL (Linux, macOS): the port is usually 3306. The root user of the system server often cannot log in with a password; create a user, for example: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'password'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\""
+  "System MariaDB / MySQL (Linux, macOS): the port is usually 3306. The root user of the system server often cannot log in with a password; create a user, for example: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'password'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\"": "System MariaDB / MySQL (Linux, macOS): the port is usually 3306. The root user of the system server often cannot log in with a password; create a user, for example: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'password'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\"",
+  "Send over IP (24-bit, 192 kHz)": "",
+  "UDP (RTP)": "",
+  "TCP": "",
+  "Format": "",
+  "L24 uncompressed (4.6 Mbit/s)": "",
+  "FLAC lossless (bit-exact, about 3-4 Mbit/s)": "",
+  "FLAC needs the RadioMoon MPX Receiver 0.5.30 or newer.": ""
 }

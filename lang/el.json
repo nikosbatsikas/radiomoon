@@ -579,5 +579,12 @@
   "Save only": "Μόνο αποθήκευση",
   "Saved.": "Αποθηκεύτηκε.",
   "For the database server of the installer (Windows service RadioMoonDB) use address 127.0.0.1, port 3307, user root, empty password.": "Για τον database server του installer (υπηρεσία Windows RadioMoonDB) βάλτε διεύθυνση 127.0.0.1, θύρα 3307, χρήστης root, κενός κωδικός.",
-  "System MariaDB / MySQL (Linux, macOS): the port is usually 3306. The root user of the system server often cannot log in with a password; create a user, for example: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'password'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\"": "MariaDB / MySQL του συστήματος (Linux, macOS): η θύρα είναι συνήθως 3306. Ο χρήστης root του συστήματος συχνά δεν μπορεί να συνδεθεί με κωδικό· φτιάξτε χρήστη, π.χ.: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'κωδικός'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\""
+  "System MariaDB / MySQL (Linux, macOS): the port is usually 3306. The root user of the system server often cannot log in with a password; create a user, for example: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'password'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\"": "MariaDB / MySQL του συστήματος (Linux, macOS): η θύρα είναι συνήθως 3306. Ο χρήστης root του συστήματος συχνά δεν μπορεί να συνδεθεί με κωδικό· φτιάξτε χρήστη, π.χ.: sudo mariadb -e \"CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'κωδικός'; GRANT ALL ON *.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;\"",
+  "Send over IP (24-bit, 192 kHz)": "Αποστολή μέσω IP (24-bit, 192 kHz)",
+  "UDP (RTP)": "UDP (RTP)",
+  "TCP": "TCP",
+  "Format": "Μορφή",
+  "L24 uncompressed (4.6 Mbit/s)": "L24 χωρίς συμπίεση (4,6 Mbit/s)",
+  "FLAC lossless (bit-exact, about 3-4 Mbit/s)": "FLAC χωρίς απώλειες (bit-exact, περίπου 3-4 Mbit/s)",
+  "FLAC needs the RadioMoon MPX Receiver 0.5.30 or newer.": "Το FLAC χρειάζεται RadioMoon MPX Receiver 0.5.30 ή νεότερο."
 }

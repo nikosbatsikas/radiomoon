@@ -2,6 +2,11 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.30
+- MPX over IP can now be sent as **FLAC lossless** (Control Panel > MPX > Outputs > Format, and in the MPX Transmitter). The composite signal arrives bit-exact, exactly as with L24, at about 3-4 Mbit/s instead of 4.6 Mbit/s (how much smaller depends on the program audio). Every 2 ms packet is a complete, standard FLAC frame, so a lost packet never affects the next one. Works over UDP (RTP) and TCP. L24 stays the default.
+- MPX Receiver: detects L24 or FLAC by itself. Lost UDP packets are now concealed by repeating the last 2 ms, which keeps the 19 kHz pilot, the 38 kHz subcarrier and the 57 kHz RDS carrier in phase, so radios do not drop to mono or lose RDS on a lost packet, and the timing stays exact. The status shows the format, the bitrate and the lost / concealed packets.
+- FLAC needs MPX Receiver 0.5.30 or newer at the transmitter site; update the receiver first.
+
 ## 0.5.29
 - Automatic database detection: when the configured port does not answer on this computer, the usual ports (3307 of RadioMoon, 3306 of the system MariaDB / MySQL) are tried and the one that works is saved. If nothing connects, the connection window opens with the port that answers already filled in.
 

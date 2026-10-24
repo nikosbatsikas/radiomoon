@@ -2724,12 +2724,20 @@ impl App {
                 });
             });
             ui.separator();
-            ch |= ui.checkbox(&mut c.ip_on, tr("Send over IP (24-bit, 192 kHz, about 4.6 Mbit/s)")).changed();
+            ch |= ui.checkbox(&mut c.ip_on, tr("Send over IP (24-bit, 192 kHz)")).changed();
             ui.horizontal(|ui| {
                 ui.label(tr("Protocol"));
-                ch |= ui.radio_value(&mut c.ip_proto, "udp".to_string(), tr("UDP (RTP L24)")).changed();
-                ch |= ui.radio_value(&mut c.ip_proto, "tcp".to_string(), tr("TCP (raw L24)")).changed();
+                ch |= ui.radio_value(&mut c.ip_proto, "udp".to_string(), tr("UDP (RTP)")).changed();
+                ch |= ui.radio_value(&mut c.ip_proto, "tcp".to_string(), tr("TCP")).changed();
             });
+            ui.horizontal(|ui| {
+                ui.label(tr("Format"));
+                ch |= ui.radio_value(&mut c.ip_codec, "l24".to_string(), tr("L24 uncompressed (4.6 Mbit/s)")).changed();
+                ch |= ui.radio_value(&mut c.ip_codec, "flac".to_string(), tr("FLAC lossless (bit-exact, about 3-4 Mbit/s)")).changed();
+            });
+            if c.ip_codec == "flac" {
+                ui.label(RichText::new(tr("FLAC needs the RadioMoon MPX Receiver 0.5.30 or newer.")).color(kit::GRAY).small());
+            }
             ch |= text_row(ui, "Receiver address", &mut c.ip_host);
             ui.horizontal(|ui| {
                 ui.label(tr("Port"));
