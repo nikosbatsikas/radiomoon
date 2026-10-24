@@ -588,5 +588,6 @@
   "Format": "",
   "L24 uncompressed (4.6 Mbit/s)": "",
   "FLAC lossless (bit-exact, about 3-4 Mbit/s)": "",
-  "FLAC needs the RadioMoon MPX Receiver 0.5.30 or newer.": ""
+  "FLAC needs the RadioMoon MPX Receiver 0.5.30 or newer.": "",
+  "Multi-server streaming with song titles": ""
 }

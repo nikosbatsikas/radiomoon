@@ -47,14 +47,19 @@ Name: "dbservice"; Description: "Install the database server (MariaDB) as a Wind
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
+[InstallDelete]
+; the MPX programs moved to the RadioMoon MPX setup (github.com/nikosbatsikas/radiomoon-mpx)
+Type: files; Name: "{app}\RadioMoon-MPX-Receiver.exe"
+Type: files; Name: "{app}\RadioMoon-MPX-Transmitter.exe"
+Type: files; Name: "{group}\RadioMoon MPX Receiver.lnk"
+Type: files; Name: "{group}\RadioMoon MPX Transmitter.lnk"
+
 [Dirs]
 ; data folder shared by all users of the PC (database, backups, settings)
 Name: "{commonappdata}\RadioMoon"; Permissions: users-modify
 
 [Icons]
 Name: "{group}\RadioMoon"; Filename: "{app}\RadioMoon.exe"
-Name: "{group}\RadioMoon MPX Receiver"; Filename: "{app}\RadioMoon-MPX-Receiver.exe"
-Name: "{group}\RadioMoon MPX Transmitter"; Filename: "{app}\RadioMoon-MPX-Transmitter.exe"
 Name: "{autodesktop}\RadioMoon"; Filename: "{app}\RadioMoon.exe"; Tasks: desktopicon
 
 [Run]

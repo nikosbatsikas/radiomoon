@@ -1,7 +1,7 @@
 # Builds every edition when a version tag is pushed (create the release on GitHub: Releases > Draft a new release).
 # The packages are attached to that release and its notes are taken from CHANGELOG.md; no release is created here:
 #   Windows x64/x86/arm64: setup .exe, portable .zip   (x64 includes the bundled MariaDB)
-#   Linux x64/arm64:       .deb, .rpm, portable .tar.gz, MPX receiver only .tar.gz (arm64 = Raspberry Pi 3/4/5, 64-bit OS)
+#   Linux x64/arm64:       .deb, .rpm, portable .tar.gz
 #   macOS arm64 (Apple Silicon): .dmg
 name: release
 on:
@@ -70,19 +70,10 @@ jobs:
           V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           mkdir -p dist RadioMoon/lang
           cp target/release/radiomoon RadioMoon/radiomoon
-          cp target/release/radiomoon-mpx-receiver target/release/radiomoon-mpx-transmitter RadioMoon/
           cp README.md CHANGELOG.md RadioMoon/
           cp lang/* RadioMoon/lang/
           touch RadioMoon/portable.flag
           tar czf dist/RadioMoon-$V-linux-${{ matrix.arch }}-portable.tar.gz RadioMoon
-          # receiver only (for a Raspberry Pi at the transmitter site): RadioMoon-MPX-Receiver-<ver>-linux-<arch>.tar.gz
-          mkdir -p RadioMoon-MPX-Receiver
-          cp target/release/radiomoon-mpx-receiver RadioMoon-MPX-Receiver/
-          mkdir -p RadioMoon-MPX-Transmitter
-          cp target/release/radiomoon-mpx-transmitter README.md RadioMoon-MPX-Transmitter/
-          tar czf dist/RadioMoon-MPX-Transmitter-$V-linux-${{ matrix.arch }}.tar.gz RadioMoon-MPX-Transmitter
-          cp README.md RadioMoon-MPX-Receiver/
-          tar czf dist/RadioMoon-MPX-Receiver-$V-linux-${{ matrix.arch }}.tar.gz RadioMoon-MPX-Receiver
           cp target/debian/*.deb dist/
           cp target/generate-rpm/*.rpm dist/
       - uses: actions/upload-artifact@v4
@@ -109,8 +100,6 @@ jobs:
           APP=dist/RadioMoon.app
           mkdir -p $APP/Contents/MacOS $APP/Contents/Resources dist/dmg
           cp target/release/radiomoon $APP/Contents/MacOS/RadioMoon
-          cp target/release/radiomoon-mpx-receiver $APP/Contents/MacOS/RadioMoon-MPX-Receiver
-          cp target/release/radiomoon-mpx-transmitter $APP/Contents/MacOS/RadioMoon-MPX-Transmitter
           sed "s/@VERSION@/$V/g" packaging/macos/Info.plist.in > $APP/Contents/Info.plist
           mkdir RadioMoon.iconset
           for s in 16 32 64 128 256; do sips -z $s $s packaging/icon.png --out RadioMoon.iconset/icon_${s}x${s}.png; done

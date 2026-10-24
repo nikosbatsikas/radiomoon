@@ -2,6 +2,11 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.6.0
+- The FM multiplex part moved to its own project, [radiomoon-mpx](https://github.com/nikosbatsikas/radiomoon-mpx): the MPX Transmitter and the MPX Receiver are released there (version 1.0.0 has everything of 0.5.30, including FLAC lossless). RadioMoon no longer has the Control Panel > MPX page, and its packages no longer contain the two MPX programs.
+- To put RadioMoon on air: enable the internet broadcast and use that stream as the source of the MPX Transmitter. The song titles RadioMoon sends to the server become the RDS RadioText there.
+- Saved MPX settings are simply ignored; nothing else changes.
+
 ## 0.5.30
 - MPX over IP can now be sent as **FLAC lossless** (Control Panel > MPX > Outputs > Format, and in the MPX Transmitter). The composite signal arrives bit-exact, exactly as with L24, at about 3-4 Mbit/s instead of 4.6 Mbit/s (how much smaller depends on the program audio). Every 2 ms packet is a complete, standard FLAC frame, so a lost packet never affects the next one. Works over UDP (RTP) and TCP. L24 stays the default.
 - MPX Receiver: detects L24 or FLAC by itself. Lost UDP packets are now concealed by repeating the last 2 ms, which keeps the 19 kHz pilot, the 38 kHz subcarrier and the 57 kHz RDS carrier in phase, so radios do not drop to mono or lose RDS on a lost packet, and the timing stays exact. The status shows the format, the bitrate and the lost / concealed packets.

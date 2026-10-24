@@ -7,7 +7,6 @@ use crate::engine::{self, Data, Generator};
 use crate::backup;
 use crate::export;
 use crate::i18n::tr;
-use crate::mpx::MpxHandle;
 use crate::stream::Streamer;
 use crate::model::*;
 use crate::player::Player;
@@ -126,13 +125,11 @@ pub struct App {
     pub app_dir: PathBuf,
     /// Running internet streams: (index in settings, tap id, streamer).
     pub streamers: Vec<(usize, u32, Streamer)>,
-    pub mpx_tap: Option<u32>,
     pub autoplay_pending: bool,
     pub about_open: bool,
     pub second_open: bool,
     pub second_auto_done: bool,
     pub about_tex: Option<eframe::egui::TextureHandle>,
-    pub mpx: Option<MpxHandle>,
     pub last_backup_day: String,
     pub last_backup_check: Instant,
     /// live rebroadcast: selected source, the schedule slot that started it, a slot switched off by hand
@@ -186,13 +183,11 @@ impl App {
             cp: ControlState::default(),
             app_dir,
             streamers: Vec::new(),
-            mpx_tap: None,
             autoplay_pending: false,
             about_open: false,
             second_open: false,
             second_auto_done: false,
             about_tex: None,
-            mpx: None,
             last_backup_day: String::new(),
             last_backup_check: Instant::now(),
             live_sel: 0,
@@ -216,9 +211,6 @@ impl App {
             // the playlist of the last run is not replayed: the schedule builds a new one (different songs at every start)
             app.log.clear();
             app.save_log();
-        }
-        if app.data.s.mpx.autostart {
-            app.start_mpx();
         }
         if app.data.s.streams.is_empty() {
             let first = app.data.s.stream.clone(); // settings of older versions had a single server
@@ -305,9 +297,6 @@ impl App {
     }
 
     pub fn save_settings(&mut self) {
-        if let Some(h) = &self.mpx {
-            h.update(&self.data.s.mpx);
-        }
         self.db.save_settings(&self.data.s);
     }
 
@@ -366,32 +355,6 @@ impl App {
             }
         }
         self.streamers = v;
-    }
-
-    pub fn start_mpx(&mut self) {
-        self.stop_mpx();
-        let Some(p) = self.player.as_mut() else {
-            self.status = "No audio output available".into();
-            return;
-        };
-        let (tap, rx) = p.add_tap();
-        self.mpx_tap = Some(tap);
-        let h = MpxHandle::start(&self.data.s.mpx, rx);
-        if let Some(t) = &self.log.get(self.current.unwrap_or(usize::MAX)) {
-            if let Some((a, ti)) = export::meta_for(&self.data.s, t) {
-                h.set_radiotext(&self.data.s.mpx, &if a.is_empty() { ti } else { format!("{a} - {ti}") });
-            }
-        }
-        self.mpx = Some(h);
-    }
-
-    pub fn stop_mpx(&mut self) {
-        if let Some(h) = self.mpx.take() {
-            h.stop();
-        }
-        if let (Some(p), Some(id)) = (self.player.as_mut(), self.mpx_tap.take()) {
-            p.remove_tap(id);
-        }
     }
 
     pub fn stop_stream(&mut self) {
@@ -561,12 +524,8 @@ impl App {
 
     pub fn apply_outputs(&mut self) {
         let restart = !self.streamers.is_empty();
-        let restart_mpx = self.mpx.is_some();
         if restart {
             self.stop_stream();
-        }
-        if restart_mpx {
-            self.stop_mpx();
         }
         let s = &self.data.s;
         match Player::new(&s.out_main, &s.out_monitor, &s.out_instants) {
@@ -580,9 +539,6 @@ impl App {
         }
         if restart {
             self.start_stream();
-        }
-        if restart_mpx {
-            self.start_mpx();
         }
     }
 
@@ -802,11 +758,6 @@ impl App {
                 }
             }
         }
-        if let Some(h) = &self.mpx {
-            if let Some((artist, title)) = export::meta_for(&self.data.s, &t) {
-                h.set_radiotext(&self.data.s.mpx, &if artist.is_empty() { title } else { format!("{artist} - {title}") });
-            }
-        }
         self.status = format!("On air: {}", t.label());
     }
 
@@ -976,7 +927,6 @@ impl App {
 impl Drop for App {
     fn drop(&mut self) {
         self.stop_stream();
-        self.stop_mpx();
         if self.server.owned() {
             let _ = self.db.shutdown();
             self.server.mark_shutdown();

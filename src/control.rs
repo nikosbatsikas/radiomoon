@@ -39,7 +39,6 @@ pub enum Page {
     Folders,
     Server,
     Stream,
-    Mpx,
     Backup,
     Updater,
     Jazler,
@@ -83,7 +82,6 @@ const NAV: [(&str, &[(Page, &str, &str)]); 4] = [
             (Page::Users, "Users & security", "users"),
             (Page::Folders, "Audio folder mappings", "folder_maps"),
             (Page::Stream, "Internet broadcast", "settings"),
-            (Page::Mpx, "MPX / FM multiplex", "settings"),
             (Page::Backup, "Backup & restore", "settings"),
             (Page::Server, "Database server", "settings"),
         ],
@@ -404,7 +402,6 @@ impl App {
                                     Page::Folders => self.page_folders(ui),
                                     Page::Server => self.page_server(ui),
                                     Page::Stream => self.page_stream(ui),
-                                    Page::Mpx => self.page_mpx(ui),
                                     Page::Backup => self.page_backup(ui),
                                     Page::Updater => self.page_updater(ui),
                                     Page::Jazler => self.page_jazler(ui),
@@ -2672,119 +2669,6 @@ impl App {
             });
             ui.label(RichText::new(tr("All servers that are marked \"Use this server\" are started together. The title of the playing song is sent to every server. Jingles, spots and sweepers that are played through the main output are part of the stream.")).color(kit::GRAY).small());
         });
-    }
-
-    // ---------------------------------------------------------------- MPX
-    fn page_mpx(&mut self, ui: &mut egui::Ui) {
-        kit::page_title(ui, "MPX / FM multiplex", "Generates the FM composite signal (stereo + RDS) for a 192 kHz sound card or for transport over IP");
-        let mut ch = false;
-        let running = self.mpx.is_some();
-        let lines = self.mpx.as_ref().map(|h| h.status_lines());
-        let peak = self.mpx.as_ref().map(|h| h.peak()).unwrap_or(0.0);
-        let devs = player::list_outputs();
-        kit::card(ui, "MPX generator", |ui| {
-            match &lines {
-                Some(l) => {
-                    for t in l {
-                        ui.colored_label(kit::GOOD, t);
-                    }
-                    ui.add(egui::ProgressBar::new(peak.min(1.0)).desired_width(360.0).text(format!("{:.1} kHz  ({:.0}%)", peak * 75.0, peak * 100.0)));
-                }
-                None => {
-                    ui.label(RichText::new(tr("Not running")).color(kit::GRAY));
-                }
-            }
-            ui.horizontal(|ui| {
-                if !running {
-                    if kit::primary_button(ui, "Start MPX").clicked() {
-                        self.start_mpx();
-                    }
-                } else if kit::danger_button(ui, "Stop MPX").clicked() {
-                    self.stop_mpx();
-                }
-            });
-            ui.label(RichText::new(tr("100% = 75 kHz deviation. Set the exciter input so that this level gives 75 kHz, and keep the peaks below 100%.")).color(kit::GRAY).small());
-        });
-        if let Some(h) = &self.mpx {
-            kit::card(ui, "Signal analysis", |ui| {
-                crate::mpxscope::draw(ui, &h.scope);
-            });
-        }
-        kit::card(ui, "Outputs", |ui| {
-            let c = &mut self.data.s.mpx;
-            ch |= ui.checkbox(&mut c.card_on, tr("192 kHz sound card (MPX input of the exciter)")).changed();
-            ui.horizontal(|ui| {
-                ui.label(tr("Device"));
-                let shown = if c.card_device.is_empty() { tr("Default").to_string() } else { c.card_device.clone() };
-                egui::ComboBox::from_id_salt("mpxdev").width(320.0).selected_text(shown).show_ui(ui, |ui| {
-                    ch |= ui.selectable_value(&mut c.card_device, String::new(), tr("Default")).changed();
-                    for d in &devs {
-                        ch |= ui.selectable_value(&mut c.card_device, d.clone(), d).changed();
-                    }
-                });
-            });
-            ui.separator();
-            ch |= ui.checkbox(&mut c.ip_on, tr("Send over IP (24-bit, 192 kHz)")).changed();
-            ui.horizontal(|ui| {
-                ui.label(tr("Protocol"));
-                ch |= ui.radio_value(&mut c.ip_proto, "udp".to_string(), tr("UDP (RTP)")).changed();
-                ch |= ui.radio_value(&mut c.ip_proto, "tcp".to_string(), tr("TCP")).changed();
-            });
-            ui.horizontal(|ui| {
-                ui.label(tr("Format"));
-                ch |= ui.radio_value(&mut c.ip_codec, "l24".to_string(), tr("L24 uncompressed (4.6 Mbit/s)")).changed();
-                ch |= ui.radio_value(&mut c.ip_codec, "flac".to_string(), tr("FLAC lossless (bit-exact, about 3-4 Mbit/s)")).changed();
-            });
-            if c.ip_codec == "flac" {
-                ui.label(RichText::new(tr("FLAC needs the RadioMoon MPX Receiver 0.5.30 or newer.")).color(kit::GRAY).small());
-            }
-            ch |= text_row(ui, "Receiver address", &mut c.ip_host);
-            ui.horizontal(|ui| {
-                ui.label(tr("Port"));
-                ch |= ui.add(egui::DragValue::new(&mut c.ip_port).range(1..=65535)).changed();
-            });
-            ch |= ui.checkbox(&mut c.autostart, tr("Start MPX when RadioMoon starts")).changed();
-            ui.label(RichText::new(tr("Changes of the outputs are applied when MPX is started again.")).color(kit::GRAY).small());
-        });
-        kit::card(ui, "Signal", |ui| {
-            let c = &mut self.data.s.mpx;
-            let pct = |v: f64, _: std::ops::RangeInclusive<usize>| format!("{:.0}%", v * 100.0);
-            ch |= ui.checkbox(&mut c.stereo, tr("Stereo (19 kHz pilot and 38 kHz subcarrier)")).changed();
-            ch |= ui.add(egui::Slider::new(&mut c.audio_level, 0.3..=1.0).custom_formatter(pct).text(tr("Audio level"))).changed();
-            ch |= ui.add(egui::Slider::new(&mut c.pilot_level, 0.0..=0.12).custom_formatter(pct).text(tr("Pilot level"))).changed();
-            ch |= ui.add(egui::Slider::new(&mut c.rds_level, 0.0..=0.08).custom_formatter(pct).text(tr("RDS level"))).changed();
-            ch |= ui.add(egui::Slider::new(&mut c.output, 0.1..=1.0).custom_formatter(pct).text(tr("Output level"))).changed();
-            ui.horizontal(|ui| {
-                ui.label(tr("Pre-emphasis"));
-                ch |= ui.radio_value(&mut c.preemph_us, 50.0, "50 us").changed();
-                ch |= ui.radio_value(&mut c.preemph_us, 75.0, "75 us").changed();
-                ch |= ui.radio_value(&mut c.preemph_us, 0.0, tr("Off")).changed();
-            });
-            ch |= ui.checkbox(&mut c.limiter, tr("Peak limiter before the stereo encoder")).changed();
-            ui.label(RichText::new(tr("The audio is band-limited to 16 kHz. For a loud, processed sound use an external processor before RadioMoon; the limiter here only protects against over-modulation.")).color(kit::GRAY).small());
-        });
-        kit::card(ui, "RDS", |ui| {
-            let c = &mut self.data.s.mpx;
-            ch |= ui.checkbox(&mut c.rds_on, tr("Send RDS")).changed();
-            ui.horizontal(|ui| {
-                ui.label(tr("PI code (hex)"));
-                ch |= ui.add(egui::TextEdit::singleline(&mut c.pi).desired_width(60.0).char_limit(4)).changed();
-                ui.label(tr("Station name (PS)"));
-                ch |= ui.add(egui::TextEdit::singleline(&mut c.ps).desired_width(110.0).char_limit(8)).changed();
-                ui.label(tr("Program type"));
-                ch |= ui.add(egui::DragValue::new(&mut c.pty).range(0..=31)).changed();
-            });
-            ch |= ui.checkbox(&mut c.rt_from_playlist, tr("RadioText = artist - title of the playing song")).changed();
-            ch |= text_row(ui, "RadioText (fixed text)", &mut c.rt);
-            ui.horizontal(|ui| {
-                ch |= ui.checkbox(&mut c.tp, tr("Traffic program (TP)")).changed();
-                ch |= ui.checkbox(&mut c.ta, tr("Traffic announcement (TA)")).changed();
-                ch |= ui.checkbox(&mut c.music, tr("Music (not speech)")).changed();
-            });
-        });
-        if ch {
-            self.save_settings();
-        }
     }
 
     // ---------------------------------------------------------------- backup & restore

@@ -1203,8 +1203,7 @@ impl App {
                 for line in [
                     "Auto schedule with clocks, playlists, breaks and force clocks",
                     "Crossfade player, instant jingles, live rebroadcast",
-                    "Multi-server streaming and FM multiplex (MPX) with RDS",
-                    "MPX receiver and transmitter, with analyzer",
+                    "Multi-server streaming with song titles",
                     "Jazler RadioStar 2 database import",
                 ] {
                     ui.label(egui::RichText::new(format!("\u{2022}  {}", tr(line))).color(kit::TEXT));

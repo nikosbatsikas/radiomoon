@@ -538,7 +538,7 @@ impl Player {
         })
     }
 
-    // ----- taps: any number of consumers of the on-air mix (internet streams, MPX) -----
+    // ----- taps: any number of consumers of the on-air mix (internet streams) -----
     pub fn add_tap(&mut self) -> (u32, Receiver<Vec<f32>>) {
         static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
         let id = NEXT.fetch_add(1, Ordering::Relaxed);

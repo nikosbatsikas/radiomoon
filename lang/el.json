@@ -586,5 +586,6 @@
   "Format": "Μορφή",
   "L24 uncompressed (4.6 Mbit/s)": "L24 χωρίς συμπίεση (4,6 Mbit/s)",
   "FLAC lossless (bit-exact, about 3-4 Mbit/s)": "FLAC χωρίς απώλειες (bit-exact, περίπου 3-4 Mbit/s)",
-  "FLAC needs the RadioMoon MPX Receiver 0.5.30 or newer.": "Το FLAC χρειάζεται RadioMoon MPX Receiver 0.5.30 ή νεότερο."
+  "FLAC needs the RadioMoon MPX Receiver 0.5.30 or newer.": "Το FLAC χρειάζεται RadioMoon MPX Receiver 0.5.30 ή νεότερο.",
+  "Multi-server streaming with song titles": "Streaming σε πολλούς servers με τίτλους τραγουδιών"
 }

@@ -23,8 +23,6 @@ foreach ($a in $Arch) {
     if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $dist | Out-Null
     Copy-Item "target\$t\release\radiomoon.exe" "$dist\RadioMoon.exe" -Force
-    Copy-Item "target\$t\release\radiomoon-mpx-receiver.exe" "$dist\RadioMoon-MPX-Receiver.exe" -Force
-    Copy-Item "target\$t\release\radiomoon-mpx-transmitter.exe" "$dist\RadioMoon-MPX-Transmitter.exe" -Force
     foreach ($d in "music", "jingles", "commercials", "lang") { New-Item -ItemType Directory -Force -Path "$dist\$d" | Out-Null }
     Copy-Item "README.md", "CHANGELOG.md" $dist -Force
     Copy-Item "lang\*" "$dist\lang" -Force

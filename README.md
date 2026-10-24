@@ -48,7 +48,7 @@ Developers: the database layout is in the `sql/` folder: `sql/schema.sql` (lates
 
 ## Portable folder layout (Windows x64)
 
-`RadioMoon.exe`, `RadioMoon-MPX-Receiver.exe`, `portable.flag`, `lang\`, `mariadb\` (bundled database server), `data\` (created on first run), `backups\`, `reports\`, `export\`, `logs\`, `config.json` (encrypted).
+`RadioMoon.exe`, `portable.flag`, `lang\`, `mariadb\` (bundled database server), `data\` (created on first run), `backups\`, `reports\`, `export\`, `logs\`, `config.json` (encrypted).
 
 The bundled database listens only on `127.0.0.1:3307`. Use another host in Control Panel > Database server to share one database between workstations.
 
@@ -60,22 +60,9 @@ English and Greek are built in. To add a language, copy `lang\template.json` to 
 
 Control Panel > Internet broadcast: add several servers, each Icecast 2 (host, port, mount, user, password) or Shoutcast v1 (host, port, password; the source connects to port+1). MP3, 48-320 kbps. Everything played on the main output is in the stream; the preview (monitor) output is not.
 
-## MPX / FM multiplex
+## FM / MPX
 
-Control Panel > MPX: generates the FM composite signal (stereo pilot, 38 kHz, RDS) and sends it to a 192 kHz sound card and/or over IP (UDP/RTP or TCP). The separate program `RadioMoon-MPX-Receiver` receives the IP stream and plays it on a sound card at the transmitter site.
-
-IP formats (Outputs > Format):
-
-| Format | Bitrate | Quality |
-|---|---|---|
-| L24 uncompressed | 4.6 Mbit/s | 24-bit, 192 kHz |
-| FLAC lossless | about 3-4 Mbit/s (depends on the audio) | bit-exact, identical to L24 |
-
-With FLAC every 2 ms packet (384 samples) is one complete, standard FLAC frame (24-bit, mono, 192 kHz; RTP payload type 98, or over TCP a stream starting with `RMF1` followed by 16-bit length + frame). The receiver detects the format by itself. A lost UDP packet is concealed by repeating the last 2 ms: that is a whole number of cycles of 19, 38 and 57 kHz, so pilot, stereo and RDS stay in phase and the timing stays exact. FLAC needs MPX Receiver 0.5.30 or newer.
-
-Both the generator (Control Panel > MPX > Signal analysis) and the receiver show an analyzer: the spectrum from 0 to 96 kHz with markers at 19, 38 and 57 kHz, the waveform of the composite signal, the levels of the pilot, RDS, L+R and L-R, and the current and maximum peak deviation in kHz and % (100% = 75 kHz). *Reset* clears the maximum.
-
-The receiver also runs on a **Raspberry Pi 3/4/5 with 64-bit Raspberry Pi OS**: download `RadioMoon-MPX-Receiver-<ver>-linux-arm64.tar.gz`, extract it and run `./radiomoon-mpx-receiver` (needs a desktop session and `libasound2`). A 192 kHz capable USB or HAT sound card is required for the composite output.
+The FM multiplex programs (MPX Transmitter and MPX Receiver: stereo, RDS, L24 or lossless FLAC over IP) are a separate project since RadioMoon 0.6.0: [radiomoon-mpx](https://github.com/nikosbatsikas/radiomoon-mpx). To put RadioMoon on air, enable its internet broadcast and use that stream as the MPX Transmitter's source; the song titles RadioMoon sends to the server become the RDS RadioText.
 
 ## Import from Jazler RadioStar 2 / MegaMix
 
@@ -108,7 +95,7 @@ Control Panel > Backup & restore: a daily automatic backup (default 03:00, keeps
 |---|---|
 | Libraries | Songs (3 categories + vocal + properties, intro, mix points, hooks, volume, song separation, playlister code, mass change, normalize, statistics), Spots (campaigns, breaks, priorities, playlister import), Jingles, Assets, Sweepers, Voice tracks, Memos, Instant jingle pallets, Stitcher |
 | Scheduling | Main auto schedule (clocks, 7x24 grid, randomness, artist separation, next-day separation, restrictive rules, classic auto), Playlists, Force clocks, Final log creator, Log viewer |
-| Settings | General, Sound outputs, Shortcuts, Users & security, Audio folder mappings, Internet broadcast, MPX, Backup & restore, Database server |
+| Settings | General, Sound outputs, Shortcuts, Users & security, Audio folder mappings, Internet broadcast, Backup & restore, Database server |
 | Utilities | Internet updater files, Import from Jazler / MegaMix, Integrity check, Broadcasting reports, Reset database |
 
 ## First steps
@@ -125,13 +112,8 @@ Control Panel > Scheduling > Live rebroadcast.
 - **Sources:** add as many as you need. Each is a sound card input, or an internet radio stream (enter a URL: MP3 or AAC over HTTP/HTTPS; HLS is not supported), with its own level. *Go live* puts it on the air at once.
 - **Schedule:** each entry picks a source, the days, a start and an end time (HH:MM, over midnight allowed) and whether to mute the automation. The source goes on the air at the start and off at the end.
 - **LIVE button** in the studio header: click to start or stop the selected source; right-click to choose another. Stopping a scheduled source by hand keeps it off until its slot ends.
-- The live audio is mixed into the main output, so it is also in the internet broadcast and MPX. The player shows a blinking **LIVE** with the source name. With *Stop automation* the playlist stops and the studio goes to MANUAL while the source is live; afterwards the previous mode returns and AUTO continues with the next item.
+- The live audio is mixed into the main output, so it is also in the internet broadcast. The player shows a blinking **LIVE** with the source name. With *Stop automation* the playlist stops and the studio goes to MANUAL while the source is live; afterwards the previous mode returns and AUTO continues with the next item.
 
 ## Not included
 
 Weather, VST plug-ins, microphone recording of voice tracks.
-
-
-## MPX Transmitter (stand-alone)
-
-`RadioMoon-MPX-Transmitter` (`radiomoon-mpx-transmitter` on Linux/macOS) needs no RadioMoon database. Choose a folder (random order), a stream URL or a sound input, set the outputs (192 kHz card and/or IP to the MPX Receiver), RDS and levels, then press Start. Enable *Start transmitting when the program starts* for unattended use. Settings are stored in `mpx-transmitter.json` (ProgramData, or next to the exe when `portable.flag` exists).
