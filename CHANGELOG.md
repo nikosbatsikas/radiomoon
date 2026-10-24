@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.5.27
+- Fix of the build error of 0.5.26 (connection window).
+
 ## 0.5.26
 - If the database cannot be reached at start, a connection window opens (server address, port, user, password, database name) with Test connection, Save and start RadioMoon, and Save only, instead of only showing an error.
 

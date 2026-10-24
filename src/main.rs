@@ -180,7 +180,8 @@ fn main() -> eframe::Result<()> {
             }),
         ),
         Err(e) => {
-            // the interface language is stored in the database, which is not reachable here: Greek is used when the system language is Greek\n            if std::env::var("LANG").map(|l| l.starts_with("el")).unwrap_or(false) || std::env::var("LANGUAGE").map(|l| l.starts_with("el")).unwrap_or(false) {
+            // the interface language is stored in the database, which is not reachable here: Greek is used when the system language is Greek
+            if std::env::var("LANG").map(|l| l.starts_with("el")).unwrap_or(false) || std::env::var("LANGUAGE").map(|l| l.starts_with("el")).unwrap_or(false) {
                 i18n::set_language("el", &[exe_dir.join("lang")]);
             }
             eframe::run_native(
