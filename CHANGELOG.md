@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.8.2
+- Server installer: the Alpine (BusyBox) `sed` call that enables MariaDB networking now works.
+
 ## 0.8.1
 - **Server installer (Alpine and others):** MariaDB on Alpine is started with networking switched off; the installer now turns it on for 127.0.0.1, waits until the database answers, creates the database and user, and saves the connection (new option `--setup`). Before, the server stayed without a database login. Errors are no longer hidden.
 

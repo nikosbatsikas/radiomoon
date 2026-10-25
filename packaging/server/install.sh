@@ -19,7 +19,7 @@ if command -v apk >/dev/null 2>&1; then
     # Alpine ships MariaDB with networking switched off: RadioMoon connects over 127.0.0.1
     mkdir -p /etc/my.cnf.d
     for f in /etc/my.cnf.d/*.cnf /etc/my.cnf; do
-        [ -f "$f" ] && sed -i 's/^\s*skip-networking/#skip-networking/' "$f"
+        [ -f "$f" ] && sed -i 's/^[[:space:]]*skip-networking/#skip-networking/' "$f"
     done
     printf '[mysqld]\nbind-address=127.0.0.1\nport=3306\n' > /etc/my.cnf.d/radiomoon.cnf
     rc-update add mariadb default || true
