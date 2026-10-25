@@ -84,6 +84,7 @@ fn usage() {
          --db-user USER        database user\n\
          --db-password PASS    database password\n\
          --db-name NAME        database name (default radiomoon)\n\
+         --setup               connect, create the tables, remember the database settings and exit\n\
          --help                this text\n\n\
          The web studio login is stored in webserver.json inside the data folder; it is created at the first start.",
         app::VERSION
@@ -93,6 +94,7 @@ fn usage() {
 fn main() {
     let mut bind = std::env::var("RADIOMOON_BIND").unwrap_or_else(|_| "0.0.0.0:8080".into());
     let mut db_over: Vec<(String, String)> = Vec::new();
+    let mut setup = false;
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         let (k, inline) = match a.split_once('=') {
@@ -104,6 +106,7 @@ fn main() {
                 usage();
                 return;
             }
+            "--setup" => setup = true,
             "--version" | "-V" => {
                 println!("radiomoon-server {}", app::VERSION);
                 return;
@@ -164,6 +167,10 @@ fn main() {
         }
     };
 
+    if setup {
+        println!("Database ready ({}@{}:{}/{}).", used.user, used.host, used.port, used.database);
+        return;
+    }
     let mut app = app::App::new(server, db, used, data.clone(), exe_dir, msg);
     app.user = Some(model::User { admin: true, ..Default::default() });
 
