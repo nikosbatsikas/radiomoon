@@ -10,6 +10,7 @@ pub struct Req {
     pub path: String,
     pub query: String,
     pub body: Vec<u8>,
+    pub auth: Option<String>,
     pub reply: Sender<Resp>,
 }
 
@@ -51,28 +52,37 @@ pub fn credentials(data: &std::path::Path) -> (String, String, bool) {
     ("admin".into(), pw, true)
 }
 
-fn authorized(header: Option<&str>, user: &str, pass: &str) -> bool {
+/// Who is calling: the web studio login of `webserver.json` (administrator) or a RadioMoon user with the password of the program.
+/// The permissions of that user then apply to the actions, exactly as in the window.
+fn who(app: &App, auth: &Option<String>, creds: &(String, String)) -> Option<crate::model::User> {
     use base64::Engine;
-    let Some(h) = header else { return false };
-    let Some(b) = h.strip_prefix("Basic ").or_else(|| h.strip_prefix("basic ")) else { return false };
-    let Ok(raw) = base64::engine::general_purpose::STANDARD.decode(b.trim()) else { return false };
+    let h = auth.as_deref()?;
+    let b = h.strip_prefix("Basic ").or_else(|| h.strip_prefix("basic "))?;
+    let raw = base64::engine::general_purpose::STANDARD.decode(b.trim()).ok()?;
     let s = String::from_utf8_lossy(&raw).to_string();
-    s == format!("{user}:{pass}")
+    let (u, p) = s.split_once(':')?;
+    if u == creds.0 && p == creds.1 {
+        return Some(crate::model::User { name: u.to_string(), admin: true, ..Default::default() });
+    }
+    if app.data.s.users_enabled {
+        let name = u.trim().to_lowercase();
+        return app.data.users.iter().find(|x| x.name.to_lowercase() == name && crate::app::hash_pw(&x.salt, p) == x.hash).cloned();
+    }
+    None
 }
 
 /// Starts the listener and returns the receiving end of the requests; the caller answers them with [`handle`].
-pub fn spawn(bind: &str, user: String, pass: String) -> anyhow::Result<Receiver<Req>> {
+pub fn spawn(bind: &str) -> anyhow::Result<Receiver<Req>> {
     let server = tiny_http::Server::http(bind).map_err(|e| anyhow::anyhow!("cannot listen on {bind}: {e}"))?;
     let server = std::sync::Arc::new(server);
     let (tx, rx) = channel::<Req>();
     for _ in 0..4 {
         let server = server.clone();
         let tx = tx.clone();
-        let (user, pass) = (user.clone(), pass.clone());
         std::thread::spawn(move || {
             for mut rq in server.incoming_requests() {
                 let auth = rq.headers().iter().find(|h| h.field.equiv("Authorization")).map(|h| h.value.as_str().to_string());
-                if !authorized(auth.as_deref(), &user, &pass) {
+                if auth.is_none() {
                     let r = tiny_http::Response::from_string("Login required")
                         .with_status_code(401)
                         .with_header(tiny_http::Header::from_bytes(&b"WWW-Authenticate"[..], &b"Basic realm=\"RadioMoon\""[..]).unwrap());
@@ -87,15 +97,21 @@ pub fn spawn(bind: &str, user: String, pass: String) -> anyhow::Result<Receiver<
                     None => (url.clone(), String::new()),
                 };
                 let (rtx, rrx) = channel();
-                let req = Req { method: rq.method().as_str().to_string(), path, query, body, reply: rtx };
+                let req = Req { method: rq.method().as_str().to_string(), path, query, body, auth, reply: rtx };
                 if tx.send(req).is_err() {
                     break;
                 }
                 let resp = rrx.recv_timeout(std::time::Duration::from_secs(10)).unwrap_or_else(|_| Resp::err(504, "busy"));
-                let r = tiny_http::Response::from_data(resp.body)
+                if resp.status == 401 {
+                    std::thread::sleep(std::time::Duration::from_millis(1200)); // slows down password guessing
+                }
+                let mut r = tiny_http::Response::from_data(resp.body)
                     .with_status_code(resp.status)
                     .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], resp.ctype.as_bytes()).unwrap())
                     .with_header(tiny_http::Header::from_bytes(&b"Cache-Control"[..], &b"no-store"[..]).unwrap());
+                if resp.status == 401 {
+                    r = r.with_header(tiny_http::Header::from_bytes(&b"WWW-Authenticate"[..], &b"Basic realm=\"RadioMoon\""[..]).unwrap());
+                }
                 let _ = rq.respond(r);
             }
         });
@@ -308,11 +324,15 @@ fn action(app: &mut App, body: &Value) -> Resp {
 }
 
 /// Answers one request; runs on the main thread.
-pub fn handle(app: &mut App, r: &Req) -> Resp {
+pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
+    let Some(user) = who(app, &r.auth, creds) else { return Resp::err(401, "wrong user name or password") };
+    let (uname, uadmin) = (user.name.clone(), user.admin);
+    app.user = Some(user);
     let post = r.method == "POST";
     let body: Value = if post && !r.body.is_empty() { serde_json::from_slice(&r.body).unwrap_or(Value::Null) } else { Value::Null };
     match (r.method.as_str(), r.path.as_str()) {
         ("GET", "/") | ("GET", "/index.html") => Resp { status: 200, ctype: "text/html; charset=utf-8", body: INDEX.as_bytes().to_vec() },
+        ("GET", "/api/login") => Resp::json(json!({ "user": uname, "admin": uadmin, "version": VERSION })),
         ("GET", "/api/state") => Resp::json(state(app)),
         ("GET", "/api/library") => {
             let mut v = library(app, &r.query);

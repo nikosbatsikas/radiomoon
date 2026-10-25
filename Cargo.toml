@@ -1,6 +1,6 @@
 [package]
 name = "radiomoon"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 description = "RadioMoon - radio automation software"
 license = "LicenseRef-RadioMoon"
@@ -16,9 +16,17 @@ required-features = ["desktop"]
 [[bin]]
 name = "radiomoon-server"
 path = "src/bin/server.rs"
+required-features = ["server"]
+
+# the client window for a radiomoon-server (the server plays, this window only controls it)
+[[bin]]
+name = "radiomoon-client"
+path = "src/bin/client.rs"
+required-features = ["desktop"]
 
 [features]
 default = ["desktop"]
+server = []
 desktop = ["dep:rfd"]
 # OpenSSL built into the server, so one binary works with any OpenSSL (or none) of the distribution
 vendored-ssl = ["dep:openssl"]
@@ -67,6 +75,7 @@ depends = "$auto, libasound2"
 recommends = "mariadb-server"
 assets = [
   ["target/release/radiomoon", "usr/bin/", "755"],
+  ["target/release/radiomoon-client", "usr/bin/", "755"],
   ["packaging/linux/radiomoon.desktop", "usr/share/applications/", "644"],
   ["packaging/icon.png", "usr/share/icons/hicolor/256x256/apps/radiomoon.png", "644"],
   ["README.md", "usr/share/doc/radiomoon/README", "644"],
@@ -75,6 +84,7 @@ assets = [
 [package.metadata.generate-rpm]
 assets = [
   { source = "target/release/radiomoon", dest = "/usr/bin/radiomoon", mode = "755" },
+  { source = "target/release/radiomoon-client", dest = "/usr/bin/radiomoon-client", mode = "755" },
   { source = "packaging/linux/radiomoon.desktop", dest = "/usr/share/applications/radiomoon.desktop", mode = "644" },
   { source = "packaging/icon.png", dest = "/usr/share/icons/hicolor/256x256/apps/radiomoon.png", mode = "644" },
 ]

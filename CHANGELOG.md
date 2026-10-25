@@ -2,6 +2,11 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.8.0
+- **RadioMoon client (new):** `radiomoon-client` (Windows: "RadioMoon Client") is the studio window for a RadioMoon server: now playing, transport, volume, playlist (play, move, remove), library search with Add / Next, instant jingles, history and mode. The server plays; closing the client never stops the broadcast.
+- **Login:** the client (and the web studio) signs in with the web studio account of the server (`webserver.json`) or with a RadioMoon user and password; the permissions of that user apply (add, delete, change the mode...). A wrong password is reported at once and slows down guessing.
+- The server is built with `--features server,vendored-ssl` (OpenSSL included).
+
 ## 0.7.0
 - **Server for headless Linux (new):** `radiomoon-server` runs the whole automation without a window and is used from a web browser (player, playlist, library search, instant jingles, mode, volume, live, history; English / Greek). Packages for Debian 10+, Ubuntu 20.04+, Raspberry Pi OS 64-bit, AlmaLinux / Rocky / RHEL 8+, Fedora (one glibc 2.28 build) and Alpine (musl), x64 and arm64, with a systemd unit (OpenRC on Alpine) and `install.sh`.
 - The web studio asks for a user and password (`webserver.json` in the data folder; a random password is created at the first start). Options: `--bind`, `--data`, `--db-host/--db-port/--db-user/--db-password/--db-name`.

@@ -60,6 +60,7 @@ Name: "{commonappdata}\RadioMoon"; Permissions: users-modify
 
 [Icons]
 Name: "{group}\RadioMoon"; Filename: "{app}\RadioMoon.exe"
+Name: "{group}\RadioMoon Client (connect to a server)"; Filename: "{app}\RadioMoon-Client.exe"
 Name: "{autodesktop}\RadioMoon"; Filename: "{app}\RadioMoon.exe"; Tasks: desktopicon
 
 [Run]

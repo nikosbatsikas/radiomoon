@@ -168,7 +168,8 @@ fn main() {
     app.user = Some(model::User { admin: true, ..Default::default() });
 
     let (user, pass, fresh) = web::credentials(&data);
-    let rx = match web::spawn(&bind, user.clone(), pass.clone()) {
+    let creds = (user.clone(), pass.clone());
+    let rx = match web::spawn(&bind) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("{e:#}");
@@ -183,7 +184,7 @@ fn main() {
     loop {
         match rx.recv_timeout(Duration::from_millis(50)) {
             Ok(req) => {
-                let resp = web::handle(&mut app, &req);
+                let resp = web::handle(&mut app, &req, &creds);
                 let _ = req.reply.send(resp);
             }
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}

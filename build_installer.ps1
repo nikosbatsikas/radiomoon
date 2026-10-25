@@ -20,6 +20,7 @@ if (Test-Path "stage") { Remove-Item "stage" -Recurse -Force }
 $stage = Join-Path $PSScriptRoot "stage\RadioMoon"
 New-Item -ItemType Directory -Force "$stage\lang", "dist" | Out-Null
 Copy-Item "target\$target\release\radiomoon.exe" "$stage\RadioMoon.exe"
+Copy-Item "target\$target\release\radiomoon-client.exe" "$stage\RadioMoon-Client.exe"
 Copy-Item "README.md", "CHANGELOG.md" $stage
 Copy-Item "lang\*" "$stage\lang"
 
