@@ -2,6 +2,11 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.7.0
+- **Server for headless Linux (new):** `radiomoon-server` runs the whole automation without a window and is used from a web browser (player, playlist, library search, instant jingles, mode, volume, live, history; English / Greek). Packages for Debian 10+, Ubuntu 20.04+, Raspberry Pi OS 64-bit, AlmaLinux / Rocky / RHEL 8+, Fedora (one glibc 2.28 build) and Alpine (musl), x64 and arm64, with a systemd unit (OpenRC on Alpine) and `install.sh`.
+- The web studio asks for a user and password (`webserver.json` in the data folder; a random password is created at the first start). Options: `--bind`, `--data`, `--db-host/--db-port/--db-user/--db-password/--db-name`.
+- The server needs no sound card (a virtual output keeps the stream and the recordings running) and no window libraries.
+
 ## 0.6.1
 - The automation never runs out of songs: when every song was played too recently for the separation rules, the song played the longest time ago is repeated instead of stopping.
 - The second screen function is removed (F10 full screen stays).

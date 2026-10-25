@@ -1,6 +1,7 @@
 //! Control Panel: libraries, scheduling, settings and utilities.
 use crate::app::{fmt_ms, fmt_precise, hash_pw, parse_time, App, BUILD, VERSION};
 use crate::backup;
+use crate::rfd;
 use crate::i18n::tr;
 use crate::kit::{self, Icon};
 use crate::engine::{self, Flags};

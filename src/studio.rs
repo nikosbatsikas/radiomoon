@@ -415,53 +415,7 @@ impl eframe::App for App {
                 return;
             }
         }
-        if let Some(p) = self.player.as_mut() {
-            p.tick();
-        }
-        if self.scan_done.swap(false, Ordering::SeqCst) {
-            self.reload_tracks();
-        }
-        if let Some((_, _, t0, d)) = &self.jingle_now {
-            if t0.elapsed().as_millis() as u64 >= *d {
-                self.jingle_now = None;
-            }
-        }
-
-        // ---- playout control ----
-        if self.current.is_some() && self.mode != Mode::Offline {
-            let (pos, empty, paused) = self
-                .player
-                .as_ref()
-                .map(|p| (p.pos_ms(), p.newest_empty(), p.is_paused()))
-                .unwrap_or((0, true, false));
-            let due = !paused && (empty || self.trigger_ms().map(|t| pos >= t).unwrap_or(false));
-            if due {
-                if self.loop_current {
-                    let c = self.current.unwrap_or(0);
-                    self.play_index(c, 0);
-                } else if self.stop_next {
-                    self.stop();
-                    self.stop_next = false;
-                    self.status = tr("Stopped after track");
-                } else if self.mode == Mode::Auto {
-                    self.advance(0);
-                } else {
-                    self.stop();
-                    self.status = tr("Manual mode: stopped at end of track");
-                }
-            }
-        }
-        if self.last_fill.elapsed() > Duration::from_secs(2) {
-            self.last_fill = Instant::now();
-            self.auto_fill();
-            if self.mode == Mode::Auto {
-                self.expand_pending();
-            }
-            self.check_immediate();
-            self.auto_start();
-        }
-        self.auto_backup_tick();
-        self.live_tick();
+        self.playout_tick();
 
         // ---- values computed once per frame ----
         let now = Local::now();
@@ -1244,4 +1198,57 @@ impl App {
 fn toggle_fullscreen(ctx: &egui::Context) {
     let fs = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
     ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fs));
+}
+
+impl App {
+    /// Everything that keeps the broadcast going and does not draw anything: used by the window and by the headless server.
+    pub fn playout_tick(&mut self) {
+        if let Some(p) = self.player.as_mut() {
+            p.tick();
+        }
+        if self.scan_done.swap(false, Ordering::SeqCst) {
+            self.reload_tracks();
+        }
+        if let Some((_, _, t0, d)) = &self.jingle_now {
+            if t0.elapsed().as_millis() as u64 >= *d {
+                self.jingle_now = None;
+            }
+        }
+
+        // ---- playout control ----
+        if self.current.is_some() && self.mode != Mode::Offline {
+            let (pos, empty, paused) = self
+                .player
+                .as_ref()
+                .map(|p| (p.pos_ms(), p.newest_empty(), p.is_paused()))
+                .unwrap_or((0, true, false));
+            let due = !paused && (empty || self.trigger_ms().map(|t| pos >= t).unwrap_or(false));
+            if due {
+                if self.loop_current {
+                    let c = self.current.unwrap_or(0);
+                    self.play_index(c, 0);
+                } else if self.stop_next {
+                    self.stop();
+                    self.stop_next = false;
+                    self.status = tr("Stopped after track");
+                } else if self.mode == Mode::Auto {
+                    self.advance(0);
+                } else {
+                    self.stop();
+                    self.status = tr("Manual mode: stopped at end of track");
+                }
+            }
+        }
+        if self.last_fill.elapsed() > Duration::from_secs(2) {
+            self.last_fill = Instant::now();
+            self.auto_fill();
+            if self.mode == Mode::Auto {
+                self.expand_pending();
+            }
+            self.check_immediate();
+            self.auto_start();
+        }
+        self.auto_backup_tick();
+        self.live_tick();
+    }
 }

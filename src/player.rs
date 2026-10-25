@@ -15,6 +15,9 @@ use std::time::{Duration, Instant};
 
 type Src = Box<dyn Source<Item = f32> + Send>;
 
+/// The headless server has no sound card: the mix is then pulled at real-time speed by a thread (streams still get it).
+pub static HEADLESS: AtomicBool = AtomicBool::new(false);
+
 struct Out {
     _stream: OutputStream,
     handle: OutputStreamHandle,
@@ -481,11 +484,12 @@ struct Deck {
 pub struct Player {
     /// automatic volume: (target dB RMS, max boost dB, max cut dB)
     pub agc: Option<(f32, f32, f32)>,
-    main: Out,
+    main: Option<Out>,
     monitor: Option<Out>,
     instants: Option<Out>,
     bus: Arc<DynamicMixerController<f32>>,
-    _bus_sink: Sink,
+    _bus_sink: Option<Sink>,
+    drain_stop: Arc<AtomicBool>,
     tap: Arc<TapShared>,
     live: Option<Arc<LiveShared>>,
     pending_fade_in: Option<Duration>,
@@ -506,14 +510,49 @@ pub struct Player {
 
 impl Player {
     pub fn new(main: &str, monitor: &str, instants: &str) -> Result<Self> {
-        let m = open_out(main).ok_or_else(|| anyhow::anyhow!("no audio output device"))?;
+        let m = match open_out(main) {
+            Some(m) => Some(m),
+            None if HEADLESS.load(Ordering::Relaxed) => None,
+            None => return Err(anyhow::anyhow!("no audio output device")),
+        };
         let (bus, mix) = mixer::<f32>(2, 44100);
         bus.add(Zero::<f32>::new(2, 44100));
         let tap = Arc::new(TapShared { enabled: AtomicBool::new(false), subs: Mutex::new(Vec::new()) });
-        let sink = Sink::try_new(&m.handle)?;
-        sink.append(Tap { inner: mix, sh: tap.clone(), buf: Vec::with_capacity(4096) });
+        let drain_stop = Arc::new(AtomicBool::new(false));
+        let tapped = Tap { inner: mix, sh: tap.clone(), buf: Vec::with_capacity(4096) };
+        let sink = match &m {
+            Some(m) => {
+                let sink = Sink::try_new(&m.handle)?;
+                sink.append(tapped);
+                Some(sink)
+            }
+            None => {
+                // no sound card: pull 50 ms of the mix at a time, in real time
+                let stop = drain_stop.clone();
+                std::thread::spawn(move || {
+                    let mut src = tapped;
+                    let t0 = Instant::now();
+                    let mut n: u64 = 0;
+                    while !stop.load(Ordering::Relaxed) {
+                        for _ in 0..4410 {
+                            if src.next().is_none() {
+                                return;
+                            }
+                        }
+                        n += 4410;
+                        let due = t0 + Duration::from_secs_f64(n as f64 / (44100.0 * 2.0));
+                        let now = Instant::now();
+                        if due > now {
+                            std::thread::sleep(due - now);
+                        }
+                    }
+                });
+                None
+            }
+        };
         Ok(Self {
             main: m,
+            drain_stop,
             monitor: if monitor.is_empty() { None } else { open_out(monitor) },
             instants: if instants.is_empty() { None } else { open_out(instants) },
             bus,
@@ -755,9 +794,10 @@ impl Player {
     pub fn play_preview(&mut self, path: &str, skip_ms: u64, len_ms: u64) -> Result<()> {
         self.stop_preview();
         let dec = open(path)?;
-        let handle = match &self.monitor {
-            Some(o) => &o.handle,
-            None => &self.main.handle,
+        let handle = match (&self.monitor, &self.main) {
+            (Some(o), _) => &o.handle,
+            (None, Some(m)) => &m.handle,
+            (None, None) => anyhow::bail!("no sound card for the preview"),
         };
         let sink = Sink::try_new(handle)?;
         let src = dec.skip_duration(Duration::from_millis(skip_ms));
@@ -951,5 +991,11 @@ impl<S: Source<Item = f32>> Source for Agc<S> {
     }
     fn total_duration(&self) -> Option<Duration> {
         self.inner.total_duration()
+    }
+}
+
+impl Drop for Player {
+    fn drop(&mut self) {
+        self.drain_stop.store(true, Ordering::Relaxed);
     }
 }

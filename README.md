@@ -26,6 +26,13 @@ Made automatically by the Release workflow.
 
 The bundled database server (MariaDB) is included only in the Windows x64 packages. The Windows installer can install it as the Windows service `RadioMoonDB` (port 3307, local connections only, starts with Windows, data in `%PROGRAMDATA%\RadioMoon\data`); the service is removed when the program is uninstalled, the data is kept. On every other platform RadioMoon uses a MySQL or MariaDB server that you install (Linux/macOS: `mariadb-server` or `mysql-server`); enter its address in **Control Panel > Database server**.
 
+## Server for headless Linux (web studio)
+
+`RadioMoon-Server-<version>-linux-glibc-<x64|arm64>.tar.gz` runs on Debian 10+, Ubuntu 20.04+, Raspberry Pi OS 64-bit, AlmaLinux / Rocky / RHEL 8+ and Fedora; the `-alpine-` package is for Alpine. Unpack it and run `sudo ./install.sh`: it installs MariaDB, creates the database, installs the service (systemd, OpenRC on Alpine) and starts it.
+Open `http://<server>:8080/` in a browser. User `admin`; the password is in `/var/lib/radiomoon/webserver.json` (created at the first start). Settings (`RADIOMOON_BIND`) are in `/etc/radiomoon/server.env`.
+Run by hand: `radiomoon-server --bind 0.0.0.0:8080 --data /var/lib/radiomoon --db-user radiomoon --db-password ...`.
+The full settings screens (control panel) are in the desktop program; connect it to the same database from another computer to use them.
+
 ## Portable or installed
 
 - **Portable:** the folder contains `portable.flag`. All data (database, backups, reports, settings, `config.json`) stays in the program folder. Copy the folder to move the station.

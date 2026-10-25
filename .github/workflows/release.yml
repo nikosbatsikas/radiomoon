@@ -112,8 +112,53 @@ jobs:
           name: macos-${{ matrix.arch }}
           path: dist/*
 
+  # The headless server (web studio). Built inside old distributions on purpose: AlmaLinux 8 has glibc 2.28, so the one
+  # binary runs on Debian 10+, Ubuntu 20.04+, Raspberry Pi OS 64-bit, AlmaLinux / Rocky / RHEL 8+ and Fedora.
+  # Alpine uses musl and has its own build.
+  server:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, arch: x64, flavor: glibc, image: "almalinux:8" }
+          - { os: ubuntu-22.04-arm, arch: arm64, flavor: glibc, image: "almalinux:8" }
+          - { os: ubuntu-22.04, arch: x64, flavor: alpine, image: "rust:alpine" }
+          - { os: ubuntu-22.04-arm, arch: arm64, flavor: alpine, image: "rust:alpine" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build in the container
+        run: |
+          if [ "${{ matrix.flavor }}" = "glibc" ]; then
+            SETUP='dnf install -y gcc gcc-c++ make pkgconf-pkg-config alsa-lib-devel curl perl-core cmake >/dev/null && curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal >/dev/null && . $HOME/.cargo/env'
+            FLAGS=''
+          else
+            SETUP='apk add --no-cache build-base pkgconf alsa-lib-dev perl cmake linux-headers >/dev/null'
+            FLAGS='-C target-feature=-crt-static'
+          fi
+          docker run --rm -v "$PWD":/src -w /src -e RUSTFLAGS="$FLAGS" ${{ matrix.image }} sh -c "$SETUP && cargo build --release --no-default-features --bin radiomoon-server --message-format=short > build.log 2>&1; echo \$? > rc.txt; tail -40 build.log" || true
+          ERR=$(grep -E ': error' build.log | head -60 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+          [ -n "$ERR" ] && echo "::error title=Server compiler errors::$ERR"
+          tail -30 build.log
+          [ "$(cat rc.txt)" = 0 ] && [ -f target/release/radiomoon-server ] || exit 1
+      - name: Package
+        run: |
+          V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          D=RadioMoon-Server
+          mkdir -p $D/lang dist
+          cp target/release/radiomoon-server $D/
+          cp packaging/server/* $D/
+          cp lang/* $D/lang/
+          cp README.md CHANGELOG.md $D/
+          sudo chown -R "$USER" $D 2>/dev/null || true
+          tar czf dist/RadioMoon-Server-$V-linux-${{ matrix.flavor }}-${{ matrix.arch }}.tar.gz $D
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-${{ matrix.flavor }}-${{ matrix.arch }}
+          path: dist/*
+
   release:
-    needs: [windows, linux, macos]
+    needs: [windows, linux, macos, server]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

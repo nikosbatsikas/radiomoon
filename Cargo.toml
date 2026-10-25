@@ -1,6 +1,6 @@
 [package]
 name = "radiomoon"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 description = "RadioMoon - radio automation software"
 license = "LicenseRef-RadioMoon"
@@ -10,6 +10,16 @@ default-run = "radiomoon"
 [[bin]]
 name = "radiomoon"
 path = "src/main.rs"
+required-features = ["desktop"]
+
+# the headless server: the studio is used from a web browser (build with --no-default-features: no window libraries needed)
+[[bin]]
+name = "radiomoon-server"
+path = "src/bin/server.rs"
+
+[features]
+default = ["desktop"]
+desktop = ["dep:rfd"]
 
 [build-dependencies]
 winres = "0.1"
@@ -25,7 +35,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rfd = "0.15"
+rfd = { version = "0.15", optional = true }
 anyhow = "1"
 sha2 = "0.10"
 mp3lame-encoder = "0.2"
@@ -33,6 +43,7 @@ flate2 = "1"
 base64 = "0.22"
 aes-gcm = "0.10"
 ureq = "2"
+tiny_http = "0.12"
 
 [profile.release]
 opt-level = 3

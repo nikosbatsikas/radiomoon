@@ -1,0 +1,18 @@
+#!/sbin/openrc-run
+description="RadioMoon radio automation server"
+command="/opt/radiomoon/radiomoon-server"
+command_user="radiomoon:radiomoon"
+command_background=true
+pidfile="/run/radiomoon-server.pid"
+output_log="/var/log/radiomoon-server.log"
+error_log="/var/log/radiomoon-server.log"
+
+depend() {
+    need net
+    after mariadb
+}
+
+start_pre() {
+    export RADIOMOON_DATA=/var/lib/radiomoon
+    [ -f /etc/radiomoon/server.env ] && . /etc/radiomoon/server.env && export RADIOMOON_BIND
+}
