@@ -13,6 +13,8 @@ depend() {
 }
 
 start_pre() {
+    checkpath -f -m 0640 -o radiomoon:radiomoon /var/log/radiomoon-server.log
+    checkpath -d -o radiomoon:radiomoon /var/lib/radiomoon
     export RADIOMOON_DATA=/var/lib/radiomoon
     [ -f /etc/radiomoon/server.env ] && . /etc/radiomoon/server.env && export RADIOMOON_BIND
 }
