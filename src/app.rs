@@ -29,6 +29,9 @@ pub enum Mode {
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const BUILD: &str = env!("RM_GIT");
 
+/// Set before App::new by the client window: the program does not play (the server does) and must not touch the playlist.
+pub static REMOTE_MODE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub fn hash_pw(salt: &str, pw: &str) -> String {
     let mut h = Sha256::new();
     h.update(salt.as_bytes());
@@ -91,6 +94,7 @@ pub struct App {
     pub base: PathBuf,
     pub data: Data,
     pub player: Option<Player>,
+    pub remote: Option<crate::remote::Remote>,
     pub status: String,
     pub log: Vec<Track>,
     pub current: Option<usize>,
@@ -148,6 +152,7 @@ impl App {
             base,
             data: Data::default(),
             player: None,
+            remote: None,
             status: String::from("Ready"),
             log: vec![],
             current: None,
@@ -198,10 +203,13 @@ impl App {
         if !upgrade_msg.is_empty() {
             app.status = upgrade_msg;
         }
-        app.apply_outputs();
+        let remote = REMOTE_MODE.load(std::sync::atomic::Ordering::SeqCst);
+        if !remote {
+            app.apply_outputs();
+        }
         app.log = app.db.load_log().unwrap_or_default();
         app.history = app.db.history(40).unwrap_or_default();
-        if app.data.s.start_mode == "auto" {
+        if app.data.s.start_mode == "auto" && !remote {
             app.mode = Mode::Auto;
             app.autoplay_pending = true;
             // the playlist of the last run is not replayed: the schedule builds a new one (different songs at every start)
@@ -213,7 +221,7 @@ impl App {
             app.data.s.streams.push(first);
             app.save_settings();
         }
-        if app.data.s.streams.iter().any(|c| c.enabled && c.autostart) {
+        if !remote && app.data.s.streams.iter().any(|c| c.enabled && c.autostart) {
             app.start_stream();
         }
         app
@@ -770,7 +778,7 @@ impl App {
     /// Estimated start time of every log item.
     pub fn starts(&self) -> Vec<NaiveDateTime> {
         let now = self.now_virtual();
-        let elapsed = self.player.as_ref().map(|p| p.elapsed_ms()).unwrap_or(0);
+        let elapsed = self.px_elapsed();
         let n = self.log.len();
         let mut v = vec![now; n];
         if n == 0 {
@@ -794,9 +802,9 @@ impl App {
         let horizon = (self.data.s.auto_hours.max(1) as i64) * 3_600_000;
         let start = self.current.map(|c| c + 1).unwrap_or(0);
         let mut acc: i64 = 0;
-        if let (Some(c), Some(p)) = (self.current, self.player.as_ref()) {
+        if let Some(c) = self.current {
             if let Some(t) = self.log.get(c) {
-                acc = (t.eff_ms() as i64 - p.elapsed_ms() as i64).max(0);
+                acc = (t.eff_ms() as i64 - self.px_elapsed() as i64).max(0);
             }
         }
         let mut i = start;

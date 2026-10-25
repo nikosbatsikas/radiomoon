@@ -2,6 +2,13 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.9.0
+- **The client is now the real studio:** `radiomoon-client` shows the same studio and the same control panel as the desktop program, connected to a RadioMoon server. The server plays; the buttons of the studio are sent to it and the playlist, mode, volume and playing position follow the server. Closing the client never stops the broadcast.
+- **Upload songs to the server:** "Add single file" and "Import folder" in the library of the control panel upload the files to the server (folder `media`), which reads the tags and adds them to the library.
+- **Listen to the audio of the server:** previews and the waveform editor download the song from the server (cached on the client computer).
+- Login by RadioMoon users: their permissions apply in the client.
+- Server installer: `RADIOMOON_REMOTE_DB=1 ./install.sh` lets the database accept the client from another computer.
+
 ## 0.8.2
 - Server installer: the Alpine (BusyBox) `sed` call that enables MariaDB networking now works.
 

@@ -1,0 +1,433 @@
+//! Remote mode: the studio window of the desktop program controls a RadioMoon server. The server plays; this window shows the
+//! same studio, sends the buttons to the server and keeps a copy of its state. Closing the window never stops the broadcast.
+//! The library and the settings are read from the same database; songs are uploaded to the server and played back from it.
+use crate::app::{App, Mode};
+use crate::studio::Action;
+use base64::Engine;
+use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::{Duration, Instant};
+
+pub enum Cmd {
+    Act(Value),
+    Quit,
+}
+
+#[derive(Default)]
+pub struct Shared {
+    pub state: Option<Value>,
+    pub seq: u64,
+    pub user: String,
+    pub admin: bool,
+    pub err: String,
+    pub denied: bool,
+    pub online: bool,
+}
+
+pub struct Link {
+    pub tx: mpsc::Sender<Cmd>,
+    pub sh: Arc<Mutex<Shared>>,
+    pub base: String,
+    pub auth: String,
+}
+
+pub fn base_url(url: &str) -> String {
+    let b = url.trim().trim_end_matches('/').to_string();
+    if b.starts_with("http://") || b.starts_with("https://") {
+        b
+    } else {
+        format!("http://{b}")
+    }
+}
+
+/// Host name of a server address (`http://host:8080/` -> `host`).
+pub fn host_of(url: &str) -> String {
+    let b = base_url(url);
+    let h = b.split("://").nth(1).unwrap_or("");
+    let h = h.split('/').next().unwrap_or("");
+    h.rsplit_once(':').map(|x| x.0).unwrap_or(h).to_string()
+}
+
+pub fn enc(s: &str) -> String {
+    let mut o = String::new();
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) {
+            o.push(b as char);
+        } else {
+            o.push_str(&format!("%{b:02X}"));
+        }
+    }
+    o
+}
+
+fn agent() -> ureq::Agent {
+    ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(4)).timeout_read(Duration::from_secs(10)).build()
+}
+
+fn call(base: &str, auth: &str, post: Option<&Value>, path: &str) -> Result<Value, String> {
+    let u = format!("{base}{path}");
+    let r = match post {
+        Some(b) => agent().post(&u).set("Authorization", auth).set("Content-Type", "application/json").send_string(&b.to_string()),
+        None => agent().get(&u).set("Authorization", auth).call(),
+    };
+    match r {
+        Ok(r) => {
+            let t = r.into_string().map_err(|e| e.to_string())?;
+            serde_json::from_str::<Value>(&t).map_err(|e| e.to_string())
+        }
+        Err(ureq::Error::Status(401, _)) => Err("401".into()),
+        Err(ureq::Error::Status(c, r)) => {
+            let t = r.into_string().unwrap_or_default();
+            let m = serde_json::from_str::<Value>(&t).ok().and_then(|v| v["error"].as_str().map(|x| x.to_string()));
+            Err(m.unwrap_or_else(|| format!("server answered {c}")))
+        }
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Starts the connection thread: signs in, then keeps the state of the server up to date and sends the commands.
+pub fn connect(url: String, user: String, pass: String, ctx: eframe::egui::Context) -> Link {
+    let (tx, rx) = mpsc::channel::<Cmd>();
+    let sh = Arc::new(Mutex::new(Shared::default()));
+    let base = base_url(&url);
+    let auth = format!("Basic {}", base64::engine::general_purpose::STANDARD.encode(format!("{user}:{pass}")));
+    let (sh2, base2, auth2) = (sh.clone(), base.clone(), auth.clone());
+    std::thread::spawn(move || {
+        match call(&base2, &auth2, None, "/api/login") {
+            Ok(v) => {
+                let mut g = sh2.lock().unwrap();
+                g.user = v["user"].as_str().unwrap_or("").to_string();
+                g.admin = v["admin"].as_bool().unwrap_or(false);
+                g.online = true;
+            }
+            Err(e) if e == "401" => {
+                let mut g = sh2.lock().unwrap();
+                g.denied = true;
+                g.err = "Wrong user name or password".into();
+                ctx.request_repaint();
+                return;
+            }
+            Err(e) => sh2.lock().unwrap().err = e,
+        }
+        loop {
+            loop {
+                match rx.try_recv() {
+                    Ok(Cmd::Quit) => return,
+                    Ok(Cmd::Act(b)) => match call(&base2, &auth2, Some(&b), "/api/action") {
+                        Ok(v) => {
+                            let mut g = sh2.lock().unwrap();
+                            g.state = Some(v);
+                            g.seq += 1;
+                        }
+                        Err(e) => sh2.lock().unwrap().err = e,
+                    },
+                    Err(mpsc::TryRecvError::Empty) => break,
+                    Err(mpsc::TryRecvError::Disconnected) => return,
+                }
+            }
+            match call(&base2, &auth2, None, "/api/state") {
+                Ok(v) => {
+                    let mut g = sh2.lock().unwrap();
+                    g.state = Some(v);
+                    g.seq += 1;
+                    g.online = true;
+                    g.err.clear();
+                }
+                Err(e) if e == "401" => {
+                    let mut g = sh2.lock().unwrap();
+                    g.denied = true;
+                    g.err = "Wrong user name or password".into();
+                    return;
+                }
+                Err(e) => {
+                    let mut g = sh2.lock().unwrap();
+                    g.online = false;
+                    g.err = e;
+                }
+            }
+            ctx.request_repaint();
+            std::thread::sleep(Duration::from_millis(400));
+        }
+    });
+    Link { tx, sh, base, auth }
+}
+
+pub struct Remote {
+    pub link: Link,
+    seq: u64,
+    log_rev: u64,
+    el0: u64,
+    pos0: u64,
+    at: Instant,
+    playing: bool,
+    paused: bool,
+    pub volume: f32,
+    pub live: bool,
+    pub online: bool,
+    pub err: String,
+    last_data: Instant,
+    cp_was_open: bool,
+    fails: Mutex<std::collections::HashMap<u64, Instant>>,
+}
+
+impl Remote {
+    pub fn new(link: Link) -> Self {
+        Remote { link, seq: 0, log_rev: u64::MAX, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()) }
+    }
+    fn running(&self) -> bool {
+        self.playing && !self.paused
+    }
+    pub fn elapsed(&self) -> u64 {
+        self.el0 + if self.running() { self.at.elapsed().as_millis() as u64 } else { 0 }
+    }
+    pub fn pos(&self) -> u64 {
+        self.pos0 + if self.running() { self.at.elapsed().as_millis() as u64 } else { 0 }
+    }
+}
+
+impl App {
+    // ---- values the studio shows (the server's player in remote mode, the own player otherwise) ----
+    pub fn px_elapsed(&self) -> u64 {
+        match &self.remote {
+            Some(r) => r.elapsed(),
+            None => self.player.as_ref().map(|p| p.elapsed_ms()).unwrap_or(0),
+        }
+    }
+    pub fn px_pos(&self) -> u64 {
+        match &self.remote {
+            Some(r) => r.pos(),
+            None => self.player.as_ref().map(|p| p.pos_ms()).unwrap_or(0),
+        }
+    }
+    pub fn px_paused(&self) -> bool {
+        match &self.remote {
+            Some(r) => r.paused,
+            None => self.player.as_ref().map(|p| p.is_paused()).unwrap_or(false),
+        }
+    }
+    pub fn px_live(&self) -> bool {
+        match &self.remote {
+            Some(r) => r.live,
+            None => self.player.as_ref().map(|p| p.live_active()).unwrap_or(false),
+        }
+    }
+    pub fn px_volume(&self) -> f32 {
+        match &self.remote {
+            Some(r) => r.volume,
+            None => self.player.as_ref().map(|p| p.volume).unwrap_or(1.0),
+        }
+    }
+    /// A file of the library is there: on the server in remote mode (it is checked by the server), on this computer otherwise.
+    pub fn file_ok(&self, p: &str) -> bool {
+        self.remote.is_some() || Path::new(&self.map_path(p)).exists()
+    }
+
+    /// Every second or so in remote mode: takes over what the server tells (mode, current item, playlist, volume...).
+    pub fn remote_tick(&mut self) {
+        let Some(mut rem) = self.remote.take() else { return };
+        let (st, seq, online, err) = {
+            let g = rem.link.sh.lock().unwrap();
+            (if g.seq != rem.seq { g.state.clone() } else { None }, g.seq, g.online, g.err.clone())
+        };
+        rem.online = online;
+        rem.err = err;
+        if let Some(p) = self.player.as_mut() {
+            p.tick(); // the preview on this computer
+        }
+        if self.scan_done.swap(false, Ordering::SeqCst) {
+            self.reload_tracks();
+        }
+        if let Some(s) = st {
+            rem.seq = seq;
+            self.mode = match s["mode"].as_str() {
+                Some("auto") => Mode::Auto,
+                Some("offline") => Mode::Offline,
+                _ => Mode::Manual,
+            };
+            self.loop_current = s["loop"].as_bool().unwrap_or(false);
+            self.stop_next = s["stopnext"].as_bool().unwrap_or(false);
+            self.current = s["current"].as_u64().map(|x| x as usize);
+            self.status = s["status"].as_str().unwrap_or("").to_string();
+            rem.el0 = s["elapsed"].as_u64().unwrap_or(0);
+            rem.pos0 = s["pos"].as_u64().unwrap_or(0);
+            rem.at = Instant::now();
+            rem.playing = !s["now"].is_null();
+            rem.paused = s["paused"].as_bool().unwrap_or(false);
+            rem.volume = s["volume"].as_f64().unwrap_or(1.0) as f32;
+            rem.live = s["live"].as_bool().unwrap_or(false);
+            if let Some(h) = s["history"].as_array() {
+                self.history = h.iter().map(|x| (x["time"].as_str().unwrap_or("").to_string(), x["label"].as_str().unwrap_or("").to_string())).collect();
+            }
+            let rev = s["log_rev"].as_u64().unwrap_or(0);
+            if rev != rem.log_rev {
+                rem.log_rev = rev;
+                self.log = self.db.load_log().unwrap_or_default();
+                if self.sel.map(|i| i >= self.log.len()).unwrap_or(false) {
+                    self.sel = None;
+                }
+            }
+        }
+        if !rem.online {
+            self.status = format!("No connection to the server: {}", rem.err);
+        }
+        // changes made in the control panel (or by another computer) reach the server
+        if rem.cp_was_open && !self.cp_open {
+            let _ = rem.link.tx.send(Cmd::Act(json!({ "do": "reload" })));
+            self.reload_all();
+            rem.last_data = Instant::now();
+        }
+        rem.cp_was_open = self.cp_open;
+        if rem.last_data.elapsed() > Duration::from_secs(60) {
+            rem.last_data = Instant::now();
+            self.reload_all();
+        }
+        self.remote = Some(rem);
+    }
+
+    /// Sends a studio button to the server. Returns false for the actions that stay on this computer (selection, tabs, pages...).
+    pub fn remote_send(&mut self, a: &Action) -> bool {
+        let v = match a {
+            Action::PlayIndex(i) => json!({ "do": "play", "index": i }),
+            Action::Next => json!({ "do": "next" }),
+            Action::Restart => json!({ "do": "restart" }),
+            Action::ToggleLoop => json!({ "do": "loop" }),
+            Action::Pause => json!({ "do": "pause" }),
+            Action::StopNext => json!({ "do": "stopnext" }),
+            Action::Stop => json!({ "do": "stop" }),
+            Action::Volume(x) => json!({ "do": "volume", "value": x }),
+            Action::Jingle(id) => json!({ "do": "jingle", "id": id }),
+            Action::StopJingles => json!({ "do": "stopjingles" }),
+            Action::MoveItemUp | Action::MoveItemDown => match self.sel {
+                Some(s) => json!({ "do": if matches!(a, Action::MoveItemUp) { "up" } else { "down" }, "index": s }),
+                None => return true,
+            },
+            Action::RemoveLog(i) => json!({ "do": "remove", "index": i }),
+            Action::AddSel | Action::InsertSel => match self.lib_sel {
+                Some(id) => json!({ "do": "add", "id": id, "where": if matches!(a, Action::InsertSel) { "next" } else { "end" } }),
+                None => return true,
+            },
+            Action::ClearLog => json!({ "do": "clear" }),
+            Action::SetMode(m) => json!({ "do": "mode", "mode": match m { Mode::Auto => "auto", Mode::Manual => "manual", Mode::Offline => "offline" } }),
+            Action::ToggleLive => json!({ "do": "live" }),
+            Action::StartLive(i) => json!({ "do": "startlive", "index": i }),
+            Action::RegenAuto => json!({ "do": "regen" }),
+            _ => return false,
+        };
+        if let Some(r) = &self.remote {
+            let _ = r.link.tx.send(Cmd::Act(v));
+        }
+        true
+    }
+
+    /// A song of the server on this computer, for listening and for the waveform: it is downloaded once to the cache folder.
+    pub fn local_audio(&self, p: &str) -> String {
+        let Some(r) = &self.remote else { return self.map_path(p) };
+        let Some(t) = self.data.tracks.iter().find(|t| t.path == p) else { return p.to_string() };
+        let ext = Path::new(p).extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_else(|| "mp3".into());
+        let dir = self.base.join("cache");
+        let _ = std::fs::create_dir_all(&dir);
+        let file = dir.join(format!("{}.{}", t.id, ext));
+        if file.metadata().map(|m| m.len() > 0).unwrap_or(false) {
+            return file.to_string_lossy().to_string();
+        }
+        if r.fails.lock().map(|f| f.get(&t.id).map(|w| w.elapsed() < Duration::from_secs(15)).unwrap_or(false)).unwrap_or(false) {
+            return p.to_string(); // it failed a moment ago: not tried again at every frame
+        }
+        let url = format!("{}/api/audio?id={}", r.link.base, t.id);
+        let part = dir.join(format!("{}.part", t.id));
+        let ok = ureq::AgentBuilder::new()
+            .timeout_connect(Duration::from_secs(4))
+            .timeout_read(Duration::from_secs(60))
+            .build()
+            .get(&url)
+            .set("Authorization", &r.link.auth)
+            .call()
+            .ok()
+            .and_then(|resp| {
+                let mut f = std::fs::File::create(&part).ok()?;
+                std::io::copy(&mut resp.into_reader(), &mut f).ok()?;
+                std::fs::rename(&part, &file).ok()
+            })
+            .is_some();
+        if ok {
+            file.to_string_lossy().to_string()
+        } else {
+            if let Ok(mut f) = r.fails.lock() {
+                f.insert(t.id, Instant::now());
+            }
+            p.to_string()
+        }
+    }
+
+    /// Imports files or a folder of this computer into the library of the server: every audio file is uploaded, then the server adds it.
+    pub fn remote_import(&mut self, path: PathBuf, o: crate::library::ImportOpts) {
+        let Some(r) = &self.remote else { return };
+        let (base, auth) = (r.link.base.clone(), r.link.auth.clone());
+        let (st, done) = (self.scan_status.clone(), self.scan_done.clone());
+        std::thread::spawn(move || {
+            let files: Vec<PathBuf> = walkdir::WalkDir::new(&path)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+                .map(|e| e.path().to_path_buf())
+                .filter(|p| p.extension().map(|x| crate::library::EXTS.contains(&x.to_string_lossy().to_lowercase().as_str())).unwrap_or(false))
+                .collect();
+            let (mut ok, mut failed) = (0, 0);
+            let mut last = String::new();
+            for (i, f) in files.iter().enumerate() {
+                if let Ok(mut s) = st.lock() {
+                    *s = format!("Uploading {} / {}: {}", i + 1, files.len(), f.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default());
+                }
+                match upload_file(&base, &auth, f, &o) {
+                    Ok(()) => ok += 1,
+                    Err(e) => {
+                        failed += 1;
+                        last = e;
+                    }
+                }
+            }
+            if let Ok(mut s) = st.lock() {
+                *s = if failed > 0 { format!("Upload finished: {ok} files, {failed} failed ({last})") } else { format!("Upload finished: {ok} files") };
+            }
+            done.store(true, Ordering::SeqCst);
+        });
+    }
+}
+
+fn upload_file(base: &str, auth: &str, f: &Path, o: &crate::library::ImportOpts) -> Result<(), String> {
+    let name = f.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    let len = f.metadata().map_err(|e| e.to_string())?.len();
+    let file = std::fs::File::open(f).map_err(|e| e.to_string())?;
+    let q = format!(
+        "name={}&kind={}&cat1={}&read_tags={}&parse_filename={}&gain={}&bookmark={}&autocue={}&autocue_db={}",
+        enc(&name),
+        enc(&o.kind),
+        enc(&o.cat1),
+        o.read_tags,
+        o.parse_filename,
+        o.gain_db,
+        o.bookmark,
+        o.autocue,
+        o.autocue_db
+    );
+    let r = ureq::AgentBuilder::new()
+        .timeout_connect(Duration::from_secs(6))
+        .timeout_read(Duration::from_secs(300))
+        .timeout_write(Duration::from_secs(300))
+        .build()
+        .post(&format!("{base}/api/upload?{q}"))
+        .set("Authorization", auth)
+        .set("Content-Length", &len.to_string())
+        .send(file);
+    match r {
+        Ok(_) => Ok(()),
+        Err(ureq::Error::Status(c, r)) => {
+            let t = r.into_string().unwrap_or_default();
+            let m = serde_json::from_str::<Value>(&t).ok().and_then(|v| v["error"].as_str().map(|x| x.to_string()));
+            Err(m.unwrap_or_else(|| format!("server answered {c}")))
+        }
+        Err(e) => Err(e.to_string()),
+    }
+}

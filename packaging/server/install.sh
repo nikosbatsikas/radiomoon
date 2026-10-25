@@ -21,7 +21,6 @@ if command -v apk >/dev/null 2>&1; then
     for f in /etc/my.cnf.d/*.cnf /etc/my.cnf; do
         [ -f "$f" ] && sed -i 's/^[[:space:]]*skip-networking/#skip-networking/' "$f"
     done
-    printf '[mysqld]\nbind-address=127.0.0.1\nport=3306\n' > /etc/my.cnf.d/radiomoon.cnf
     rc-update add mariadb default || true
     rc-service mariadb restart || rc-service mariadb start || true
 elif command -v apt-get >/dev/null 2>&1; then
@@ -31,6 +30,16 @@ elif command -v dnf >/dev/null 2>&1; then
     dnf install -y mariadb-server alsa-lib
     systemctl enable --now mariadb || true
 fi
+# Only this computer reaches the database. For the RadioMoon client on other computers run:  RADIOMOON_REMOTE_DB=1 ./install.sh
+BIND=127.0.0.1
+[ "$RADIOMOON_REMOTE_DB" = 1 ] && BIND=0.0.0.0
+for d in /etc/my.cnf.d /etc/mysql/mariadb.conf.d /etc/mysql/conf.d; do
+    if [ -d "$d" ]; then
+        printf '[mysqld]\nbind-address=%s\nport=3306\n' "$BIND" > "$d/99-radiomoon.cnf"
+        break
+    fi
+done
+rc-service mariadb restart 2>/dev/null || systemctl restart mariadb 2>/dev/null || systemctl restart mysql 2>/dev/null || true
 wait_db || echo "MariaDB does not answer yet; continuing."
 
 echo "== Program"
@@ -47,6 +56,10 @@ chown -R radiomoon:radiomoon /var/lib/radiomoon
 
 echo "== Database for RadioMoon (user radiomoon, only from this computer)"
 SQL="CREATE DATABASE IF NOT EXISTS radiomoon CHARACTER SET utf8mb4; CREATE USER IF NOT EXISTS 'radiomoon'@'127.0.0.1' IDENTIFIED BY 'radiomoon'; CREATE USER IF NOT EXISTS 'radiomoon'@'localhost' IDENTIFIED BY 'radiomoon'; GRANT ALL ON radiomoon.* TO 'radiomoon'@'127.0.0.1'; GRANT ALL ON radiomoon.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;"
+if [ "$RADIOMOON_REMOTE_DB" = 1 ]; then
+    SQL="$SQL CREATE USER IF NOT EXISTS 'radiomoon'@'%' IDENTIFIED BY 'radiomoon'; GRANT ALL ON radiomoon.* TO 'radiomoon'@'%'; FLUSH PRIVILEGES;"
+    echo "The database accepts connections from the network: change the password of the database user 'radiomoon' and close port 3306 to everyone except your studio computers."
+fi
 mariadb -e "$SQL" 2>/dev/null || mysql -e "$SQL" || echo "Could not create the database automatically: create it by hand and run: /opt/radiomoon/radiomoon-server --setup --db-user ... --db-password ..."
 su -s /bin/sh radiomoon -c "RADIOMOON_DATA=/var/lib/radiomoon /opt/radiomoon/radiomoon-server --setup --db-host 127.0.0.1 --db-port 3306 --db-user radiomoon --db-password radiomoon --db-name radiomoon" || echo "The server could not connect to the database (see above)."
 

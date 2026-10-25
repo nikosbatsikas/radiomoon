@@ -31,7 +31,8 @@ The bundled database server (MariaDB) is included only in the Windows x64 packag
 `RadioMoon-Server-<version>-linux-glibc-<x64|arm64>.tar.gz` runs on Debian 10+, Ubuntu 20.04+, Raspberry Pi OS 64-bit, AlmaLinux / Rocky / RHEL 8+ and Fedora; the `-alpine-` package is for Alpine. Unpack it and run `sudo ./install.sh`: it installs MariaDB, creates the database, installs the service (systemd, OpenRC on Alpine) and starts it.
 Open `http://<server>:8080/` in a browser. User `admin`; the password is in `/var/lib/radiomoon/webserver.json` (created at the first start). Settings (`RADIOMOON_BIND`) are in `/etc/radiomoon/server.env`.
 Run by hand: `radiomoon-server --bind 0.0.0.0:8080 --data /var/lib/radiomoon --db-user radiomoon --db-password ...`.
-The full settings screens (control panel) are in the desktop program; connect it to the same database from another computer to use them.
+
+**RadioMoon client** (`radiomoon-client`, in the Windows setup as "RadioMoon Client"): the same studio and control panel as the desktop program, but the server plays. Enter the address of the server (`http://server:8080`) and your user name and password; the client also opens the database of the server, so install the server with `RADIOMOON_REMOTE_DB=1 ./install.sh` (it lets the database accept connections from the network - then change the password of the database user `radiomoon` and allow port 3306 only for your studio computers). Songs added in the client are uploaded to the server (folder `media` in its data folder) and can be listened to from there.
 
 ## Portable or installed
 

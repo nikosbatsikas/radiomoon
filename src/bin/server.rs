@@ -33,6 +33,8 @@ mod mdb;
 mod model;
 #[path = "../player.rs"]
 mod player;
+#[path = "../remote.rs"]
+mod remote;
 #[path = "../schema.rs"]
 mod schema;
 #[path = "../stream.rs"]

@@ -16,6 +16,7 @@ mod library;
 mod model;
 mod mdb;
 mod player;
+mod remote;
 mod schema;
 mod stream;
 mod studio;

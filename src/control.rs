@@ -2131,7 +2131,7 @@ impl App {
                     .tracks
                     .iter()
                     .filter(|t| kind.is_empty() || t.kind == kind)
-                    .filter(|t| !Path::new(&self.map_path(&t.path)).exists())
+                    .filter(|t| !self.file_ok(&t.path))
                     .cloned()
                     .collect();
                 self.cp.msg = format!("{} inaccessible files found", missing.len());
@@ -2239,7 +2239,7 @@ impl App {
 
     fn win_track(&mut self, ctx: &egui::Context) {
         let Some(mut t) = self.cp.edit.clone() else { return };
-        let path = self.map_path(&t.path);
+        let path = self.local_audio(&t.path);
         if self.cp.edit_wave_for != t.id {
             self.cp.edit_wave_for = t.id;
             crate::waveform::spawn(path.clone(), t.id, self.cp.edit_wave.clone());
@@ -2504,7 +2504,11 @@ impl App {
             });
                     });
         });
-        if go {
+        if go && self.remote.is_some() {
+            self.remote_import(path, o);
+            self.cp.msg = tr("Upload to the server started in the background");
+            self.cp.import_pending = None;
+        } else if go {
             if path.is_dir() {
                 let (db, st, done, oo, dir) = (self.db.clone(), self.scan_status.clone(), self.scan_done.clone(), o.clone(), path.clone());
                 std::thread::spawn(move || {
@@ -2834,7 +2838,7 @@ impl App {
                         t.sep_min = v;
                     }
                     if m.normalize {
-                        if let Some(peak) = crate::waveform::peak_db(&self.map_path(&t.path)) {
+                        if let Some(peak) = crate::waveform::peak_db(&self.local_audio(&t.path)) {
                             t.gain_db = target - peak;
                         }
                     }

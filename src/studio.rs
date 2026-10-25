@@ -81,6 +81,9 @@ fn upcoming_breaks(log: &[Track], starts: &[DateTime<Local>], from: usize) -> Ve
 
 impl App {
     pub fn handle(&mut self, a: Action) {
+        if self.remote.is_some() && self.remote_send(&a) {
+            return;
+        }
         match a {
             Action::PlayIndex(i) => self.play_index(i, 1200),
             Action::Next => self.advance(1200),
@@ -188,7 +191,7 @@ impl App {
                 }
             }
             Action::PreviewTrack(path, name, dur) => {
-                let path = self.map_path(&path);
+                let path = self.local_audio(&path);
                 if let Some(p) = self.player.as_mut() {
                     match p.play_preview(&path, 0, 0) {
                         Ok(()) => {
@@ -400,7 +403,7 @@ impl eframe::App for App {
                 ctx.set_zoom_factor(target);
             }
         }
-        let busy = self.player.as_ref().map(|p| p.elapsed_ms() > 0 || p.preview_active()).unwrap_or(false);
+        let busy = self.px_elapsed() > 0 || self.player.as_ref().map(|p| p.preview_active()).unwrap_or(false);
         ctx.request_repaint_after(Duration::from_millis(if busy { 66 } else { 250 }));
         if ctx.input(|i| !i.events.is_empty()) {
             self.last_activity = Instant::now();
@@ -415,15 +418,19 @@ impl eframe::App for App {
                 return;
             }
         }
-        self.playout_tick();
+        if self.remote.is_some() {
+            self.remote_tick();
+        } else {
+            self.playout_tick();
+        }
 
         // ---- values computed once per frame ----
         let now = Local::now();
-        let elapsed = self.player.as_ref().map(|p| p.elapsed_ms()).unwrap_or(0);
-        let pos = self.player.as_ref().map(|p| p.pos_ms()).unwrap_or(0);
-        let paused = self.player.as_ref().map(|p| p.is_paused()).unwrap_or(false);
+        let elapsed = self.px_elapsed();
+        let pos = self.px_pos();
+        let paused = self.px_paused();
         let (pv_active, pv_el) = self.player.as_ref().map(|p| (p.preview_active(), p.preview_elapsed_ms())).unwrap_or((false, 0));
-        let live_label: Option<String> = if self.player.as_ref().map(|p| p.live_active()).unwrap_or(false) {
+        let live_label: Option<String> = if self.px_live() {
             Some(self.data.s.live_sources.get(self.live_sel).map(|x| x.name.clone()).unwrap_or_else(|| "LIVE".into()))
         } else {
             None
@@ -443,7 +450,7 @@ impl eframe::App for App {
                     .iter()
                     .skip(from)
                     .take(12)
-                    .filter(|t| t.id != 0 && !Path::new(&self.map_path(&t.path)).exists())
+                    .filter(|t| t.id != 0 && !self.file_ok(&t.path))
                     .map(|t| format!("Missing file: {}", t.title))
                     .collect();
                 c.0 = Some(Instant::now());
@@ -474,7 +481,7 @@ impl eframe::App for App {
             p.text(pos2(r.left() + 114.0, cy + 3.0), Align2::LEFT_CENTER, format!("v{VERSION}"), FontId::proportional(11.0), kit::GRAY);
             let _ = BUILD;
             let vr = Rect::from_min_size(pos2(r.left() + 170.0, r.top() + 4.0), vec2(120.0, 22.0));
-            let mut vol = self.player.as_ref().map(|p| p.volume).unwrap_or(1.0);
+            let mut vol = self.px_volume();
             if ui.put(vr, egui::Slider::new(&mut vol, 0.0..=1.0).show_value(false)).changed() {
                 actions.push(Action::Volume(vol));
             }
@@ -492,7 +499,7 @@ impl eframe::App for App {
             if kit::button_at(ui, ab_r, "h_about", None, "About", kit::DARK, WHITE).clicked() {
                 self.about_open = true;
             }
-            let live_on = self.player.as_ref().map(|p| p.live_active()).unwrap_or(false);
+            let live_on = self.px_live();
             let live_r = slot(kit::label_w(ui, "LIVE", 70.0));
             let live_resp = kit::button_at(ui, live_r, "h_live", None, "LIVE", if live_on { Color32::from_rgb(220, 120, 0) } else { kit::DARK }, WHITE);
             if live_resp.clicked() {

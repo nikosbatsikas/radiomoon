@@ -89,6 +89,42 @@ pub fn spawn(bind: &str) -> anyhow::Result<Receiver<Req>> {
                     let _ = rq.respond(r);
                     continue;
                 }
+                // an upload is written to the disk by this thread (it can be big); the main thread only decides where and imports it afterwards
+                if rq.method().as_str() == "POST" && rq.url().starts_with("/api/upload") {
+                    let url = rq.url().to_string();
+                    let query = url.split_once('?').map(|x| x.1.to_string()).unwrap_or_default();
+                    let ask = |path: &str, query: String| -> Resp {
+                        let (rtx, rrx) = channel();
+                        let req = Req { method: "POST".into(), path: path.into(), query, body: Vec::new(), auth: auth.clone(), reply: rtx };
+                        if tx.send(req).is_err() {
+                            return Resp::err(500, "server is stopping");
+                        }
+                        rrx.recv_timeout(std::time::Duration::from_secs(120)).unwrap_or_else(|_| Resp::err(504, "busy"))
+                    };
+                    let mut resp = ask("/api/upload", query.clone());
+                    if resp.status == 200 {
+                        let dest = serde_json::from_slice::<Value>(&resp.body).ok().and_then(|v| v["dest"].as_str().map(|x| x.to_string())).unwrap_or_default();
+                        let part = format!("{dest}.part");
+                        let wrote = std::fs::File::create(&part).and_then(|mut f| std::io::copy(&mut rq.as_reader(), &mut f).map(|_| ())).and_then(|_| std::fs::rename(&part, &dest));
+                        resp = match wrote {
+                            Ok(()) => ask("/api/imported", format!("path={}&{}", enc_q(&dest), query)),
+                            Err(e) => {
+                                let _ = std::fs::remove_file(&part);
+                                Resp::err(500, &format!("cannot write the file: {e}"))
+                            }
+                        };
+                    } else if resp.status == 401 {
+                        std::thread::sleep(std::time::Duration::from_millis(1200));
+                    }
+                    let mut r = tiny_http::Response::from_data(resp.body)
+                        .with_status_code(resp.status)
+                        .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], resp.ctype.as_bytes()).unwrap());
+                    if resp.status == 401 {
+                        r = r.with_header(tiny_http::Header::from_bytes(&b"WWW-Authenticate"[..], &b"Basic realm=\"RadioMoon\""[..]).unwrap());
+                    }
+                    let _ = rq.respond(r);
+                    continue;
+                }
                 let mut body = Vec::new();
                 let _ = std::io::Read::read_to_end(&mut std::io::Read::take(rq.as_reader(), 1 << 20), &mut body);
                 let url = rq.url().to_string();
@@ -117,6 +153,18 @@ pub fn spawn(bind: &str) -> anyhow::Result<Receiver<Req>> {
         });
     }
     Ok(rx)
+}
+
+fn enc_q(s: &str) -> String {
+    let mut o = String::new();
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) {
+            o.push(b as char);
+        } else {
+            o.push_str(&format!("%{b:02X}"));
+        }
+    }
+    o
 }
 
 fn unescape(s: &str) -> String {
@@ -159,6 +207,16 @@ fn track_json(t: &crate::model::Track) -> Value {
     json!({ "id": t.id, "kind": t.kind, "label": t.label(), "artist": t.artist, "title": t.title, "dur": t.duration_ms, "durs": fmt_ms(t.duration_ms) })
 }
 
+fn log_rev(app: &App) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    for t in &app.log {
+        t.id.hash(&mut h);
+        t.src.hash(&mut h);
+    }
+    h.finish()
+}
+
 fn state(app: &App) -> Value {
     let (elapsed, paused, volume, live) = app
         .player
@@ -182,7 +240,7 @@ fn state(app: &App) -> Value {
         })
         .collect();
     let now = app.current.and_then(|c| app.log.get(c)).map(track_json);
-    let hist: Vec<Value> = app.history.iter().rev().take(30).map(|(a, b)| json!({ "time": a, "label": b })).collect();
+    let hist: Vec<Value> = app.history.iter().take(30).map(|(a, b)| json!({ "time": a, "label": b })).collect();
     json!({
         "version": VERSION,
         "station": app.data.s.station,
@@ -190,6 +248,8 @@ fn state(app: &App) -> Value {
         "now": now,
         "current": app.current,
         "elapsed": elapsed,
+        "pos": app.player.as_ref().map(|p| p.pos_ms()).unwrap_or(0),
+        "log_rev": log_rev(app),
         "paused": paused,
         "volume": volume,
         "loop": app.loop_current,
@@ -318,6 +378,10 @@ fn action(app: &mut App, body: &Value) -> Resp {
             app.handle(if body["where"].as_str() == Some("next") { Action::InsertSel } else { Action::AddSel });
         }
         "reload" => app.reload_all(),
+        "startlive" => match idx {
+            Some(i) => app.handle(Action::StartLive(i)),
+            None => return Resp::err(400, "bad index"),
+        },
         _ => return Resp::err(400, "unknown action"),
     }
     Resp::json(state(app))
@@ -341,6 +405,98 @@ pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
         }
         ("GET", "/api/pallets") => Resp::json(pallets(app)),
         ("POST", "/api/action") => action(app, &body),
+        ("GET", "/api/audio") => audio(app, &r.query),
+        ("POST", "/api/upload") => upload_target(app, &r.query),
+        ("POST", "/api/imported") => imported(app, &r.query),
         _ => Resp::err(404, "not found"),
+    }
+}
+
+/// The audio file of a library item (the studio on another computer listens to it).
+fn audio(app: &App, q: &str) -> Resp {
+    let id: u64 = qget(q, "id").parse().unwrap_or(0);
+    let Some(t) = app.data.track(id) else { return Resp::err(404, "no such item") };
+    let path = app.map_path(&t.path);
+    match std::fs::read(&path) {
+        Ok(b) => {
+            let ctype = match std::path::Path::new(&path).extension().map(|e| e.to_string_lossy().to_lowercase()).as_deref() {
+                Some("mp3") => "audio/mpeg",
+                Some("ogg") | Some("opus") => "audio/ogg",
+                Some("flac") => "audio/flac",
+                Some("wav") => "audio/wav",
+                Some("m4a") | Some("aac") => "audio/mp4",
+                _ => "application/octet-stream",
+            };
+            Resp { status: 200, ctype, body: b }
+        }
+        Err(_) => Resp::err(404, "the file is not on the server"),
+    }
+}
+
+fn clean_name(n: &str) -> String {
+    let n = n.rsplit(|c| c == '/' || c == '\\').next().unwrap_or("");
+    let n: String = n.chars().map(|c| if c.is_control() || "<>:\"|?*".contains(c) { '_' } else { c }).collect();
+    n.trim().trim_start_matches('.').to_string()
+}
+
+/// First step of an upload: where the file is written (a folder of the data folder of the server).
+fn upload_target(app: &mut App, q: &str) -> Resp {
+    let name = clean_name(&qget(q, "name"));
+    let ext_ok = std::path::Path::new(&name).extension().map(|x| crate::library::EXTS.contains(&x.to_string_lossy().to_lowercase().as_str())).unwrap_or(false);
+    if name.is_empty() || !ext_ok {
+        return Resp::err(400, "not an audio file");
+    }
+    let kind = { let k = qget(q, "kind"); if k.is_empty() { "music".to_string() } else { k } };
+    let kind: String = kind.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+    let perm = match kind.as_str() {
+        "spot" => "lib_spots",
+        "jingle" => "lib_jingles",
+        "asset" => "lib_assets",
+        "sweeper" => "lib_sweepers",
+        "voice" => "lib_voice",
+        _ => "lib_songs",
+    };
+    if !app.can(perm) {
+        return Resp::err(403, "You are not allowed to add items to this library");
+    }
+    let dir = app.base.join("media").join(&kind);
+    if std::fs::create_dir_all(&dir).is_err() {
+        return Resp::err(500, "cannot create the media folder");
+    }
+    let mut dest = dir.join(&name);
+    let mut n = 1;
+    while dest.exists() {
+        let stem = std::path::Path::new(&name).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let ext = std::path::Path::new(&name).extension().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        dest = dir.join(format!("{stem} ({n}).{ext}"));
+        n += 1;
+    }
+    Resp::json(json!({ "dest": dest.to_string_lossy() }))
+}
+
+/// Second step: the uploaded file is read (tags, duration) and added to the library.
+fn imported(app: &mut App, q: &str) -> Resp {
+    let path = qget(q, "path");
+    let p = std::path::Path::new(&path);
+    if !p.starts_with(app.base.join("media")) || !p.is_file() {
+        return Resp::err(400, "bad file");
+    }
+    let kind = qget(q, "kind");
+    let b = |k: &str| qget(q, k) == "true";
+    let o = crate::library::ImportOpts {
+        kind: if kind.is_empty() { "music".into() } else { kind },
+        cat1: qget(q, "cat1"),
+        autocue: b("autocue"),
+        autocue_db: qget(q, "autocue_db").parse().unwrap_or(-30.0),
+        bookmark: b("bookmark"),
+        gain_db: qget(q, "gain").parse().unwrap_or(0.0),
+        read_tags: b("read_tags"),
+        parse_filename: b("parse_filename"),
+    };
+    if crate::library::import_one(&app.db, p, &o) {
+        app.reload_tracks();
+        Resp::json(json!({ "ok": true }))
+    } else {
+        Resp::err(500, "the file could not be added to the library")
     }
 }
