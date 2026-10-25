@@ -137,7 +137,7 @@ jobs:
             FLAGS='-C target-feature=-crt-static'
           fi
           touch build.log; echo 99 > rc.txt
-          docker run --rm -v "$PWD":/src -w /src -e RUSTFLAGS="$FLAGS" ${{ matrix.image }} sh -c "$SETUP && cargo build --release --no-default-features --bin radiomoon-server --message-format=short > build.log 2>&1; echo \$? > rc.txt; tail -40 build.log" || true
+          docker run --rm -v "$PWD":/src -w /src -e RUSTFLAGS="$FLAGS" ${{ matrix.image }} sh -c "$SETUP && cargo build --release --no-default-features --features vendored-ssl --bin radiomoon-server --message-format=short > build.log 2>&1; echo \$? > rc.txt; tail -40 build.log" || true
           ERR=$(grep -E 'error|Error|failed' build.log | head -40 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' || true)
           [ -n "$ERR" ] && echo "::error title=Server build::$ERR" || true
           tail -30 build.log

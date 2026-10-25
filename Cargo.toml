@@ -20,6 +20,8 @@ path = "src/bin/server.rs"
 [features]
 default = ["desktop"]
 desktop = ["dep:rfd"]
+# OpenSSL built into the server, so one binary works with any OpenSSL (or none) of the distribution
+vendored-ssl = ["dep:openssl"]
 
 [build-dependencies]
 winres = "0.1"
@@ -44,6 +46,7 @@ base64 = "0.22"
 aes-gcm = "0.10"
 ureq = "2"
 tiny_http = "0.12"
+openssl = { version = "0.10", features = ["vendored"], optional = true }
 
 [profile.release]
 opt-level = 3
