@@ -466,7 +466,16 @@ impl Generator {
             let why = format!("{base}: filters [{}], randomness {}, relax level {level}", fdesc(row), d.s.randomness);
             return Some(self.take(pick, why));
         }
-        None
+        // Nothing is allowed any more (a small library: every song was played too recently): never stop, repeat the song that was
+        // played the longest time ago.
+        let mut cands: Vec<&Track> = d.tracks.iter().filter(|t| filt(*t)).collect();
+        if cands.is_empty() {
+            cands = d.tracks.iter().filter(|t| t.kind == "music" && t.enabled).collect();
+        }
+        cands.sort_by_key(|t| self.plays.get(&t.id).and_then(|a| a.iter().max()).copied());
+        let pick = cands.first().copied()?;
+        let why = format!("{base}: all songs were played recently, the song played the longest time ago is repeated");
+        Some(self.take(pick, why))
     }
 
     fn row_items(&mut self, d: &Data, c: &Clock, row: &ClockRow, idx: usize, rem: Option<i64>) -> Vec<Track> {

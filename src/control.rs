@@ -1661,10 +1661,6 @@ impl App {
                 ch |= ui.radio_value(&mut s.start_mode, "manual".to_string(), tr("Manual")).changed();
                 ch |= ui.radio_value(&mut s.start_mode, "auto".to_string(), tr("Auto")).changed();
             });
-            ch |= ui.checkbox(&mut s.second_screen, tr("Second screen (on-air window for a second monitor, button in the header)")).changed();
-            ui.add_enabled_ui(s.second_screen, |ui| {
-                ch |= ui.checkbox(&mut s.second_screen_auto, tr("Open the second screen when the program starts")).changed();
-            });
             ui.horizontal(|ui| {
                 ch |= ui.add(egui::DragValue::new(&mut s.time_offset_s).range(-3600..=3600).prefix(tr("Time offset (seconds ahead of the clock): "))).changed();
             });

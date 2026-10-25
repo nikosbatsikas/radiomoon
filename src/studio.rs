@@ -534,12 +534,6 @@ impl eframe::App for App {
             if kit::button_at(ui, cp_r, "h_cp", None, "Control Panel", Color32::from_rgb(40, 60, 110), WHITE).clicked() {
                 actions.push(Action::OpenControl);
             }
-            if self.data.s.second_screen {
-                let s2_r = slot(kit::label_w(ui, "2nd screen", 86.0));
-                if kit::button_at(ui, s2_r, "h_screen2", None, "2nd screen", if self.second_open { kit::BLUE } else { kit::DARK }, WHITE).clicked() {
-                    self.second_open = !self.second_open;
-                }
-            }
             let ab_r = slot(kit::label_w(ui, "About", 64.0));
             if kit::button_at(ui, ab_r, "h_about", None, "About", kit::DARK, WHITE).clicked() {
                 self.about_open = true;
@@ -1133,7 +1127,6 @@ impl eframe::App for App {
         });
 
         self.about_window(ctx);
-        self.second_screen(ctx);
         ctx.style_mut(|st| st.visuals.override_text_color = if self.cp_open { Some(Color32::WHITE) } else { None });
         kit::cp_text_sizes(ctx, self.cp_open);
         if self.cp_open {
@@ -1251,92 +1244,4 @@ impl App {
 fn toggle_fullscreen(ctx: &egui::Context) {
     let fs = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
     ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fs));
-}
-
-impl App {
-    /// Second window for the second monitor: big clock, the song on air and the next songs. F10 = full screen.
-    fn second_screen(&mut self, ctx: &egui::Context) {
-        if !self.data.s.second_screen {
-            self.second_open = false;
-            self.second_auto_done = true;
-        } else if !self.second_auto_done {
-            self.second_auto_done = true;
-            self.second_open = self.data.s.second_screen_auto;
-        }
-        if !self.second_open {
-            return;
-        }
-        let now = Local::now();
-        let ct = self.current.and_then(|i| self.log.get(i)).cloned();
-        let elapsed = self.player.as_ref().map(|p| p.elapsed_ms()).unwrap_or(0);
-        let total = ct.as_ref().map(|t| t.eff_ms()).unwrap_or(0);
-        let starts = self.starts();
-        let from = self.current.map(|c| c + 1).unwrap_or(0);
-        let nexts: Vec<(String, String)> = self
-            .log
-            .iter()
-            .enumerate()
-            .skip(from)
-            .filter(|(_, t)| !t.is_overlay())
-            .take(6)
-            .map(|(i, t)| (starts.get(i).map(|d| d.format("%H:%M:%S").to_string()).unwrap_or_default(), t.label()))
-            .collect();
-        let station = self.data.s.station.clone();
-        let live = self.player.as_ref().map(|p| p.live_active()).unwrap_or(false);
-        let mut close = false;
-        ctx.show_viewport_immediate(
-            egui::ViewportId::from_hash_of("radiomoon_screen2"),
-            egui::ViewportBuilder::default().with_title("RadioMoon - On air").with_inner_size([1100.0, 650.0]).with_min_inner_size([480.0, 300.0]),
-            |ctx, _| {
-                ctx.request_repaint_after(Duration::from_millis(200));
-                if ctx.input(|i| i.viewport().close_requested()) {
-                    close = true;
-                }
-                if ctx.input(|i| i.key_pressed(egui::Key::F10)) {
-                    toggle_fullscreen(ctx);
-                }
-                egui::CentralPanel::default().frame(egui::Frame::none().fill(Color32::BLACK).inner_margin(24.0)).show(ctx, |ui| {
-                    let w = ui.available_width();
-                    let k = (w / 1000.0).clamp(0.5, 2.0);
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(&station).size(26.0 * k).color(kit::GRAY));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(egui::RichText::new(now.format("%H:%M:%S").to_string()).size(54.0 * k).strong().color(WHITE));
-                        });
-                    });
-                    ui.add_space(16.0 * k);
-                    if live {
-                        ui.label(egui::RichText::new("LIVE").size(40.0 * k).strong().color(Color32::from_rgb(255, 160, 40)));
-                    }
-                    match &ct {
-                        Some(t) => {
-                            ui.label(egui::RichText::new(if t.artist.is_empty() { String::new() } else { t.artist.clone() }).size(34.0 * k).color(kit::GRAY));
-                            ui.label(egui::RichText::new(&t.title).size(64.0 * k).strong().color(WHITE));
-                            ui.add_space(10.0 * k);
-                            let frac = if total > 0 { (elapsed as f32 / total as f32).clamp(0.0, 1.0) } else { 0.0 };
-                            ui.add(egui::ProgressBar::new(frac).desired_height(18.0 * k).fill(kit::ACCENT));
-                            ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new(fmt_count(elapsed)).size(26.0 * k).color(WHITE));
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                    ui.label(egui::RichText::new(format!("-{}", fmt_count(total.saturating_sub(elapsed)))).size(26.0 * k).color(kit::WARN));
-                                });
-                            });
-                        }
-                        None => {
-                            ui.label(egui::RichText::new(tr("Nothing is playing")).size(48.0 * k).color(kit::GRAY));
-                        }
-                    }
-                    ui.add_space(18.0 * k);
-                    ui.separator();
-                    ui.label(egui::RichText::new(tr("Next")).size(20.0 * k).color(kit::TEXT_DIM));
-                    for (tm, label) in &nexts {
-                        ui.label(egui::RichText::new(format!("{tm}   {label}")).size(28.0 * k).color(Color32::from_gray(220)));
-                    }
-                });
-            },
-        );
-        if close {
-            self.second_open = false;
-        }
-    }
 }
