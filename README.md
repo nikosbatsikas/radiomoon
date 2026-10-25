@@ -29,6 +29,7 @@ The bundled database server (MariaDB) is included only in the Windows x64 packag
 ## Server for headless Linux (web studio)
 
 `RadioMoon-Server-<version>-linux-glibc-<x64|arm64>.tar.gz` runs on Debian 10+, Ubuntu 20.04+, Raspberry Pi OS 64-bit, AlmaLinux / Rocky / RHEL 8+ and Fedora; the `-alpine-` package is for Alpine. Unpack it and run `sudo ./install.sh`: it installs MariaDB, creates the database, installs the service (systemd, OpenRC on Alpine) and starts it.
+To upgrade later, unpack the new package and run `sudo ./install.sh upgrade` (settings, database and songs are kept). To remove: `sudo ./install.sh uninstall` (keeps the data and the database) or `sudo ./install.sh uninstall --purge` (removes everything).
 Open `http://<server>:8080/` in a browser. User `admin`; the password is in `/var/lib/radiomoon/webserver.json` (created at the first start). Settings (`RADIOMOON_BIND`) are in `/etc/radiomoon/server.env`.
 Run by hand: `radiomoon-server --bind 0.0.0.0:8080 --data /var/lib/radiomoon --db-user radiomoon --db-password ...`.
 

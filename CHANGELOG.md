@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.9.1
+- **Server installer:** `./install.sh upgrade` replaces the program and updates the database tables (after a backup) and keeps the settings, the web password and the songs; `./install.sh uninstall` removes the program and the service and keeps the data and the database; `./install.sh uninstall --purge` removes everything. Running `./install.sh` on a computer where the server is already installed upgrades it.
+
 ## 0.9.0
 - **The client is now the real studio:** `radiomoon-client` shows the same studio and the same control panel as the desktop program, connected to a RadioMoon server. The server plays; the buttons of the studio are sent to it and the playlist, mode, volume and playing position follow the server. Closing the client never stops the broadcast.
 - **Upload songs to the server:** "Add single file" and "Import folder" in the library of the control panel upload the files to the server (folder `media`), which reads the tags and adds them to the library.
