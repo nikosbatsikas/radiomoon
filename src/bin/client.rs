@@ -145,9 +145,13 @@ impl Shell {
                 return;
             }
         };
-        config::save(&self.data, &cfg);
+        // every server has its own folder (settings, cache of songs): the numbers of the songs are the same in different servers
+        let slug: String = format!("{}_{}", remote::host_of(&self.url), self.url.rsplit(':').next().filter(|p| p.chars().all(|c| c.is_ascii_digit())).unwrap_or("80")).chars().map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '-' { c } else { '_' }).collect();
+        let sdata = self.data.join("servers").join(slug);
+        let _ = std::fs::create_dir_all(&sdata);
+        config::save(&sdata, &cfg);
         app::REMOTE_MODE.store(true, std::sync::atomic::Ordering::SeqCst);
-        let mut a = app::App::new(dbserver::DbServer::none(), db, cfg, self.data.clone(), self.exe_dir.clone(), String::new());
+        let mut a = app::App::new(dbserver::DbServer::none(), db, cfg, sdata.clone(), self.exe_dir.clone(), String::new());
         // a sound output of this computer only for listening to songs; the broadcast is played by the server
         if let Ok(p) = player::Player::new("", "", "") {
             a.player = Some(p);

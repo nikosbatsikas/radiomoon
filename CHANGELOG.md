@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.11.3
+- **Client with several servers:** every server now has its own folder on the computer (`RadioMoon-Client/servers/<address>`) for its settings and its cache of songs. Before, two servers shared them, so the second server showed the settings of the first and played cached songs with the same number. Delete the old `cache` folder once; the first connection to each server starts with fresh settings.
+
 ## 0.11.2
 - **CLAP scan explains why a plugin is not loaded:** a plugin file that cannot be opened (built for another system, e.g. a Windows `.clap` on a Linux server, or a glibc plugin on Alpine) or is not a CLAP plugin is now listed with the reason, in red, after the scan.
 
