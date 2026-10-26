@@ -121,7 +121,7 @@ if command -v apk >/dev/null 2>&1; then
         [ -f "$f" ] && sed -i 's/^[[:space:]]*skip-networking/#skip-networking/' "$f"
     done
     rc-update add mariadb default || true
-    rc-service mariadb restart || rc-service mariadb start || true
+    # it is started once, below, after its settings are written
 elif command -v apt-get >/dev/null 2>&1; then
     DEBIAN_FRONTEND=noninteractive apt-get install -y mariadb-server libasound2
     systemctl enable --now mariadb || systemctl enable --now mysql || true
@@ -138,7 +138,12 @@ for d in /etc/my.cnf.d /etc/mysql/mariadb.conf.d /etc/mysql/conf.d; do
         break
     fi
 done
-rc-service mariadb restart 2>/dev/null || systemctl restart mariadb 2>/dev/null || systemctl restart mysql 2>/dev/null || true
+T=""; command -v timeout >/dev/null 2>&1 && T="timeout 90"
+if command -v rc-service >/dev/null 2>&1 && [ ! -d /run/systemd/system ]; then
+    $T rc-service mariadb restart || { echo "MariaDB did not restart cleanly: forcing it"; pkill -9 mariadbd 2>/dev/null; pkill -9 mysqld_safe 2>/dev/null; rc-service mariadb zap 2>/dev/null; rc-service mariadb start || true; }
+else
+    $T systemctl restart mariadb 2>/dev/null || $T systemctl restart mysql 2>/dev/null || true
+fi
 wait_db || echo "MariaDB does not answer yet; continuing."
 
 echo "== Program"
