@@ -56,6 +56,7 @@ jobs:
       - name: Build the client for Windows 7
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Continue"
           $t = if ("${{ matrix.arch }}" -eq "x64") { "x86_64-win7-windows-msvc" } else { "i686-win7-windows-msvc" }
           cargo build --release --target $t -Zbuild-std=std,panic_abort --bin radiomoon-client 2>&1 | Tee-Object -FilePath build.log
           if ($LASTEXITCODE -ne 0) {
