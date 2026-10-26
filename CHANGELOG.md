@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.11.2
+- **CLAP scan explains why a plugin is not loaded:** a plugin file that cannot be opened (built for another system, e.g. a Windows `.clap` on a Linux server, or a glibc plugin on Alpine) or is not a CLAP plugin is now listed with the reason, in red, after the scan.
+
 ## 0.11.1
 - **Client in sync with the server:** the client now reads the playlist from the memory of the server (`/api/log`) and not from the database, so the playlist, the song on air and the *Next* button always agree with what the server plays (before: "- off air -" and an empty playlist). The playlist is read again only when it changes.
 - **Upload CLAP plugins:** Control panel > Effects (CLAP) > **Upload plugin files...**. With a server, the `.clap` files are uploaded to the server (folder `plugins/clap` of its data) and the plugin list is refreshed; without a server they are copied to the plugin folder of the program.

@@ -290,6 +290,9 @@ static SCANNING: AtomicBool = AtomicBool::new(false);
 
 /// Looks at every plugin file of the CLAP folders (each file is opened once to read its plugins).
 pub fn scan() -> Vec<PluginInfo> {
+    if let Ok(mut g) = SCAN_ERRS.lock() {
+        g.clear();
+    }
     let mut found: Vec<PluginInfo> = Vec::new();
     for d in search_dirs() {
         for e in walkdir::WalkDir::new(&d).max_depth(3).into_iter().filter_map(|e| e.ok()) {
@@ -310,19 +313,39 @@ pub fn scanned() -> Option<Vec<PluginInfo>> {
     SCAN.lock().ok().and_then(|g| g.clone())
 }
 
+static SCAN_ERRS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn scan_err(path: &Path, m: &str) {
+    let n = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    if let Ok(mut g) = SCAN_ERRS.lock() {
+        g.push(format!("{n}: {m}"));
+    }
+}
+
 /// The plugins of one file.
 pub fn list_file(path: &Path) -> Vec<PluginInfo> {
     let mut out = Vec::new();
     let file = binary_of(path);
     unsafe {
-        let Ok(lib) = Library::new(&file) else { return out };
-        let Ok(sym) = lib.get::<*const PluginEntry>(b"clap_entry\0") else { return out };
+        let lib = match Library::new(&file) {
+            Ok(l) => l,
+            Err(e) => {
+                scan_err(path, &format!("cannot be opened on this computer ({e}). Is it built for this system (Linux / Windows / macOS, 64-bit, same C library)?"));
+                return out;
+            }
+        };
+        let Ok(sym) = lib.get::<*const PluginEntry>(b"clap_entry\0") else {
+            scan_err(path, "is not a CLAP plugin (no clap_entry)");
+            return out;
+        };
         let entry: *const PluginEntry = *sym;
         if entry.is_null() {
+            scan_err(path, "is not a CLAP plugin");
             return out;
         }
         let Ok(cpath) = CString::new(path.to_string_lossy().as_bytes()) else { return out };
         if !((*entry).init)(cpath.as_ptr()) {
+            scan_err(path, "the plugin did not start");
             return out;
         }
         let f = ((*entry).get_factory)(b"clap.plugin-factory\0".as_ptr() as *const c_char) as *const PluginFactory;
@@ -847,6 +870,9 @@ impl App {
         }
         let mut v = ClapView::default();
         v.scanning = SCANNING.load(Ordering::Relaxed);
+        if let Ok(g) = SCAN_ERRS.lock() {
+            v.error = g.join("\n");
+        }
         if let Some(l) = scanned() {
             v.plugins = l;
             v.scanned = true;
