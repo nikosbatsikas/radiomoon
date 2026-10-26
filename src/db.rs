@@ -63,6 +63,9 @@ impl Db {
             OptsBuilder::new()
                 .ip_or_hostname(Some(cfg.host.clone()))
                 .tcp_port(cfg.port)
+                .tcp_connect_timeout(Some(std::time::Duration::from_secs(8)))
+                .read_timeout(Some(std::time::Duration::from_secs(40)))
+                .write_timeout(Some(std::time::Duration::from_secs(40)))
                 .user(Some(cfg.user.clone()))
                 .pass(if cfg.password.is_empty() { None } else { Some(cfg.password.clone()) })
         };

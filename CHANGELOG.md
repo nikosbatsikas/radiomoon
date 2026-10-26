@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.12.1
+- **Server watchdog:** when the main loop of the server stops for 60 seconds (the web page answers "error" and the music stops until the service is restarted), the server now writes the cause in the log (`WATCHDOG: ... stuck in [...]`) and restarts itself, so the broadcast continues. Slow requests and slow playout steps (3 s or more) are written in the log.
+- The connections to the database have time limits (connect 8 s, read/write 40 s), so a database connection that was lost no longer makes the server wait for ever.
+
 ## 0.12.0
 - **The client connects with only the server address, user name and password.** The database of the server is no longer opened from the client computer: the client carries its database connection inside the HTTP port of the server (a tunnel, signed in with the same user). `RADIOMOON_REMOTE_DB`, the port 3306 and the "Database of the server" fields are not needed any more, and the client can never read the database of another server by mistake. The server must be updated to 0.12.0 too.
 

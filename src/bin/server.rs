@@ -192,15 +192,55 @@ fn main() {
         println!("First start: the password is {pass}  (kept in {})", data.join("webserver.json").display());
     }
 
+    // Watchdog: when the main loop does not move for 60 seconds (something waits for ever), the cause is written to the log and the
+    // program ends, so that the service manager starts it again and the broadcast continues.
+    let beat = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let phase = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    {
+        let (beat, phase) = (beat.clone(), phase.clone());
+        std::thread::spawn(move || {
+            let t0 = std::time::Instant::now();
+            let mut last = 0;
+            let mut since = std::time::Instant::now();
+            loop {
+                std::thread::sleep(Duration::from_secs(5));
+                let b = beat.load(std::sync::atomic::Ordering::Relaxed);
+                if b != last {
+                    last = b;
+                    since = std::time::Instant::now();
+                } else if since.elapsed() > Duration::from_secs(60) {
+                    let ph = phase.lock().map(|p| p.clone()).unwrap_or_default();
+                    eprintln!("WATCHDOG: the main loop is stuck for {} s in [{ph}] (running for {} s). Restarting.", since.elapsed().as_secs(), t0.elapsed().as_secs());
+                    std::process::exit(3);
+                }
+            }
+        });
+    }
+    let set_phase = |s: String| {
+        if let Ok(mut p) = phase.lock() {
+            *p = s;
+        }
+    };
     loop {
+        beat.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         match rx.recv_timeout(Duration::from_millis(50)) {
             Ok(req) => {
+                set_phase(format!("web {} {}", req.method, req.path));
+                let t = std::time::Instant::now();
                 let resp = web::handle(&mut app, &req, &creds);
+                if t.elapsed() > Duration::from_secs(3) {
+                    eprintln!("slow request: {} {} took {} s", req.method, req.path, t.elapsed().as_secs());
+                }
                 let _ = req.reply.send(resp);
             }
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
             Err(_) => break,
         }
+        set_phase("playout".into());
+        let t = std::time::Instant::now();
         app.playout_tick();
+        if t.elapsed() > Duration::from_secs(3) {
+            eprintln!("slow playout tick: {} s", t.elapsed().as_secs());
+        }
     }
 }
