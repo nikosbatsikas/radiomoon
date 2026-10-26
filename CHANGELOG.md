@@ -6,7 +6,7 @@ Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a 
 - The server writes in its log which step is slow (`slow step: ...`) when the main loop takes 3 seconds or more, and it writes the playlist to the database only when the list really changed (before it was written at every check, which made the server answer "busy" on slow computers).
 
 ## 0.12.2
-- **Client for Windows 7 (experimental):** `RadioMoon-Client-<version>-windows7-x64.zip` and `-windows7-x86.zip` are built for Windows 7 SP1 and newer and offered by the server's download list as "Windows 7". They are built with an experimental Rust target, so they may not work on every PC. The window needs OpenGL 2.0: on a virtual machine without a graphics card, put the `opengl32.dll` of Mesa (software OpenGL) next to `RadioMoon-Client.exe`.
+- (no Windows 7 client: it was tried and dropped)
 
 ## 0.12.1
 - **Server watchdog:** when the main loop of the server stops for 60 seconds (the web page answers "error" and the music stops until the service is restarted), the server now writes the cause in the log (`WATCHDOG: ... stuck in [...]`) and restarts itself, so the broadcast continues. Slow requests and slow playout steps (3 s or more) are written in the log.

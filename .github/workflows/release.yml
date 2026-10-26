@@ -40,41 +40,6 @@ jobs:
           name: client-windows-${{ matrix.arch }}
           path: client-dist/*
 
-  # Windows 7 client (experimental: tier 3 Rust target, nightly toolchain). A failure here never stops the release.
-  windows7:
-    runs-on: windows-latest
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [x64, x86]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rust-src
-      - name: Build the client for Windows 7
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Continue"
-          $t = if ("${{ matrix.arch }}" -eq "x64") { "x86_64-win7-windows-msvc" } else { "i686-win7-windows-msvc" }
-          cargo build --release --target $t -Zbuild-std=std,panic_abort --bin radiomoon-client 2>&1 | Tee-Object -FilePath build.log
-          if ($LASTEXITCODE -ne 0) {
-            $e = (Select-String -Path build.log -Pattern "error" -Context 0,6 | Select-Object -First 8 | ForEach-Object { $_.Line + " | " + ($_.Context.PostContext -join " | ") }) -join " ## "
-            Write-Host "::error title=windows7 build::$e"
-            throw "build failed"
-          }
-          $v = (Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
-          $cl = "client-stage\RadioMoon-Client"
-          New-Item -ItemType Directory -Force "$cl\lang", "client-dist" | Out-Null
-          Copy-Item "target\$t\release\radiomoon-client.exe" "$cl\RadioMoon-Client.exe"
-          Copy-Item "lang\*" "$cl\lang"
-          Compress-Archive -Path $cl -DestinationPath "client-dist\RadioMoon-Client-$v-windows7-${{ matrix.arch }}.zip" -Force
-      - uses: actions/upload-artifact@v4
-        with:
-          name: client-windows7-${{ matrix.arch }}
-          path: client-dist/*
-
   linux:
     strategy:
       fail-fast: false
@@ -212,7 +177,7 @@ jobs:
 
   # The server editions: the server, its installer and the clients (Windows, Linux, macOS) that the web page of the server offers.
   server-pack:
-    needs: [windows, windows7, linux, macos, server]
+    needs: [windows, linux, macos, server]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
