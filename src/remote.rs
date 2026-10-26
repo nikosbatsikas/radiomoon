@@ -193,6 +193,7 @@ pub struct Remote {
     pub live: bool,
     pub online: bool,
     pub err: String,
+    pub streams: Vec<(usize, String)>,
     last_data: Instant,
     cp_was_open: bool,
     fails: Mutex<std::collections::HashMap<u64, Instant>>,
@@ -206,7 +207,7 @@ pub struct Remote {
 
 impl Remote {
     pub fn new(link: Link) -> Self {
-        Remote { link, seq: 0, log_rev: u64::MAX, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()), wave_id: 0, bw_at: Instant::now(), bw_rx: 0, bw_tx: 0, rx_rate: 0.0, tx_rate: 0.0 }
+        Remote { link, seq: 0, log_rev: u64::MAX, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), streams: Vec::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()), wave_id: 0, bw_at: Instant::now(), bw_rx: 0, bw_tx: 0, rx_rate: 0.0, tx_rate: 0.0 }
     }
     fn running(&self) -> bool {
         self.playing && !self.paused
@@ -251,6 +252,19 @@ impl App {
             None => self.player.as_ref().map(|p| p.volume).unwrap_or(1.0),
         }
     }
+    /// The internet broadcasts that run: on the server in remote mode, in this program otherwise.
+    pub fn px_streams(&self) -> Vec<(usize, String)> {
+        match &self.remote {
+            Some(r) => r.streams.clone(),
+            None => self.streamers.iter().map(|(i, _, s)| (*i, s.status_text())).collect(),
+        }
+    }
+    /// A command for the server (broadcast start / stop).
+    pub fn remote_cmd(&self, v: Value) {
+        if let Some(r) = &self.remote {
+            let _ = r.link.tx.send(Cmd::Act(v));
+        }
+    }
     /// A file of the library is there: on the server in remote mode (it is checked by the server), on this computer otherwise.
     pub fn file_ok(&self, p: &str) -> bool {
         self.remote.is_some() || Path::new(&self.map_path(p)).exists()
@@ -292,6 +306,7 @@ impl App {
             if let Some(h) = s["history"].as_array() {
                 self.history = h.iter().map(|x| (x["time"].as_str().unwrap_or("").to_string(), x["label"].as_str().unwrap_or("").to_string())).collect();
             }
+            rem.streams = s["streams"].as_array().map(|a| a.iter().map(|x| (x["i"].as_u64().unwrap_or(0) as usize, x["status"].as_str().unwrap_or("").to_string())).collect()).unwrap_or_default();
             let rev = s["log_rev"].as_u64().unwrap_or(0);
             if rev != rem.log_rev {
                 rem.log_rev = rev;

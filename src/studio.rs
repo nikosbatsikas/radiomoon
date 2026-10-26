@@ -670,7 +670,8 @@ impl eframe::App for App {
         egui::TopBottomPanel::bottom("status").exact_height(22.0).frame(egui::Frame::none().fill(kit::INSET)).show(ctx, |ui| {
             let scan = self.scan_status.lock().map(|s| s.clone()).unwrap_or_default();
             let who = self.user.as_ref().map(|u| format!("   [{}]", u.name)).unwrap_or_default();
-            let live = if self.streamers.is_empty() { String::new() } else { format!("   [LIVE: {}]", self.streamers.iter().map(|(_, _, s)| s.status_text()).collect::<Vec<_>>().join(" | ")) };
+            let sv = self.px_streams();
+            let live = if sv.is_empty() { String::new() } else { format!("   [LIVE: {}]", sv.iter().map(|(_, t)| t.clone()).collect::<Vec<_>>().join(" | ")) };
             let bw = self.remote.as_ref().map(|r| format!("   [server: \u{2193} {}  \u{2191} {}]", crate::remote::fmt_rate(r.rx_rate), crate::remote::fmt_rate(r.tx_rate))).unwrap_or_default();
             ui.label(egui::RichText::new(format!("{}    {}{}{}{}", self.status, scan, who, live, bw)).color(kit::GRAY).size(12.0));
         });

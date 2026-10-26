@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.10.1
+- **Internet broadcast in the client and the web page:** the broadcast that runs on the server is now shown (status of every Icecast / Shoutcast server in the status bar of the client, in the "Internet broadcast" page and in the web page). **Start / Stop / Restart broadcast** in the client and the new button in the web page control the server; before, the client tried to start a broadcast on its own computer.
+
 ## 0.10.0
 - **The client is part of the server editions only:** it is no longer in the Windows setup, the .deb / .rpm or the portable packages. Every server package (`RadioMoon-Server-...tar.gz`) contains the clients for Windows (x64, x86, arm64), Linux (x64, arm64) and macOS, and the web page of the server has a **Download client** button.
 - **About** button in the web page of the server.

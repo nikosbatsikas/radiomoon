@@ -260,6 +260,7 @@ fn state(app: &App) -> Value {
         "log": log,
         "history": hist,
         "audio": app.player.is_some(),
+        "streams": app.streamers.iter().map(|(i, _, st)| json!({ "i": i, "status": st.status_text() })).collect::<Vec<_>>(),
     })
 }
 
@@ -378,6 +379,11 @@ fn action(app: &mut App, body: &Value) -> Resp {
             app.handle(if body["where"].as_str() == Some("next") { Action::InsertSel } else { Action::AddSel });
         }
         "reload" => app.reload_all(),
+        "stream_start" => {
+            app.reload_all();
+            app.start_stream();
+        }
+        "stream_stop" => app.stop_stream(),
         "startlive" => match idx {
             Some(i) => app.handle(Action::StartLive(i)),
             None => return Resp::err(400, "bad index"),

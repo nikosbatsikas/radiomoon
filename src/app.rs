@@ -346,6 +346,10 @@ impl App {
     }
 
     pub fn start_stream(&mut self) {
+        if self.remote.is_some() {
+            self.remote_cmd(serde_json::json!({ "do": "stream_start" }));
+            return;
+        }
         self.stop_stream();
         let Some(p) = self.player.as_mut() else {
             self.status = "No audio output available".into();
@@ -362,6 +366,10 @@ impl App {
     }
 
     pub fn stop_stream(&mut self) {
+        if self.remote.is_some() {
+            self.remote_cmd(serde_json::json!({ "do": "stream_stop" }));
+            return;
+        }
         for (_, id, st) in self.streamers.drain(..) {
             st.stop();
             if let Some(p) = self.player.as_mut() {

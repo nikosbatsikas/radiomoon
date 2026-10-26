@@ -2582,7 +2582,7 @@ impl App {
         kit::page_title(ui, "Internet broadcast", "Send the on-air mix (MP3) to one or more Icecast or Shoutcast servers at the same time");
         let mut ch = false;
         let mut remove: Option<usize> = None;
-        let running: Vec<(usize, String)> = self.streamers.iter().map(|(i, _, s)| (*i, s.status_text())).collect();
+        let running: Vec<(usize, String)> = self.px_streams();
         let n = self.data.s.streams.len();
         for i in 0..n {
             let title = {
@@ -2653,14 +2653,15 @@ impl App {
         if let Some(i) = remove {
             self.data.s.streams.remove(i);
             ch = true;
-            if !self.streamers.is_empty() {
+            if !self.px_streams().is_empty() {
+                self.save_settings();
                 self.start_stream();
             }
         }
         if ch {
             self.save_settings();
         }
-        let live = !self.streamers.is_empty();
+        let live = !self.px_streams().is_empty();
         kit::card(ui, "Broadcast", |ui| {
             ui.horizontal(|ui| {
                 if !live {
