@@ -378,7 +378,28 @@ fn action(app: &mut App, body: &Value) -> Resp {
             app.lib_sel = Some(id);
             app.handle(if body["where"].as_str() == Some("next") { Action::InsertSel } else { Action::AddSel });
         }
-        "reload" => app.reload_all(),
+        "reload" => {
+            app.reload_all();
+            app.clap_apply_settings();
+        }
+        "clap_scan" | "clap_add" | "clap_remove" | "clap_enable" | "clap_param" | "clap_move" => {
+            use crate::clap_host::ClapOp;
+            let u = |k: &str| body[k].as_u64().unwrap_or(0) as usize;
+            let op = match name {
+                "clap_scan" => ClapOp::Scan,
+                "clap_add" => ClapOp::Add(body["path"].as_str().unwrap_or("").to_string(), body["id"].as_str().unwrap_or("").to_string()),
+                "clap_remove" => ClapOp::Remove(u("slot")),
+                "clap_enable" => ClapOp::Enable(u("slot"), body["on"].as_bool().unwrap_or(true)),
+                "clap_param" => ClapOp::Param(u("slot"), body["id"].as_u64().unwrap_or(0) as u32, body["value"].as_f64().unwrap_or(0.0), body["save"].as_bool().unwrap_or(true)),
+                _ => ClapOp::Move(u("from"), u("to")),
+            };
+            if !app.can("settings") {
+                return Resp::err(403, "You are not allowed to change the settings");
+            }
+            if let Err(e) = app.clap_local(op) {
+                return Resp::err(400, &e);
+            }
+        }
         "stream_start" => {
             app.reload_all();
             app.start_stream();
@@ -412,6 +433,7 @@ pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
         ("GET", "/api/pallets") => Resp::json(pallets(app)),
         ("POST", "/api/action") => action(app, &body),
         ("GET", "/api/audio") => audio(app, &r.query),
+        ("GET", "/api/clap") => Resp::json(crate::clap_host::view_json(&app.clap_view())),
         ("GET", "/api/clients") => clients(app),
         ("GET", p) if p.starts_with("/clients/") => client_file(app, &p["/clients/".len()..]),
         ("POST", "/api/upload") => upload_target(app, &r.query),

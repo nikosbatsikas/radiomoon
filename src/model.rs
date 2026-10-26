@@ -466,6 +466,8 @@ pub struct Settings {
     pub last_pallet: u64,
     pub layout: String,
     pub language: String,
+    /// CLAP effects on the on-air mix (in order)
+    pub clap_chain: Vec<crate::clap_host::ClapSlotCfg>,
     pub stream: StreamCfg,
     pub streams: Vec<StreamCfg>,
     pub backup: BackupCfg,
@@ -544,6 +546,7 @@ impl Default for Settings {
             last_pallet: 0,
             layout: "classic".into(),
             language: "en".into(),
+            clap_chain: Vec::new(),
             stream: StreamCfg::default(),
             streams: Vec::new(),
             backup: BackupCfg::default(),

@@ -113,6 +113,14 @@ fn call(base: &str, auth: &str, post: Option<&Value>, path: &str) -> Result<Valu
     }
 }
 
+pub fn get_json(l: &Link, path: &str) -> Result<Value, String> {
+    call(&l.base, &l.auth, None, path)
+}
+
+pub fn post_json(l: &Link, v: &Value) -> Result<Value, String> {
+    call(&l.base, &l.auth, Some(v), "/api/action")
+}
+
 /// Starts the connection thread: signs in, then keeps the state of the server up to date and sends the commands.
 pub fn connect(url: String, user: String, pass: String, ctx: eframe::egui::Context) -> Link {
     let (tx, rx) = mpsc::channel::<Cmd>();

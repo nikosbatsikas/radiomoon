@@ -543,6 +543,7 @@ impl App {
         match Player::new(&s.out_main, &s.out_monitor, &s.out_instants) {
             Ok(p) => {
                 self.player = Some(p);
+                self.clap_apply_settings();
             }
             Err(e) => {
                 self.player = None;

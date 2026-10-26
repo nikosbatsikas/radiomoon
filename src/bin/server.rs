@@ -7,6 +7,8 @@ mod app;
 mod backup;
 #[path = "../boot.rs"]
 mod boot;
+#[path = "../clap_host.rs"]
+mod clap_host;
 #[path = "../config.rs"]
 mod config;
 #[path = "../control.rs"]

@@ -484,6 +484,8 @@ struct Deck {
 pub struct Player {
     /// automatic volume: (target dB RMS, max boost dB, max cut dB)
     pub agc: Option<(f32, f32, f32)>,
+    /// CLAP effects on the on-air mix
+    pub clap: crate::clap_host::ChainCtl,
     main: Option<Out>,
     monitor: Option<Out>,
     instants: Option<Out>,
@@ -519,7 +521,8 @@ impl Player {
         bus.add(Zero::<f32>::new(2, 44100));
         let tap = Arc::new(TapShared { enabled: AtomicBool::new(false), subs: Mutex::new(Vec::new()) });
         let drain_stop = Arc::new(AtomicBool::new(false));
-        let tapped = Tap { inner: mix, sh: tap.clone(), buf: Vec::with_capacity(4096) };
+        let (clap, clap_rx) = crate::clap_host::chain();
+        let tapped = Tap { inner: crate::clap_host::ClapSource::new(mix, clap_rx), sh: tap.clone(), buf: Vec::with_capacity(4096) };
         let sink = match &m {
             Some(m) => {
                 let sink = Sink::try_new(&m.handle)?;
@@ -561,6 +564,7 @@ impl Player {
             live: None,
             pending_fade_in: None,
             agc: None,
+            clap,
             decks: Vec::new(),
             jingles: Vec::new(),
             jingle_sinks: Vec::new(),

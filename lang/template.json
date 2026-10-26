@@ -589,5 +589,18 @@
   "L24 uncompressed (4.6 Mbit/s)": "",
   "FLAC lossless (bit-exact, about 3-4 Mbit/s)": "",
   "FLAC needs the RadioMoon MPX Receiver 0.5.30 or newer.": "",
-  "Multi-server streaming with song titles": ""
+  "Multi-server streaming with song titles": "",
+  "Effects (CLAP)": "Effects (CLAP)",
+  "CLAP plugins that process the on-air mix before the sound card and the internet broadcast": "CLAP plugins that process the on-air mix before the sound card and the internet broadcast",
+  "Effect chain (in this order)": "Effect chain (in this order)",
+  "No effect: the sound goes out unchanged.": "No effect: the sound goes out unchanged.",
+  "On / bypass": "On / bypass",
+  "Parameters": "Parameters",
+  "This plugin has no parameters that can be set here.": "This plugin has no parameters that can be set here.",
+  "Default value": "Default value",
+  "Available plugins": "Available plugins",
+  "Scan for plugins": "Scan for plugins",
+  "Scanning...": "Scanning...",
+  "plugins found": "plugins found",
+  "Plugins are searched in the CLAP folders of the system (~/.clap, /usr/lib/clap, Common Files\\CLAP, ...) and in the folders of the environment variable CLAP_PATH. With a server the plugins of the server are used.": "Plugins are searched in the CLAP folders of the system (~/.clap, /usr/lib/clap, Common Files\\CLAP, ...) and in the folders of the environment variable CLAP_PATH. With a server the plugins of the server are used."
 }

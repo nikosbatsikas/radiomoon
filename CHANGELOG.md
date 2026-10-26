@@ -2,6 +2,11 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.11.0
+- **CLAP plugin hosting (new):** Control panel > Settings > **Effects (CLAP)**. CLAP effects (the open plugin standard, cleveraudio.org) are loaded on the on-air mix: the sound goes through the chain before the sound card and before the internet broadcast. Scan the CLAP folders (`~/.clap`, `/usr/lib/clap`, `Common Files\CLAP`, `CLAP_PATH`, ...), add effects, set their parameters with sliders, bypass, reorder and remove them. The chain is saved in the settings and loaded at every start.
+- With a server, the plugins run **on the server** (they must be installed there); the client edits the chain through the server.
+- The windows of the plugins are not hosted yet (parameters are edited with the sliders). Instruments and plugins without audio input are refused.
+
 ## 0.10.1
 - **Internet broadcast in the client and the web page:** the broadcast that runs on the server is now shown (status of every Icecast / Shoutcast server in the status bar of the client, in the "Internet broadcast" page and in the web page). **Start / Stop / Restart broadcast** in the client and the new button in the web page control the server; before, the client tried to start a broadcast on its own computer.
 

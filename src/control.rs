@@ -19,6 +19,7 @@ use std::sync::atomic::Ordering;
 pub enum Page {
     #[default]
     Songs,
+    Clap,
     Spots,
     Jingles,
     Assets,
@@ -79,6 +80,7 @@ const NAV: [(&str, &[(Page, &str, &str)]); 4] = [
         &[
             (Page::General, "General", "settings"),
             (Page::Outputs, "Sound outputs", "settings"),
+            (Page::Clap, "Effects (CLAP)", "settings"),
             (Page::Shortcuts, "Shortcuts", "settings"),
             (Page::Users, "Users & security", "users"),
             (Page::Folders, "Audio folder mappings", "folder_maps"),
@@ -102,6 +104,11 @@ const NAV: [(&str, &[(Page, &str, &str)]); 4] = [
 #[derive(Default)]
 pub struct ControlState {
     pub page: Page,
+    pub clap_view: Option<crate::clap_host::ClapView>,
+    pub clap_filter: String,
+    pub clap_msg: String,
+    pub clap_sent: Option<std::time::Instant>,
+    pub clap_poll: Option<std::time::Instant>,
     // library
     pub lib_filter: String,
     pub lib_cat: String,
@@ -397,6 +404,7 @@ impl App {
                                     Page::LogViewer => self.page_logviewer(ui),
                                     Page::General => self.page_general(ui),
                                     Page::Outputs => self.page_outputs(ui),
+                                    Page::Clap => self.page_clap(ui),
                                     Page::Live => self.page_live(ui),
                                     Page::Shortcuts => self.page_shortcuts(ui),
                                     Page::Users => self.page_users(ui),
@@ -2578,6 +2586,132 @@ impl App {
     }
 
     // ---------------------------------------------------------------- internet broadcast
+    // ---------------------------------------------------------------- CLAP effects
+    fn page_clap(&mut self, ui: &mut egui::Ui) {
+        use crate::clap_host::ClapOp;
+        kit::page_title(ui, "Effects (CLAP)", "CLAP plugins that process the on-air mix before the sound card and the internet broadcast");
+        let remote = self.remote.is_some();
+        if self.cp.clap_view.is_none() {
+            self.cp.clap_view = Some(self.clap_view());
+        }
+        let mut view = self.cp.clap_view.clone().unwrap_or_default();
+        // while the plugin folders are scanned the list is read again every second
+        if view.scanning {
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(500));
+            if self.cp.clap_poll.map(|t| t.elapsed() > std::time::Duration::from_secs(1)).unwrap_or(true) {
+                self.cp.clap_poll = Some(std::time::Instant::now());
+                view = self.clap_view();
+                self.cp.clap_view = Some(view.clone());
+            }
+        }
+        let mut op: Option<ClapOp> = None;
+        let mut sent_now = false;
+        let sent = self.cp.clap_sent;
+        if !view.error.is_empty() {
+            ui.colored_label(egui::Color32::from_rgb(229, 83, 75), view.error.clone());
+        }
+        if !self.cp.clap_msg.is_empty() {
+            ui.colored_label(egui::Color32::from_rgb(229, 83, 75), self.cp.clap_msg.clone());
+        }
+        kit::card(ui, "Effect chain (in this order)", |ui| {
+            if view.slots.is_empty() {
+                ui.label(RichText::new(tr("No effect: the sound goes out unchanged.")).color(kit::GRAY));
+            }
+            let n = view.slots.len();
+            for (i, s) in view.slots.iter_mut().enumerate() {
+                ui.horizontal(|ui| {
+                    let mut on = s.enabled;
+                    if ui.checkbox(&mut on, "").on_hover_text(tr("On / bypass")).changed() {
+                        op = Some(ClapOp::Enable(i, on));
+                    }
+                    ui.label(RichText::new(s.name.clone()).strong());
+                    ui.label(RichText::new(s.vendor.clone()).color(kit::GRAY));
+                    if ui.add_enabled(i > 0, egui::Button::new("\u{25B2}").small()).clicked() {
+                        op = Some(ClapOp::Move(i, i - 1));
+                    }
+                    if ui.add_enabled(i + 1 < n, egui::Button::new("\u{25BC}").small()).clicked() {
+                        op = Some(ClapOp::Move(i, i + 1));
+                    }
+                    if ui.add(egui::Button::new("\u{2715}").small()).on_hover_text(tr("Remove")).clicked() {
+                        op = Some(ClapOp::Remove(i));
+                    }
+                });
+                egui::CollapsingHeader::new(format!("{} ({})", tr("Parameters"), s.params.len())).id_salt(("clap_params", i)).show(ui, |ui| {
+                    if s.params.is_empty() {
+                        ui.label(RichText::new(tr("This plugin has no parameters that can be set here.")).color(kit::GRAY));
+                    }
+                    for p in s.params.iter_mut() {
+                        ui.horizontal(|ui| {
+                            ui.add_sized([200.0, 18.0], egui::Label::new(if p.module.is_empty() { p.name.clone() } else { format!("{} / {}", p.module, p.name) }).truncate());
+                            let mut sl = egui::Slider::new(&mut p.value, p.min..=p.max.max(p.min + 1e-9));
+                            if p.stepped {
+                                sl = sl.step_by(1.0);
+                            }
+                            let r = ui.add(sl);
+                            if r.changed() {
+                                // through the network a few changes per second are enough; the last value is sent when the mouse is released
+                                let due = !remote || !r.dragged() || sent.map(|t| t.elapsed() > std::time::Duration::from_millis(150)).unwrap_or(true);
+                                if due {
+                                    op = Some(ClapOp::Param(i, p.id, p.value, !r.dragged()));
+                                    sent_now = true;
+                                }
+                            } else if r.drag_stopped() {
+                                op = Some(ClapOp::Param(i, p.id, p.value, true));
+                            }
+                            if ui.small_button("\u{21BA}").on_hover_text(tr("Default value")).clicked() {
+                                p.value = p.default;
+                                op = Some(ClapOp::Param(i, p.id, p.default, true));
+                            }
+                        });
+                    }
+                });
+                ui.separator();
+            }
+        });
+        kit::card(ui, "Available plugins", |ui| {
+            ui.horizontal(|ui| {
+                if ui.add_enabled(!view.scanning, egui::Button::new(tr("Scan for plugins"))).clicked() {
+                    op = Some(ClapOp::Scan);
+                }
+                if view.scanning {
+                    ui.spinner();
+                    ui.label(tr("Scanning..."));
+                } else if view.scanned {
+                    ui.label(format!("{} {}", view.plugins.len(), tr("plugins found")));
+                }
+                ui.label(tr("Filter:"));
+                ui.add(egui::TextEdit::singleline(&mut self.cp.clap_filter).desired_width(160.0));
+            });
+            let f = self.cp.clap_filter.to_lowercase();
+            egui::ScrollArea::vertical().id_salt("clap_list").max_height(260.0).show(ui, |ui| {
+                for p in view.plugins.iter().filter(|p| f.is_empty() || p.name.to_lowercase().contains(&f) || p.vendor.to_lowercase().contains(&f)) {
+                    ui.horizontal(|ui| {
+                        if ui.small_button(tr("Add")).clicked() {
+                            op = Some(ClapOp::Add(p.path.clone(), p.id.clone()));
+                        }
+                        ui.label(RichText::new(p.name.clone()).strong());
+                        ui.label(RichText::new(p.vendor.clone()).color(kit::GRAY));
+                    });
+                }
+            });
+            ui.label(RichText::new(tr("Plugins are searched in the CLAP folders of the system (~/.clap, /usr/lib/clap, Common Files\\CLAP, ...) and in the folders of the environment variable CLAP_PATH. With a server the plugins of the server are used.")).color(kit::GRAY).small());
+        });
+        if sent_now {
+            self.cp.clap_sent = Some(std::time::Instant::now());
+        }
+        self.cp.clap_view = Some(view);
+        if let Some(o) = op {
+            let refresh = !matches!(o, ClapOp::Param(..));
+            match self.clap_do(o) {
+                Ok(()) => self.cp.clap_msg.clear(),
+                Err(e) => self.cp.clap_msg = e,
+            }
+            if refresh {
+                self.cp.clap_view = Some(self.clap_view());
+            }
+        }
+    }
+
     fn page_stream(&mut self, ui: &mut egui::Ui) {
         kit::page_title(ui, "Internet broadcast", "Send the on-air mix (MP3) to one or more Icecast or Shoutcast servers at the same time");
         let mut ch = false;

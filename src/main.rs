@@ -2,6 +2,7 @@
 
 mod app;
 mod backup;
+mod clap_host;
 mod boot;
 mod config;
 mod control;

@@ -8,6 +8,8 @@
 mod app;
 #[path = "../backup.rs"]
 mod backup;
+#[path = "../clap_host.rs"]
+mod clap_host;
 #[path = "../config.rs"]
 mod config;
 #[path = "../control.rs"]
