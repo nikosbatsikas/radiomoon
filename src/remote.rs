@@ -590,3 +590,91 @@ pub fn upload_file(base: &str, auth: &str, f: &Path, kind: &str, o: Option<&crat
         Err(e) => Err(e.to_string()),
     }
 }
+
+// ------------------------------------------------------------------ database through the server
+pub struct DbInfo {
+    pub port: u16,
+    pub user: String,
+    pub password: String,
+    pub database: String,
+}
+
+/// The client has no connection of its own to the database. A local port (only for this computer) carries every connection of the
+/// database client to the server, inside the HTTP port of the server.
+pub fn start_db_proxy(base: &str, auth: &str) -> Result<DbInfo, String> {
+    let o = call(base, auth, Some(&json!({})), "/api/tunnel/open").map_err(|e| if e == "not found" { "This server is older than the client: update the server".to_string() } else { e })?;
+    let id = o["id"].as_str().unwrap_or("").to_string();
+    let info_user = o["user"].as_str().unwrap_or("").to_string();
+    let info_pass = o["password"].as_str().unwrap_or("").to_string();
+    let info_db = o["database"].as_str().unwrap_or("").to_string();
+    let _ = agent().post(&format!("{base}/api/tunnel/close?id={id}")).set("Authorization", auth).send_bytes(&[]);
+    let lst = std::net::TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
+    let port = lst.local_addr().map_err(|e| e.to_string())?.port();
+    let (base, auth) = (base.to_string(), auth.to_string());
+    std::thread::spawn(move || {
+        for c in lst.incoming().flatten() {
+            let (b, a) = (base.clone(), auth.clone());
+            std::thread::spawn(move || relay(c, b, a));
+        }
+    });
+    Ok(DbInfo { port, user: info_user, password: info_pass, database: info_db })
+}
+
+fn relay(local: std::net::TcpStream, base: String, auth: String) {
+    use std::io::{Read, Write};
+    let id = match call(&base, &auth, Some(&json!({})), "/api/tunnel/open") {
+        Ok(o) => o["id"].as_str().unwrap_or("").to_string(),
+        Err(_) => return,
+    };
+    let _ = local.set_nodelay(true);
+    let ag = ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(6)).timeout_read(Duration::from_secs(40)).timeout_write(Duration::from_secs(60)).build();
+    // from the server to the database client
+    let (l2, base2, auth2, id2, ag2) = (local.try_clone(), base.clone(), auth.clone(), id.clone(), ag.clone());
+    if let Ok(mut l2) = l2 {
+        std::thread::spawn(move || {
+            let mut fails = 0;
+            loop {
+                match ag2.get(&format!("{base2}/api/tunnel/recv?id={id2}&wait=8000")).set("Authorization", &auth2).call() {
+                    Ok(r) => {
+                        fails = 0;
+                        let closed = r.header("X-Closed") == Some("1");
+                        let mut b = Vec::new();
+                        let _ = r.into_reader().read_to_end(&mut b);
+                        rx(b.len() as u64 + 200);
+                        if !b.is_empty() && l2.write_all(&b).is_err() {
+                            break;
+                        }
+                        if closed {
+                            break;
+                        }
+                    }
+                    Err(ureq::Error::Status(404, _)) => break,
+                    Err(_) => {
+                        fails += 1;
+                        if fails > 10 {
+                            break;
+                        }
+                        std::thread::sleep(Duration::from_millis(300));
+                    }
+                }
+            }
+            let _ = l2.shutdown(std::net::Shutdown::Both);
+        });
+    }
+    // from the database client to the server
+    let mut l = local;
+    let mut buf = vec![0u8; 65536];
+    loop {
+        match l.read(&mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                tx(n as u64 + 200);
+                if ag.post(&format!("{base}/api/tunnel/send?id={id}")).set("Authorization", &auth).send_bytes(&buf[..n]).is_err() {
+                    break;
+                }
+            }
+        }
+    }
+    let _ = ag.post(&format!("{base}/api/tunnel/close?id={id}")).set("Authorization", &auth).send_bytes(&[]);
+    let _ = l.shutdown(std::net::Shutdown::Both);
+}

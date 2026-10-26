@@ -71,12 +71,6 @@ struct Shell {
     url: String,
     user: String,
     pass: String,
-    db_host: String,
-    db_port: String,
-    db_user: String,
-    db_pass: String,
-    db_name: String,
-    advanced: bool,
     msg: String,
     app: Option<app::App>,
     data: PathBuf,
@@ -93,12 +87,6 @@ impl Shell {
             url: g("url", "http://127.0.0.1:8080"),
             user: g("user", "admin"),
             pass: String::new(),
-            db_host: g("db_host", ""),
-            db_port: g("db_port", "3306"),
-            db_user: g("db_user", "radiomoon"),
-            db_pass: g("db_pass", "radiomoon"),
-            db_name: g("db_name", "radiomoon"),
-            advanced: false,
             msg: String::new(),
             app: None,
             data,
@@ -110,7 +98,7 @@ impl Shell {
         self.msg.clear();
         let _ = std::fs::write(
             self.data.join("client.json"),
-            json!({ "url": self.url, "user": self.user, "db_host": self.db_host, "db_port": self.db_port, "db_user": self.db_user, "db_pass": self.db_pass, "db_name": self.db_name }).to_string(),
+            json!({ "url": self.url, "user": self.user }).to_string(),
         );
         let link = remote::connect(self.url.clone(), self.user.clone(), self.pass.clone(), ctx.clone());
         let t0 = Instant::now();
@@ -134,13 +122,20 @@ impl Shell {
             std::thread::sleep(Duration::from_millis(50));
         };
 
-        let host = if self.db_host.trim().is_empty() { remote::host_of(&self.url) } else { self.db_host.trim().to_string() };
-        let cfg = config::Config { host: host.clone(), port: self.db_port.trim().parse().unwrap_or(3306), user: self.db_user.clone(), password: self.db_pass.clone(), database: self.db_name.clone() };
+        // the database of the server is reached through the server itself (only the address, user name and password are needed)
+        let info = match remote::start_db_proxy(&link.base, &link.auth) {
+            Ok(i) => i,
+            Err(e) => {
+                self.msg = format!("Connected to the server, but its database cannot be opened:\n{e}");
+                let _ = link.tx.send(remote::Cmd::Quit);
+                return;
+            }
+        };
+        let cfg = config::Config { host: "127.0.0.1".into(), port: info.port, user: info.user, password: info.password, database: info.database };
         let db = match db::Db::connect(&cfg) {
             Ok(d) => d,
             Err(e) => {
-                self.msg = format!("The server answered, but its database ({host}:{}) cannot be opened from this computer:\n{e:#}\nThe database must accept connections from here (see 'Server' in the README).", cfg.port);
-                self.advanced = true;
+                self.msg = format!("The server's database did not answer:\n{e:#}");
                 let _ = link.tx.send(remote::Cmd::Quit);
                 return;
             }
@@ -149,7 +144,6 @@ impl Shell {
         let slug: String = format!("{}_{}", remote::host_of(&self.url), self.url.rsplit(':').next().filter(|p| p.chars().all(|c| c.is_ascii_digit())).unwrap_or("80")).chars().map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '-' { c } else { '_' }).collect();
         let sdata = self.data.join("servers").join(slug);
         let _ = std::fs::create_dir_all(&sdata);
-        config::save(&sdata, &cfg);
         app::REMOTE_MODE.store(true, std::sync::atomic::Ordering::SeqCst);
         let mut a = app::App::new(dbserver::DbServer::none(), db, cfg, sdata.clone(), self.exe_dir.clone(), String::new());
         // a sound output of this computer only for listening to songs; the broadcast is played by the server
@@ -198,26 +192,6 @@ impl eframe::App for Shell {
                     ui.end_row();
                 });
                 ui.add_space(6.0);
-                ui.checkbox(&mut self.advanced, "Database of the server");
-                if self.advanced {
-                    egui::Grid::new("db").num_columns(2).spacing([10.0, 6.0]).show(ui, |ui| {
-                        ui.label("Host (empty: the server above)");
-                        ui.add(egui::TextEdit::singleline(&mut self.db_host).desired_width(300.0));
-                        ui.end_row();
-                        ui.label("Port");
-                        ui.add(egui::TextEdit::singleline(&mut self.db_port).desired_width(300.0));
-                        ui.end_row();
-                        ui.label("User");
-                        ui.add(egui::TextEdit::singleline(&mut self.db_user).desired_width(300.0));
-                        ui.end_row();
-                        ui.label("Password");
-                        ui.add(egui::TextEdit::singleline(&mut self.db_pass).password(true).desired_width(300.0));
-                        ui.end_row();
-                        ui.label("Database");
-                        ui.add(egui::TextEdit::singleline(&mut self.db_name).desired_width(300.0));
-                        ui.end_row();
-                    });
-                }
                 ui.add_space(12.0);
                 if ui.add_sized([180.0, 34.0], egui::Button::new("Connect")).clicked() {
                     go = true;

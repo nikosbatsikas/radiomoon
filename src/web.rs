@@ -76,7 +76,8 @@ pub fn spawn(bind: &str) -> anyhow::Result<Receiver<Req>> {
     let server = tiny_http::Server::http(bind).map_err(|e| anyhow::anyhow!("cannot listen on {bind}: {e}"))?;
     let server = std::sync::Arc::new(server);
     let (tx, rx) = channel::<Req>();
-    for _ in 0..4 {
+    // some workers wait for the data of a database tunnel of a client
+    for _ in 0..32 {
         let server = server.clone();
         let tx = tx.clone();
         std::thread::spawn(move || {
@@ -88,6 +89,13 @@ pub fn spawn(bind: &str) -> anyhow::Result<Receiver<Req>> {
                         .with_header(tiny_http::Header::from_bytes(&b"WWW-Authenticate"[..], &b"Basic realm=\"RadioMoon\""[..]).unwrap());
                     let _ = rq.respond(r);
                     continue;
+                }
+                if let Some(rest) = rq.url().strip_prefix("/api/tunnel/") {
+                    if !rest.starts_with("open") {
+                        let rest = rest.to_string();
+                        tunnel_http(rq, &rest);
+                        continue;
+                    }
                 }
                 // an upload is written to the disk by this thread (it can be big); the main thread only decides where and imports it afterwards
                 if rq.method().as_str() == "POST" && rq.url().starts_with("/api/upload") {
@@ -441,6 +449,7 @@ pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
         ("GET", "/api/clap") => Resp::json(crate::clap_host::view_json(&app.clap_view())),
         ("GET", "/api/clients") => clients(app),
         ("GET", p) if p.starts_with("/clients/") => client_file(app, &p["/clients/".len()..]),
+        ("POST", "/api/tunnel/open") => tunnel_open(app),
         ("POST", "/api/upload") => upload_target(app, &r.query),
         ("POST", "/api/imported") => imported(app, &r.query),
         _ => Resp::err(404, "not found"),
@@ -609,4 +618,121 @@ fn log_json(app: &App) -> Value {
         .map(|t| json!({ "t": serde_json::to_value(t).unwrap_or(Value::Null), "src": t.src, "reason": t.reason, "ov": t.overlay_pos, "ovc": t.overlay_custom_ms, "fs": t.fixed_start }))
         .collect();
     json!({ "rev": log_rev(app), "items": items })
+}
+
+// ------------------------------------------------------------------ database tunnel
+// The client of a server has no connection of its own to the database: it asks the server to open one (to the database of the
+// server) and carries the bytes over the same HTTP port. The id of a tunnel is a secret that only a signed-in client receives.
+struct Tun {
+    w: std::sync::Mutex<std::net::TcpStream>,
+    buf: std::sync::Mutex<(Vec<u8>, bool)>,
+    cv: std::sync::Condvar,
+    last: std::sync::Mutex<std::time::Instant>,
+}
+
+fn tunnels() -> &'static std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<Tun>>> {
+    static T: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<Tun>>>> = std::sync::OnceLock::new();
+    T.get_or_init(Default::default)
+}
+
+fn tunnel_open(app: &mut App) -> Resp {
+    use std::io::Read;
+    use std::net::ToSocketAddrs;
+    {
+        // tunnels that nobody uses any more
+        let mut g = tunnels().lock().unwrap();
+        g.retain(|_, t| t.last.lock().map(|l| l.elapsed().as_secs() < 600).unwrap_or(false));
+    }
+    let host = if app.cfg.host.trim().is_empty() { "127.0.0.1".to_string() } else { app.cfg.host.clone() };
+    let addr = match (host.as_str(), app.cfg.port).to_socket_addrs().ok().and_then(|mut a| a.next()) {
+        Some(a) => a,
+        None => return Resp::err(500, "the address of the database is not valid"),
+    };
+    let sock = match std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_secs(5)) {
+        Ok(s) => s,
+        Err(e) => return Resp::err(500, &format!("the server cannot reach its database: {e}")),
+    };
+    let _ = sock.set_nodelay(true);
+    let Ok(mut rd) = sock.try_clone() else { return Resp::err(500, "cannot open the tunnel") };
+    use rand::Rng;
+    let chars: Vec<char> = "abcdefghijklmnopqrstuvwxyz0123456789".chars().collect();
+    let mut rng = rand::thread_rng();
+    let id: String = (0..32).map(|_| chars[rng.gen_range(0..chars.len())]).collect();
+    let t = std::sync::Arc::new(Tun { w: std::sync::Mutex::new(sock), buf: std::sync::Mutex::new((Vec::new(), false)), cv: std::sync::Condvar::new(), last: std::sync::Mutex::new(std::time::Instant::now()) });
+    let t2 = t.clone();
+    std::thread::spawn(move || {
+        let mut b = vec![0u8; 65536];
+        loop {
+            match rd.read(&mut b) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    let mut g = t2.buf.lock().unwrap();
+                    g.0.extend_from_slice(&b[..n]);
+                    t2.cv.notify_all();
+                }
+            }
+        }
+        let mut g = t2.buf.lock().unwrap();
+        g.1 = true;
+        t2.cv.notify_all();
+    });
+    tunnels().lock().unwrap().insert(id.clone(), t);
+    Resp::json(json!({ "id": id, "user": app.cfg.user, "password": app.cfg.password, "database": app.cfg.database }))
+}
+
+fn tunnel_reply(rq: tiny_http::Request, status: u16, body: Vec<u8>, closed: bool) {
+    let mut r = tiny_http::Response::from_data(body)
+        .with_status_code(status)
+        .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/octet-stream"[..]).unwrap())
+        .with_header(tiny_http::Header::from_bytes(&b"Cache-Control"[..], &b"no-store"[..]).unwrap());
+    if closed {
+        r = r.with_header(tiny_http::Header::from_bytes(&b"X-Closed"[..], &b"1"[..]).unwrap());
+    }
+    let _ = rq.respond(r);
+}
+
+/// send / recv / close of a tunnel (answered by the worker thread: recv waits for the data of the database).
+fn tunnel_http(mut rq: tiny_http::Request, rest: &str) {
+    use std::io::{Read, Write};
+    let (op, q) = rest.split_once('?').unwrap_or((rest, ""));
+    let id = qget(q, "id");
+    let t = tunnels().lock().unwrap().get(&id).cloned();
+    let Some(t) = t else { return tunnel_reply(rq, 404, b"no such tunnel".to_vec(), true) };
+    if let Ok(mut l) = t.last.lock() {
+        *l = std::time::Instant::now();
+    }
+    match op {
+        "send" => {
+            let mut b = Vec::new();
+            let _ = rq.as_reader().take(64 << 20).read_to_end(&mut b);
+            let ok = t.w.lock().map(|mut w| w.write_all(&b).is_ok()).unwrap_or(false);
+            tunnel_reply(rq, if ok { 200 } else { 502 }, Vec::new(), !ok);
+        }
+        "recv" => {
+            let wait = qget(q, "wait").parse::<u64>().unwrap_or(8000).min(20000);
+            let end = std::time::Instant::now() + std::time::Duration::from_millis(wait);
+            let mut g = t.buf.lock().unwrap();
+            while g.0.is_empty() && !g.1 {
+                let now = std::time::Instant::now();
+                if now >= end {
+                    break;
+                }
+                g = t.cv.wait_timeout(g, end - now).unwrap().0;
+            }
+            let n = g.0.len().min(1 << 20);
+            let data: Vec<u8> = g.0.drain(..n).collect();
+            let closed = g.1 && g.0.is_empty();
+            drop(g);
+            tunnel_reply(rq, 200, data, closed);
+        }
+        "close" => {
+            if let Some(t) = tunnels().lock().unwrap().remove(&id) {
+                if let Ok(w) = t.w.lock() {
+                    let _ = w.shutdown(std::net::Shutdown::Both);
+                }
+            }
+            tunnel_reply(rq, 200, Vec::new(), true);
+        }
+        _ => tunnel_reply(rq, 404, b"unknown".to_vec(), false),
+    }
 }

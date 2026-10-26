@@ -33,7 +33,7 @@ To upgrade later, unpack the new package and run `sudo ./install.sh upgrade` (se
 Open `http://<server>:8080/` in a browser. User `admin`; the password is in `/var/lib/radiomoon/webserver.json` (created at the first start). Settings (`RADIOMOON_BIND`) are in `/etc/radiomoon/server.env`.
 Run by hand: `radiomoon-server --bind 0.0.0.0:8080 --data /var/lib/radiomoon --db-user radiomoon --db-password ...`.
 
-**RadioMoon client** (`radiomoon-client`, in the Windows setup as "RadioMoon Client"): the same studio and control panel as the desktop program, but the server plays. Enter the address of the server (`http://server:8080`) and your user name and password; the client also opens the database of the server, so install the server with `RADIOMOON_REMOTE_DB=1 ./install.sh` (it lets the database accept connections from the network - then change the password of the database user `radiomoon` and allow port 3306 only for your studio computers). Songs added in the client are uploaded to the server (folder `media` in its data folder) and can be listened to from there.
+**RadioMoon client** (`radiomoon-client`, in the Windows setup as "RadioMoon Client"): the same studio and control panel as the desktop program, but the server plays. Enter the address of the server (`http://server:8080`) and your user name and password. Nothing else is needed: the database of the server is reached through the server itself (no database port is opened). Songs added in the client are uploaded to the server (folder `media` in its data folder) and can be listened to from there.
 
 ## Portable or installed
 

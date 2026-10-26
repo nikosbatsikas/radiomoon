@@ -4,7 +4,7 @@
 #   ./install.sh upgrade            replace the program, keep the settings, the database and the songs
 #   ./install.sh uninstall          remove the program and the service; keep the data folder and the database
 #   ./install.sh uninstall --purge  remove everything, the database and the uploaded songs too (asks first; -y does not ask)
-#   RADIOMOON_REMOTE_DB=1 ./install.sh   let the database accept the RadioMoon client of other computers
+#   RADIOMOON_REMOTE_DB=1 ./install.sh   (not needed by the RadioMoon client any more: it uses the web port of the server)
 set -e
 [ "$(id -u)" = 0 ] || { echo "Run as root (sudo ./install.sh)"; exit 1; }
 HERE=$(cd "$(dirname "$0")" && pwd)

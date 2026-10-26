@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.12.0
+- **The client connects with only the server address, user name and password.** The database of the server is no longer opened from the client computer: the client carries its database connection inside the HTTP port of the server (a tunnel, signed in with the same user). `RADIOMOON_REMOTE_DB`, the port 3306 and the "Database of the server" fields are not needed any more, and the client can never read the database of another server by mistake. The server must be updated to 0.12.0 too.
+
 ## 0.11.3
 - **Client with several servers:** every server now has its own folder on the computer (`RadioMoon-Client/servers/<address>`) for its settings and its cache of songs. Before, two servers shared them, so the second server showed the settings of the first and played cached songs with the same number. Delete the old `cache` folder once; the first connection to each server starts with fresh settings.
 
