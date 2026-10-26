@@ -406,6 +406,8 @@ pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
         ("GET", "/api/pallets") => Resp::json(pallets(app)),
         ("POST", "/api/action") => action(app, &body),
         ("GET", "/api/audio") => audio(app, &r.query),
+        ("GET", "/api/clients") => clients(app),
+        ("GET", p) if p.starts_with("/clients/") => client_file(app, &p["/clients/".len()..]),
         ("POST", "/api/upload") => upload_target(app, &r.query),
         ("POST", "/api/imported") => imported(app, &r.query),
         _ => Resp::err(404, "not found"),
@@ -493,10 +495,55 @@ fn imported(app: &mut App, q: &str) -> Resp {
         read_tags: b("read_tags"),
         parse_filename: b("parse_filename"),
     };
+    if let Ok(id) = qget(q, "track_id").parse::<u64>() {
+        // an item of the library that was imported from another program: it now points to the copy on the server
+        return match app.data.track(id).cloned() {
+            Some(mut t) => {
+                t.path = path.clone();
+                if app.db.update_track(&t).is_ok() {
+                    app.reload_tracks();
+                    Resp::json(json!({ "ok": true }))
+                } else {
+                    Resp::err(500, "the library could not be updated")
+                }
+            }
+            None => Resp::err(404, "no such item"),
+        };
+    }
     if crate::library::import_one(&app.db, p, &o) {
         app.reload_tracks();
         Resp::json(json!({ "ok": true }))
     } else {
         Resp::err(500, "the file could not be added to the library")
+    }
+}
+
+/// The RadioMoon clients (Windows, Linux, macOS) that came with the server: the web page offers them for download.
+fn clients(app: &App) -> Resp {
+    let mut list: Vec<Value> = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(app.app_dir.join("clients")) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            if let Ok(m) = e.metadata() {
+                if m.is_file() {
+                    let os = if name.contains("windows") { "Windows" } else if name.contains("macos") { "macOS" } else if name.contains("linux") { "Linux" } else { "" };
+                    let arch = ["x64", "x86", "arm64"].iter().find(|a| name.contains(&format!("-{a}"))).copied().unwrap_or("");
+                    list.push(json!({ "name": name, "size": m.len(), "os": os, "arch": arch }));
+                }
+            }
+        }
+    }
+    list.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
+    Resp::json(json!({ "clients": list }))
+}
+
+fn client_file(app: &App, name: &str) -> Resp {
+    let name = unescape(name);
+    if name.contains('/') || name.contains('\\') || name.contains("..") || name.is_empty() {
+        return Resp::err(400, "bad name");
+    }
+    match std::fs::read(app.app_dir.join("clients").join(&name)) {
+        Ok(b) => Resp { status: 200, ctype: "application/octet-stream", body: b },
+        Err(_) => Resp::err(404, "not found"),
     }
 }

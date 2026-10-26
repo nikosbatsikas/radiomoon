@@ -2108,6 +2108,14 @@ impl App {
             if !st.is_empty() {
                 ui.label(st);
             }
+            if self.remote.is_some() {
+                ui.add_space(6.0);
+                ui.label(tr("The songs of the imported library are on this computer. Upload them to the server (the library then points to the copies on the server):"));
+                if ui.button(tr("Upload the songs to the server")).clicked() {
+                    self.remote_upload_local();
+                    self.cp.msg = tr("Upload to the server started in the background");
+                }
+            }
         }
         for l in self.cp.jz_report.lock().unwrap().iter() {
             ui.label(l);

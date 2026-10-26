@@ -42,6 +42,17 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
 .badge.live{background:var(--bad);border-color:var(--bad)}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 #login-note{display:none}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal.on{display:flex}
+.box{background:var(--panel);border:1px solid var(--acc);border-radius:10px;padding:20px;max-width:460px;width:100%;max-height:90vh;overflow:auto}
+.box h3{margin:0 0 4px;font-size:22px;letter-spacing:.05em}
+.box .sub{color:var(--dim);margin-bottom:12px}
+.box ul{margin:6px 0 12px;padding-left:18px}
+.box a{color:var(--acc)}
+.dl{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.dl:last-child{border:0}
+.dl .n{flex:1;min-width:0}
+.gift{display:inline-block;background:#ffc439;color:#003087;font-weight:600;border-radius:14px;padding:6px 16px;text-decoration:none}
 </style>
 </head>
 <body>
@@ -54,6 +65,8 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
   <button id="m-auto" data-t="Auto">Auto</button>
   <button id="m-manual" data-t="Manual">Manual</button>
   <button id="m-offline" data-t="Offline">Offline</button>
+  <button id="b-dl" data-t="Download client">Download client</button>
+  <button id="b-about" data-t="About">About</button>
   <select id="lang"><option value="en">English</option><option value="el">Ελληνικά</option></select>
 </header>
 <main>
@@ -105,8 +118,29 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
     </div>
   </section>
 </main>
+<div class="modal" id="m-about"><div class="box">
+  <h3>RADIOMOON</h3>
+  <div class="sub"><span id="a-ver"></span> - <span data-t="Radio automation for Windows, Linux and macOS">Radio automation for Windows, Linux and macOS</span></div>
+  <div class="sub" style="margin:0"><b style="color:var(--text)">Nikos Batsikas</b> - <span data-t="Author - idea, design, testing">Author - idea, design, testing</span></div>
+  <div class="sub"><b style="color:var(--text)">Claude</b> - <span data-t="AI pair programmer by Anthropic">AI pair programmer by Anthropic</span></div>
+  <ul>
+    <li data-t="Auto schedule with clocks, playlists, breaks and force clocks">Auto schedule with clocks, playlists, breaks and force clocks</li>
+    <li data-t="Crossfade player, instant jingles, live rebroadcast">Crossfade player, instant jingles, live rebroadcast</li>
+    <li data-t="Multi-server streaming with song titles">Multi-server streaming with song titles</li>
+    <li data-t="Jazler RadioStar 2 database import">Jazler RadioStar 2 database import</li>
+  </ul>
+  <div class="sub"><a href="https://github.com/nikosbatsikas/radiomoon" target="_blank" rel="noopener">github.com/nikosbatsikas/radiomoon</a><br>Rust - egui - rodio - MySQL / MariaDB<br>&copy; 2026 Nikos Batsikas</div>
+  <p><a class="gift" href="https://paypal.me/nikosbatsikas" target="_blank" rel="noopener" data-t="Gift with PayPal">Gift with PayPal</a></p>
+  <div class="row"><button data-close="m-about" data-t="Close">Close</button></div>
+</div></div>
+<div class="modal" id="m-dl"><div class="box">
+  <h3 data-t="Download client">Download client</h3>
+  <div class="sub" data-t="The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.">The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.</div>
+  <div id="dl-list"></div>
+  <div class="row"><button data-close="m-dl" data-t="Close">Close</button></div>
+</div></div>
 <script>
-const EL={"Auto":"Αυτόματο","Manual":"Χειροκίνητο","Offline":"Εκτός","On air":"Στον αέρα","Restart":"Επανεκκίνηση","Pause":"Παύση","Next":"Επόμενο","Stop":"Στοπ","Loop":"Επανάληψη","Stop after track":"Στοπ μετά το κομμάτι","Live":"Ζωντανά","Volume":"Ένταση","Playlist":"Λίστα","Rebuild automatic":"Νέο αυτόματο πρόγραμμα","Clear playlist":"Καθαρισμός λίστας","Instant jingles":"Άμεσα jingles","Stop jingles":"Στοπ jingles","Library":"Βιβλιοθήκη","Played":"Παίχτηκαν","Search":"Αναζήτηση","Add":"Προσθήκη","Next up":"Επόμενο","Play":"Παίξε","Remove":"Αφαίρεση","Nothing is playing":"Δεν παίζει τίποτα","music":"Μουσική","jingle":"Jingle","sweeper":"Sweeper","voice":"Voice","spot":"Διαφήμιση","break":"Διάλειμμα","memo":"Σημείωση"};
+const EL={"Auto":"Αυτόματο","Manual":"Χειροκίνητο","Offline":"Εκτός","On air":"Στον αέρα","Restart":"Επανεκκίνηση","Pause":"Παύση","Next":"Επόμενο","Stop":"Στοπ","Loop":"Επανάληψη","Stop after track":"Στοπ μετά το κομμάτι","Live":"Ζωντανά","Volume":"Ένταση","Playlist":"Λίστα","Rebuild automatic":"Νέο αυτόματο πρόγραμμα","Clear playlist":"Καθαρισμός λίστας","Instant jingles":"Άμεσα jingles","Stop jingles":"Στοπ jingles","Library":"Βιβλιοθήκη","Played":"Παίχτηκαν","Download client":"Λήψη client","About":"Σχετικά","Close":"Κλείσιμο","Download":"Λήψη","Gift with PayPal":"Δώρο με PayPal","Radio automation for Windows, Linux and macOS":"Αυτοματισμός ραδιοφώνου για Windows, Linux και macOS","Author - idea, design, testing":"Δημιουργός - ιδέα, σχεδίαση, δοκιμές","AI pair programmer by Anthropic":"Προγραμματιστής AI της Anthropic","Auto schedule with clocks, playlists, breaks and force clocks":"Αυτόματο πρόγραμμα με ρολόγια, playlists, διαλείμματα και force clocks","Crossfade player, instant jingles, live rebroadcast":"Player με crossfade, άμεσα jingles, ζωντανή αναμετάδοση","Multi-server streaming with song titles":"Streaming σε πολλούς servers με τίτλους τραγουδιών","Jazler RadioStar 2 database import":"Εισαγωγή βάσης Jazler RadioStar 2","The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.":"Το RadioMoon client είναι το παράθυρο στούντιο αυτού του server. Εγκαταστήστε το στον υπολογιστή του στούντιο, γράψτε τη διεύθυνση αυτού του server και το όνομα χρήστη σας.","No client is included in this server package":"Αυτό το πακέτο server δεν περιέχει client","Search":"Αναζήτηση","Add":"Προσθήκη","Next up":"Επόμενο","Play":"Παίξε","Remove":"Αφαίρεση","Nothing is playing":"Δεν παίζει τίποτα","music":"Μουσική","jingle":"Jingle","sweeper":"Sweeper","voice":"Voice","spot":"Διαφήμιση","break":"Διάλειμμα","memo":"Σημείωση"};
 let lang='en',S={},cur=null,pal=[],pidx=0,lastFetch=0;
 const $=id=>document.getElementById(id);
 const T=s=>lang==='el'&&EL[s]?EL[s]:s;
@@ -137,6 +171,15 @@ function render(){
 $('log').onclick=e=>{const b=e.target.closest('button');if(!b)return;act({do:b.dataset.a,index:+b.dataset.i});};
 const simple={'b-restart':'restart','b-pause':'pause','b-next':'next','b-stop':'stop','b-loop':'loop','b-stopnext':'stopnext','b-live':'live','b-regen':'regen','b-sj':'stopjingles'};
 for(const k in simple)$(k).onclick=()=>act({do:simple[k]});
+function fsz(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.round(n/1024)+' KB'}
+$('b-about').onclick=()=>{$('a-ver').textContent='v'+(S.version||'');$('m-about').classList.add('on')};
+$('b-dl').onclick=async()=>{
+  const r=await api('/api/clients');const l=r.clients||[];
+  $('dl-list').innerHTML=l.length?l.map(c=>`<div class="dl"><span class="n"><b>${esc(c.os||'')}</b> ${esc(c.arch||'')}<br><small style="color:var(--dim)">${esc(c.name)} - ${fsz(c.size)}</small></span><a href="/clients/${encodeURIComponent(c.name)}" download="${esc(c.name)}"><button>${T('Download')}</button></a></div>`).join(''):`<div class="sub">${T('No client is included in this server package')}</div>`;
+  $('m-dl').classList.add('on');
+};
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).classList.remove('on'));
+document.querySelectorAll('.modal').forEach(m=>m.onclick=e=>{if(e.target===m)m.classList.remove('on')});
 $('b-clear').onclick=()=>{if(confirm('?'))act({do:'clear'});};
 for(const m of['auto','manual','offline'])$('m-'+m).onclick=()=>act({do:'mode',mode:m});
 $('vol').oninput=()=>{$('vv').textContent=$('vol').value+'%';};

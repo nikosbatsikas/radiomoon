@@ -20,7 +20,6 @@ if (Test-Path "stage") { Remove-Item "stage" -Recurse -Force }
 $stage = Join-Path $PSScriptRoot "stage\RadioMoon"
 New-Item -ItemType Directory -Force "$stage\lang", "dist" | Out-Null
 Copy-Item "target\$target\release\radiomoon.exe" "$stage\RadioMoon.exe"
-Copy-Item "target\$target\release\radiomoon-client.exe" "$stage\RadioMoon-Client.exe"
 Copy-Item "README.md", "CHANGELOG.md" $stage
 Copy-Item "lang\*" "$stage\lang"
 
@@ -37,6 +36,14 @@ $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\I
     Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup 6 was not found. Install it from https://jrsoftware.org/isdl.php and run this script again." }
 & $iscc "/DAppVersion=$v" "/DArch=$Arch" "/DSourceDir=$stage" "/DOutDir=$PSScriptRoot\dist" "installer\radiomoon.iss"
+
+# the client for a RadioMoon server: not part of the setup, it is offered by the server (server edition)
+$cl = Join-Path $PSScriptRoot "client-stage\RadioMoon-Client"
+if (Test-Path "client-stage") { Remove-Item "client-stage" -Recurse -Force }
+New-Item -ItemType Directory -Force "$cl\lang", "client-dist" | Out-Null
+Copy-Item "target\$target\release\radiomoon-client.exe" "$cl\RadioMoon-Client.exe"
+Copy-Item "lang\*" "$cl\lang"
+Compress-Archive -Path $cl -DestinationPath "client-dist\RadioMoon-Client-$v-windows-$Arch.zip" -Force
 
 # portable zip (the flag file makes the program keep all its data next to itself)
 New-Item -ItemType File "$stage\portable.flag" | Out-Null

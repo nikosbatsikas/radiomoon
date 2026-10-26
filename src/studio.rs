@@ -671,7 +671,8 @@ impl eframe::App for App {
             let scan = self.scan_status.lock().map(|s| s.clone()).unwrap_or_default();
             let who = self.user.as_ref().map(|u| format!("   [{}]", u.name)).unwrap_or_default();
             let live = if self.streamers.is_empty() { String::new() } else { format!("   [LIVE: {}]", self.streamers.iter().map(|(_, _, s)| s.status_text()).collect::<Vec<_>>().join(" | ")) };
-            ui.label(egui::RichText::new(format!("{}    {}{}{}", self.status, scan, who, live)).color(kit::GRAY).size(12.0));
+            let bw = self.remote.as_ref().map(|r| format!("   [server: \u{2193} {}  \u{2191} {}]", crate::remote::fmt_rate(r.rx_rate), crate::remote::fmt_rate(r.tx_rate))).unwrap_or_default();
+            ui.label(egui::RichText::new(format!("{}    {}{}{}{}", self.status, scan, who, live, bw)).color(kit::GRAY).size(12.0));
         });
 
         // ---- playlist (left) ----

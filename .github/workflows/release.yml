@@ -35,6 +35,10 @@ jobs:
         with:
           name: windows-${{ matrix.arch }}
           path: dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-windows-${{ matrix.arch }}
+          path: client-dist/*
 
   linux:
     strategy:
@@ -70,17 +74,25 @@ jobs:
           V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           mkdir -p dist RadioMoon/lang
           cp target/release/radiomoon RadioMoon/radiomoon
-          cp target/release/radiomoon-client RadioMoon/radiomoon-client
           cp README.md CHANGELOG.md RadioMoon/
           cp lang/* RadioMoon/lang/
           touch RadioMoon/portable.flag
           tar czf dist/RadioMoon-$V-linux-${{ matrix.arch }}-portable.tar.gz RadioMoon
           cp target/debian/*.deb dist/
           cp target/generate-rpm/*.rpm dist/
+          # the client for a RadioMoon server: offered by the server (server edition), not part of these packages
+          mkdir -p client-dist RadioMoon-Client/lang
+          cp target/release/radiomoon-client RadioMoon-Client/
+          cp lang/* RadioMoon-Client/lang/
+          tar czf client-dist/RadioMoon-Client-$V-linux-${{ matrix.arch }}.tar.gz RadioMoon-Client
       - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}
           path: dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-linux-${{ matrix.arch }}
+          path: client-dist/*
 
   macos:
     strategy:
@@ -108,10 +120,21 @@ jobs:
           cp -R $APP dist/dmg/
           hdiutil create -volname RadioMoon -srcfolder dist/dmg -ov -format UDZO dist/RadioMoon-$V-macos-${{ matrix.arch }}.dmg
           rm -rf dist/dmg dist/RadioMoon.app
+          # the client for a RadioMoon server: offered by the server (server edition)
+          CAPP="client-stage/RadioMoon Client.app"
+          mkdir -p "$CAPP/Contents/MacOS" "$CAPP/Contents/Resources" client-dist
+          cp target/release/radiomoon-client "$CAPP/Contents/MacOS/RadioMoon Client"
+          sed "s/@VERSION@/$V/g; s#<string>RadioMoon</string>#<string>RadioMoon Client</string>#g; s#com.radiomoon.app#com.radiomoon.client#" packaging/macos/Info.plist.in > "$CAPP/Contents/Info.plist"
+          iconutil -c icns RadioMoon.iconset -o "$CAPP/Contents/Resources/RadioMoon Client.icns"
+          (cd client-stage && zip -qr "../client-dist/RadioMoon-Client-$V-macos-${{ matrix.arch }}.zip" "RadioMoon Client.app")
       - uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.arch }}
           path: dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-macos-${{ matrix.arch }}
+          path: client-dist/*
 
   # The headless server (web studio). Built inside old distributions on purpose: AlmaLinux 8 has glibc 2.28, so the one
   # binary runs on Debian 10+, Ubuntu 20.04+, Raspberry Pi OS 64-bit, AlmaLinux / Rocky / RHEL 8+ and Fedora.
@@ -143,29 +166,61 @@ jobs:
           [ -n "$ERR" ] && echo "::error title=Server build::$ERR" || true
           tail -30 build.log
           [ "$(cat rc.txt)" = 0 ] && [ -f target/release/radiomoon-server ] || exit 1
-      - name: Package
+      - name: Keep the program
         run: |
-          V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
-          D=RadioMoon-Server
-          mkdir -p $D/lang dist
-          cp target/release/radiomoon-server $D/
-          cp packaging/server/* $D/
-          cp lang/* $D/lang/
-          cp README.md CHANGELOG.md $D/
-          sudo chown -R "$USER" $D 2>/dev/null || true
-          tar czf dist/RadioMoon-Server-$V-linux-${{ matrix.flavor }}-${{ matrix.arch }}.tar.gz $D
+          mkdir -p bin
+          cp target/release/radiomoon-server bin/radiomoon-server
       - uses: actions/upload-artifact@v4
         with:
-          name: server-${{ matrix.flavor }}-${{ matrix.arch }}
+          name: serverbin-${{ matrix.flavor }}-${{ matrix.arch }}
+          path: bin/radiomoon-server
+
+  # The server editions: the server, its installer and the clients (Windows, Linux, macOS) that the web page of the server offers.
+  server-pack:
+    needs: [windows, linux, macos, server]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: client-*
+          path: clients
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: serverbin-*
+          path: bins
+      - name: Server packages
+        run: |
+          V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          mkdir -p dist
+          ls -la clients
+          for d in bins/serverbin-*; do
+            name=${d#bins/serverbin-}   # glibc-x64, alpine-arm64 ...
+            D=RadioMoon-Server
+            rm -rf $D; mkdir -p $D/lang $D/clients
+            cp $d/radiomoon-server $D/
+            chmod +x $D/radiomoon-server
+            cp packaging/server/* $D/
+            cp lang/* $D/lang/
+            cp clients/* $D/clients/
+            cp README.md CHANGELOG.md $D/
+            tar czf dist/RadioMoon-Server-$V-linux-$name.tar.gz $D
+          done
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-packages
           path: dist/*
 
   release:
-    needs: [windows, linux, macos, server]
+    needs: [windows, linux, macos, server-pack]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
+          pattern: "{windows-*,linux-*,macos-*,server-packages}"
           path: out
           merge-multiple: true
       - name: Check that the tag matches the program version

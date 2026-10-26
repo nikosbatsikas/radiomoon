@@ -2,6 +2,13 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.10.0
+- **The client is part of the server editions only:** it is no longer in the Windows setup, the .deb / .rpm or the portable packages. Every server package (`RadioMoon-Server-...tar.gz`) contains the clients for Windows (x64, x86, arm64), Linux (x64, arm64) and macOS, and the web page of the server has a **Download client** button.
+- **About** button in the web page of the server.
+- **Waveform in the client:** the waveform of the item on air is made from the song of the server (before, the client showed "analysing waveform..." for ever).
+- **Bandwidth in the status bar of the client:** download and upload speed to the server.
+- **Import from other programs, server edition:** after importing a Jazler / MegaMix database in the client, the button "Upload the songs to the server" uploads the songs of this computer to the server and the library points to the copies on the server.
+
 ## 0.9.2
 - Server installer on Alpine: MariaDB is restarted only once (the second restart waited for the database that was still starting and the installer stopped at "Stopping mariadb"). A restart that does not finish in 90 seconds is forced.
 

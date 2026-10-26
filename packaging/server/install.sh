@@ -39,6 +39,11 @@ svc_install() {
 copy_program() {
     install -m 755 "$HERE/radiomoon-server" /opt/radiomoon/radiomoon-server
     [ -d "$HERE/lang" ] && cp -r "$HERE/lang" /opt/radiomoon/ || true
+    # the clients (Windows, Linux, macOS) that the web page of the server offers for download
+    if [ -d "$HERE/clients" ]; then
+        rm -rf /opt/radiomoon/clients
+        cp -r "$HERE/clients" /opt/radiomoon/clients
+    fi
 }
 
 do_upgrade() {

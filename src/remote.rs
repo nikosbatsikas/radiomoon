@@ -10,6 +10,17 @@ use std::sync::atomic::Ordering;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
+/// Bytes sent to / received from the server (shown as the bandwidth in the status bar).
+pub static RX_BYTES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+pub static TX_BYTES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub fn rx(n: u64) {
+    RX_BYTES.fetch_add(n, Ordering::Relaxed);
+}
+pub fn tx(n: u64) {
+    TX_BYTES.fetch_add(n, Ordering::Relaxed);
+}
+
 pub enum Cmd {
     Act(Value),
     Quit,
@@ -31,6 +42,15 @@ pub struct Link {
     pub sh: Arc<Mutex<Shared>>,
     pub base: String,
     pub auth: String,
+}
+
+/// "1.2 MB/s"
+pub fn fmt_rate(b: f64) -> String {
+    if b >= 1_048_576.0 {
+        format!("{:.1} MB/s", b / 1_048_576.0)
+    } else {
+        format!("{:.1} KB/s", b / 1024.0)
+    }
 }
 
 pub fn base_url(url: &str) -> String {
@@ -68,6 +88,11 @@ fn agent() -> ureq::Agent {
 
 fn call(base: &str, auth: &str, post: Option<&Value>, path: &str) -> Result<Value, String> {
     let u = format!("{base}{path}");
+    if let Some(b) = post {
+        tx(b.to_string().len() as u64 + 200);
+    } else {
+        tx(200);
+    }
     let r = match post {
         Some(b) => agent().post(&u).set("Authorization", auth).set("Content-Type", "application/json").send_string(&b.to_string()),
         None => agent().get(&u).set("Authorization", auth).call(),
@@ -75,6 +100,7 @@ fn call(base: &str, auth: &str, post: Option<&Value>, path: &str) -> Result<Valu
     match r {
         Ok(r) => {
             let t = r.into_string().map_err(|e| e.to_string())?;
+            rx(t.len() as u64 + 200);
             serde_json::from_str::<Value>(&t).map_err(|e| e.to_string())
         }
         Err(ureq::Error::Status(401, _)) => Err("401".into()),
@@ -170,11 +196,17 @@ pub struct Remote {
     last_data: Instant,
     cp_was_open: bool,
     fails: Mutex<std::collections::HashMap<u64, Instant>>,
+    wave_id: u64,
+    bw_at: Instant,
+    bw_rx: u64,
+    bw_tx: u64,
+    pub rx_rate: f64,
+    pub tx_rate: f64,
 }
 
 impl Remote {
     pub fn new(link: Link) -> Self {
-        Remote { link, seq: 0, log_rev: u64::MAX, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()) }
+        Remote { link, seq: 0, log_rev: u64::MAX, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()), wave_id: 0, bw_at: Instant::now(), bw_rx: 0, bw_tx: 0, rx_rate: 0.0, tx_rate: 0.0 }
     }
     fn running(&self) -> bool {
         self.playing && !self.paused
@@ -283,6 +315,16 @@ impl App {
             rem.last_data = Instant::now();
             self.reload_all();
         }
+        self.remote_wave(&mut rem);
+        let el = rem.bw_at.elapsed().as_secs_f64();
+        if el >= 1.0 {
+            let (r, t) = (RX_BYTES.load(Ordering::Relaxed), TX_BYTES.load(Ordering::Relaxed));
+            rem.rx_rate = (r - rem.bw_rx) as f64 / el;
+            rem.tx_rate = (t - rem.bw_tx) as f64 / el;
+            rem.bw_rx = r;
+            rem.bw_tx = t;
+            rem.bw_at = Instant::now();
+        }
         self.remote = Some(rem);
     }
 
@@ -325,40 +367,76 @@ impl App {
     pub fn local_audio(&self, p: &str) -> String {
         let Some(r) = &self.remote else { return self.map_path(p) };
         let Some(t) = self.data.tracks.iter().find(|t| t.path == p) else { return p.to_string() };
-        let ext = Path::new(p).extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_else(|| "mp3".into());
-        let dir = self.base.join("cache");
-        let _ = std::fs::create_dir_all(&dir);
-        let file = dir.join(format!("{}.{}", t.id, ext));
-        if file.metadata().map(|m| m.len() > 0).unwrap_or(false) {
-            return file.to_string_lossy().to_string();
-        }
         if r.fails.lock().map(|f| f.get(&t.id).map(|w| w.elapsed() < Duration::from_secs(15)).unwrap_or(false)).unwrap_or(false) {
             return p.to_string(); // it failed a moment ago: not tried again at every frame
         }
-        let url = format!("{}/api/audio?id={}", r.link.base, t.id);
-        let part = dir.join(format!("{}.part", t.id));
-        let ok = ureq::AgentBuilder::new()
-            .timeout_connect(Duration::from_secs(4))
-            .timeout_read(Duration::from_secs(60))
-            .build()
-            .get(&url)
-            .set("Authorization", &r.link.auth)
-            .call()
-            .ok()
-            .and_then(|resp| {
-                let mut f = std::fs::File::create(&part).ok()?;
-                std::io::copy(&mut resp.into_reader(), &mut f).ok()?;
-                std::fs::rename(&part, &file).ok()
-            })
-            .is_some();
-        if ok {
-            file.to_string_lossy().to_string()
-        } else {
-            if let Ok(mut f) = r.fails.lock() {
-                f.insert(t.id, Instant::now());
+        match fetch_audio(&r.link.base, &r.link.auth, t.id, p, &self.base.join("cache")) {
+            Some(f) => f.to_string_lossy().to_string(),
+            None => {
+                if let Ok(mut f) = r.fails.lock() {
+                    f.insert(t.id, Instant::now());
+                }
+                p.to_string()
             }
-            p.to_string()
         }
+    }
+
+    /// The waveform of the item on air is made from the song of the server (downloaded in the background).
+    fn remote_wave(&mut self, rem: &mut Remote) {
+        let cur = self.current.and_then(|c| self.log.get(c)).filter(|t| t.id != 0 && t.kind != "stitch_hooks").map(|t| (t.id, t.path.clone()));
+        let Some((id, path)) = cur else { return };
+        if rem.wave_id == id {
+            return;
+        }
+        rem.wave_id = id;
+        if let Ok(mut g) = self.wave.lock() {
+            *g = (id, Arc::new(Vec::new()));
+        }
+        let (base, auth, dir, store) = (rem.link.base.clone(), rem.link.auth.clone(), self.base.join("cache"), self.wave.clone());
+        std::thread::spawn(move || {
+            if let Some(f) = fetch_audio(&base, &auth, id, &path, &dir) {
+                crate::waveform::spawn(f.to_string_lossy().to_string(), id, store);
+            }
+        });
+    }
+
+    /// The files of the library that are on this computer (an import of another program has the paths of this computer) are uploaded
+    /// to the server and the items of the library point to the copy on the server.
+    pub fn remote_upload_local(&mut self) {
+        let Some(r) = &self.remote else { return };
+        let (base, auth) = (r.link.base.clone(), r.link.auth.clone());
+        let items: Vec<(u64, String, String)> = self
+            .data
+            .tracks
+            .iter()
+            .filter(|t| t.kind != "memo" && !t.path.is_empty() && Path::new(&t.path).is_file())
+            .map(|t| (t.id, t.kind.clone(), t.path.clone()))
+            .collect();
+        let (st, done) = (self.scan_status.clone(), self.scan_done.clone());
+        if items.is_empty() {
+            self.status = "No file of this computer is in the library".into();
+            return;
+        }
+        std::thread::spawn(move || {
+            let (mut ok, mut failed) = (0, 0);
+            let mut last = String::new();
+            for (i, (id, kind, path)) in items.iter().enumerate() {
+                if let Ok(mut s) = st.lock() {
+                    *s = format!("Uploading to the server {} / {}: {}", i + 1, items.len(), Path::new(path).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default());
+                }
+                match upload_file(&base, &auth, Path::new(path), kind, None, Some(*id)) {
+                    Ok(()) => ok += 1,
+                    Err(e) => {
+                        failed += 1;
+                        last = e;
+                    }
+                }
+            }
+            if let Ok(mut s) = st.lock() {
+                *s = if failed > 0 { format!("Upload finished: {ok} songs, {failed} failed ({last})") } else { format!("Upload finished: {ok} songs are on the server") };
+            }
+            done.store(true, Ordering::SeqCst);
+        });
     }
 
     /// Imports files or a folder of this computer into the library of the server: every audio file is uploaded, then the server adds it.
@@ -380,7 +458,7 @@ impl App {
                 if let Ok(mut s) = st.lock() {
                     *s = format!("Uploading {} / {}: {}", i + 1, files.len(), f.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default());
                 }
-                match upload_file(&base, &auth, f, &o) {
+                match upload_file(&base, &auth, f, &o.kind.clone(), Some(&o), None) {
                     Ok(()) => ok += 1,
                     Err(e) => {
                         failed += 1;
@@ -396,22 +474,51 @@ impl App {
     }
 }
 
-fn upload_file(base: &str, auth: &str, f: &Path, o: &crate::library::ImportOpts) -> Result<(), String> {
+/// Downloads a song of the server to the cache folder (once). `path` only gives the extension.
+fn fetch_audio(base: &str, auth: &str, id: u64, path: &str, dir: &Path) -> Option<PathBuf> {
+    let ext = Path::new(path).extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_else(|| "mp3".into());
+    let _ = std::fs::create_dir_all(dir);
+    let file = dir.join(format!("{id}.{ext}"));
+    if file.metadata().map(|m| m.len() > 0).unwrap_or(false) {
+        return Some(file);
+    }
+    let part = dir.join(format!("{id}.part"));
+    let resp = ureq::AgentBuilder::new()
+        .timeout_connect(Duration::from_secs(4))
+        .timeout_read(Duration::from_secs(60))
+        .build()
+        .get(&format!("{base}/api/audio?id={id}"))
+        .set("Authorization", auth)
+        .call()
+        .ok()?;
+    let mut f = std::fs::File::create(&part).ok()?;
+    let n = std::io::copy(&mut resp.into_reader(), &mut f).ok()?;
+    rx(n);
+    std::fs::rename(&part, &file).ok()?;
+    Some(file)
+}
+
+fn upload_file(base: &str, auth: &str, f: &Path, kind: &str, o: Option<&crate::library::ImportOpts>, track_id: Option<u64>) -> Result<(), String> {
     let name = f.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
     let len = f.metadata().map_err(|e| e.to_string())?.len();
     let file = std::fs::File::open(f).map_err(|e| e.to_string())?;
-    let q = format!(
-        "name={}&kind={}&cat1={}&read_tags={}&parse_filename={}&gain={}&bookmark={}&autocue={}&autocue_db={}",
-        enc(&name),
-        enc(&o.kind),
-        enc(&o.cat1),
-        o.read_tags,
-        o.parse_filename,
-        o.gain_db,
-        o.bookmark,
-        o.autocue,
-        o.autocue_db
-    );
+    let mut q = format!("name={}&kind={}", enc(&name), enc(kind));
+    if let Some(o) = o {
+        q.push_str(&format!(
+            "&cat1={}&read_tags={}&parse_filename={}&gain={}&bookmark={}&autocue={}&autocue_db={}",
+            enc(&o.cat1),
+            o.read_tags,
+            o.parse_filename,
+            o.gain_db,
+            o.bookmark,
+            o.autocue,
+            o.autocue_db
+        ));
+    }
+    if let Some(id) = track_id {
+        q.push_str(&format!("&track_id={id}"));
+    }
+    tx(len);
     let r = ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(6))
         .timeout_read(Duration::from_secs(300))
