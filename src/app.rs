@@ -557,6 +557,14 @@ impl App {
 
     pub fn save_log(&self) {
         let ids: Vec<u64> = self.log.iter().filter(|t| t.id != 0).map(|t| t.id).collect();
+        // the database is written only when the list changed
+        static LAST: std::sync::Mutex<Vec<u64>> = std::sync::Mutex::new(Vec::new());
+        if let Ok(mut l) = LAST.lock() {
+            if *l == ids {
+                return;
+            }
+            *l = ids.clone();
+        }
         let _ = self.db.save_log(&ids);
     }
 

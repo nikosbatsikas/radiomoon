@@ -1212,8 +1212,12 @@ fn toggle_fullscreen(ctx: &egui::Context) {
 impl App {
     /// Everything that keeps the broadcast going and does not draw anything: used by the window and by the headless server.
     pub fn playout_tick(&mut self) {
+        let t = Instant::now();
         if let Some(p) = self.player.as_mut() {
             p.tick();
+        }
+        if t.elapsed() > Duration::from_millis(800) {
+            eprintln!("slow step: player tick {} ms", t.elapsed().as_millis());
         }
         if self.scan_done.swap(false, Ordering::SeqCst) {
             self.reload_tracks();
@@ -1232,6 +1236,7 @@ impl App {
                 .map(|p| (p.pos_ms(), p.newest_empty(), p.is_paused()))
                 .unwrap_or((0, true, false));
             let due = !paused && (empty || self.trigger_ms().map(|t| pos >= t).unwrap_or(false));
+            let t_due = Instant::now();
             if due {
                 if self.loop_current {
                     let c = self.current.unwrap_or(0);
@@ -1246,18 +1251,31 @@ impl App {
                     self.stop();
                     self.status = tr("Manual mode: stopped at end of track");
                 }
+                if t_due.elapsed() > Duration::from_millis(800) {
+                    eprintln!("slow step: start of the next item {} ms", t_due.elapsed().as_millis());
+                }
             }
         }
         if self.last_fill.elapsed() > Duration::from_secs(2) {
             self.last_fill = Instant::now();
+            let t = Instant::now();
             self.auto_fill();
+            let a = t.elapsed();
             if self.mode == Mode::Auto {
                 self.expand_pending();
             }
+            let b = t.elapsed();
             self.check_immediate();
             self.auto_start();
+            if t.elapsed() > Duration::from_millis(800) {
+                eprintln!("slow step: auto_fill {} ms, expand_pending {} ms, check_immediate+auto_start {} ms (log {} items, library {} items)", a.as_millis(), (b - a).as_millis(), (t.elapsed() - b).as_millis(), self.log.len(), self.data.tracks.len());
+            }
         }
+        let t = Instant::now();
         self.auto_backup_tick();
         self.live_tick();
+        if t.elapsed() > Duration::from_millis(800) {
+            eprintln!("slow step: backup/live {} ms", t.elapsed().as_millis());
+        }
     }
 }

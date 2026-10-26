@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.12.3
+- The server writes in its log which step is slow (`slow step: ...`) when the main loop takes 3 seconds or more, and it writes the playlist to the database only when the list really changed (before it was written at every check, which made the server answer "busy" on slow computers).
+
 ## 0.12.2
 - **Client for Windows 7 (experimental):** `RadioMoon-Client-<version>-windows7-x64.zip` and `-windows7-x86.zip` are built for Windows 7 SP1 and newer and offered by the server's download list as "Windows 7". They are built with an experimental Rust target, so they may not work on every PC. The window needs OpenGL 2.0: on a virtual machine without a graphics card, put the `opengl32.dll` of Mesa (software OpenGL) next to `RadioMoon-Client.exe`.
 
