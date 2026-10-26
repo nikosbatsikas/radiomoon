@@ -604,5 +604,8 @@
   "plugins found": "plugins found",
   "Plugins are searched in the CLAP folders of the system (~/.clap, /usr/lib/clap, Common Files\\CLAP, ...) and in the folders of the environment variable CLAP_PATH. With a server the plugins of the server are used.": "Plugins are searched in the CLAP folders of the system (~/.clap, /usr/lib/clap, Common Files\\CLAP, ...) and in the folders of the environment variable CLAP_PATH. With a server the plugins of the server are used.",
   "Upload plugin files...": "Upload plugin files...",
-  "Add .clap files (to the server, when you are connected to one)": "Add .clap files (to the server, when you are connected to one)"
+  "Add .clap files (to the server, when you are connected to one)": "Add .clap files (to the server, when you are connected to one)",
+  "Delete from the library": "Delete from the library",
+  "items will be deleted from the library.": "items will be deleted from the library.",
+  "Also delete the audio files from the disk (with a server: from the disk of the server)": "Also delete the audio files from the disk (with a server: from the disk of the server)"
 }

@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.13.0
+- **Delete from the library asks about the files:** *Delete selected* now opens a question. A checkbox deletes the audio files from the disk too (with a server: from the disk of the server). A file that another item of the library still uses is kept. The server answers the number of files that were deleted.
+- **New login window of the client:** a centred login card with the moon logo on an animated dark-blue background, labelled fields, and the option **Remember the password on this computer** (the password is kept encrypted in the settings of the client; leave it off on a shared computer).
+
 ## 0.12.4
 - **Fixed the freezes of the server ("busy"):** a song with length 0:00 (not analysed or damaged) was chosen again and again by the automatic playlist to fill the last seconds before a scheduled event, and the playlist grew with thousands of copies of it (every check made it longer, until the server did not answer). Songs without a length are no longer chosen by the automatic playlist, the length of an item is counted as at least 1 second everywhere, and the playlist stops growing at 3000 waiting items. Use *Control panel > Library > Integrity* to find the songs with length 0:00.
 

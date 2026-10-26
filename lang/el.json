@@ -602,5 +602,8 @@
   "plugins found": "plugins βρέθηκαν",
   "Plugins are searched in the CLAP folders of the system (~/.clap, /usr/lib/clap, Common Files\\CLAP, ...) and in the folders of the environment variable CLAP_PATH. With a server the plugins of the server are used.": "Τα plugins αναζητούνται στους φακέλους CLAP του συστήματος (~/.clap, /usr/lib/clap, Common Files\\CLAP, ...) και στους φακέλους της μεταβλητής CLAP_PATH. Με server χρησιμοποιούνται τα plugins του server.",
   "Upload plugin files...": "Ανέβασμα αρχείων plugin...",
-  "Add .clap files (to the server, when you are connected to one)": "Προσθήκη αρχείων .clap (στον server, όταν είστε συνδεδεμένοι σε έναν)"
+  "Add .clap files (to the server, when you are connected to one)": "Προσθήκη αρχείων .clap (στον server, όταν είστε συνδεδεμένοι σε έναν)",
+  "Delete from the library": "Διαγραφή από τη βιβλιοθήκη",
+  "items will be deleted from the library.": "αντικείμενα θα διαγραφούν από τη βιβλιοθήκη.",
+  "Also delete the audio files from the disk (with a server: from the disk of the server)": "Διαγραφή και των αρχείων ήχου από το δίσκο (με server: από το δίσκο του server)"
 }

@@ -109,6 +109,8 @@ pub struct ControlState {
     pub clap_msg: String,
     pub clap_sent: Option<std::time::Instant>,
     pub clap_poll: Option<std::time::Instant>,
+    /// items to delete from the library, waiting for the answer of the question (and whether the files are deleted too)
+    pub del_ask: Option<(Vec<u64>, bool)>,
     // library
     pub lib_filter: String,
     pub lib_cat: String,
@@ -541,14 +543,36 @@ impl App {
                 self.cp.mass = Some(MassEdit::default());
             }
             if ui.button(tr("Delete selected")).clicked() && !self.cp.lib_sel.is_empty() {
-                let sel = self.cp.lib_sel.clone();
-                self.stop();
-                let _ = self.db.delete_tracks(&sel);
-                self.cp.lib_sel.clear();
-                self.reload_tracks();
-                self.log = self.db.load_log().unwrap_or_default();
+                self.cp.del_ask = Some((self.cp.lib_sel.clone(), false));
             }
         });
+        if let Some((ids, mut files)) = self.cp.del_ask.clone() {
+            let mut answer: Option<bool> = None;
+            egui::Window::new(tr("Delete from the library")).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ui.ctx(), |ui| {
+                ui.label(format!("{} {}", ids.len(), tr("items will be deleted from the library.")));
+                ui.add_space(4.0);
+                ui.checkbox(&mut files, tr("Also delete the audio files from the disk (with a server: from the disk of the server)"));
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if kit::danger_button(ui, "Delete").clicked() {
+                        answer = Some(true);
+                    }
+                    if ui.button(tr("Cancel")).clicked() {
+                        answer = Some(false);
+                    }
+                });
+            });
+            match answer {
+                Some(true) => {
+                    self.cp.del_ask = None;
+                    let m = self.delete_library_items(&ids, files);
+                    self.cp.msg = m;
+                    self.cp.lib_sel.clear();
+                }
+                Some(false) => self.cp.del_ask = None,
+                None => self.cp.del_ask = Some((ids, files)),
+            }
+        }
         let mut edit_id = None;
         let mut toggle = None;
         // column table: header + zebra rows, fixed column widths

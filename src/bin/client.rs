@@ -71,6 +71,7 @@ struct Shell {
     url: String,
     user: String,
     pass: String,
+    remember: bool,
     msg: String,
     app: Option<app::App>,
     data: PathBuf,
@@ -86,7 +87,8 @@ impl Shell {
         Shell {
             url: g("url", "http://127.0.0.1:8080"),
             user: g("user", "admin"),
-            pass: String::new(),
+            pass: saved["pass"].as_str().and_then(config::decrypt).unwrap_or_default(),
+            remember: saved["remember"].as_bool().unwrap_or(false),
             msg: String::new(),
             app: None,
             data,
@@ -98,7 +100,7 @@ impl Shell {
         self.msg.clear();
         let _ = std::fs::write(
             self.data.join("client.json"),
-            json!({ "url": self.url, "user": self.user }).to_string(),
+            (if self.remember { json!({ "url": self.url, "user": self.user, "remember": true, "pass": config::encrypt(&self.pass) }) } else { json!({ "url": self.url, "user": self.user, "remember": false }) }).to_string(),
         );
         let link = remote::connect(self.url.clone(), self.user.clone(), self.pass.clone(), ctx.clone());
         let t0 = Instant::now();
@@ -170,41 +172,70 @@ impl eframe::App for Shell {
             eframe::App::update(a, ctx, frame);
             return;
         }
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add_space(30.0);
-            ui.vertical_centered(|ui| {
-                ui.heading(format!("RadioMoon client {VERSION}"));
-                ui.label("The studio of a RadioMoon server");
-                ui.add_space(14.0);
-                let mut go = false;
-                egui::Grid::new("login").num_columns(2).spacing([10.0, 8.0]).show(ui, |ui| {
-                    ui.label("Server");
-                    ui.add(egui::TextEdit::singleline(&mut self.url).desired_width(300.0).hint_text("http://server:8080"));
-                    ui.end_row();
-                    ui.label("User name");
-                    ui.add(egui::TextEdit::singleline(&mut self.user).desired_width(300.0));
-                    ui.end_row();
-                    ui.label("Password");
-                    let r = ui.add(egui::TextEdit::singleline(&mut self.pass).password(true).desired_width(300.0));
-                    if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                        go = true;
-                    }
-                    ui.end_row();
-                });
+        let mut go = false;
+        egui::CentralPanel::default().frame(egui::Frame::none().fill(kit::BG)).show(ctx, |ui| {
+            let full = ui.max_rect();
+            let painter = ui.painter();
+            // background: a dark blue gradient, a big faint moon and slow equalizer bars
+            let mut mesh = egui::Mesh::default();
+            let (top, bottom) = (egui::Color32::from_rgb(0x08, 0x0b, 0x10), egui::Color32::from_rgb(0x12, 0x26, 0x40));
+            mesh.colored_vertex(full.left_top(), top);
+            mesh.colored_vertex(full.right_top(), top);
+            mesh.colored_vertex(full.right_bottom(), bottom);
+            mesh.colored_vertex(full.left_bottom(), bottom);
+            mesh.add_triangle(0, 1, 2);
+            mesh.add_triangle(0, 2, 3);
+            painter.add(egui::Shape::mesh(mesh));
+            let t = ui.input(|i| i.time) as f32;
+            let r = full.height().min(full.width()) * 0.55;
+            kit::draw_moon(painter, egui::pos2(full.right() - r * 0.55, full.top() + r * 0.7), r, egui::Color32::from_rgba_unmultiplied(56, 182, 255, 22), egui::Color32::from_rgb(0x0c, 0x14, 0x20));
+            let n = (full.width() / 22.0) as i32;
+            for i in 0..n {
+                let h = (0.5 + 0.5 * (t * 0.9 + i as f32 * 0.55).sin() * (t * 0.37 + i as f32 * 0.21).cos()).abs() * full.height() * 0.22 + 6.0;
+                let x = full.left() + 11.0 + i as f32 * 22.0;
+                painter.rect_filled(egui::Rect::from_min_max(egui::pos2(x - 6.0, full.bottom() - h), egui::pos2(x + 6.0, full.bottom())), 3.0, egui::Color32::from_rgba_unmultiplied(56, 182, 255, 26));
+            }
+            ui.ctx().request_repaint_after(Duration::from_millis(60));
+
+            // the login card in the centre
+            let card = egui::Rect::from_center_size(full.center(), egui::vec2(400.0_f32.min(full.width() - 24.0), 470.0_f32.min(full.height() - 16.0)));
+            ui.painter().rect_filled(card.translate(egui::vec2(0.0, 6.0)).expand(2.0), 18.0, egui::Color32::from_black_alpha(90));
+            ui.painter().rect(card, 16.0, kit::CARD, egui::Stroke::new(1.0_f32, kit::BORDER));
+            let inner = card.shrink2(egui::vec2(30.0, 24.0));
+            let mut cui = ui.child_ui(inner, egui::Layout::top_down(egui::Align::Min), None);
+            cui.vertical_centered(|ui| {
+                let (r, _) = ui.allocate_exact_size(egui::vec2(60.0, 60.0), egui::Sense::hover());
+                ui.painter().circle_filled(r.center(), 29.0, egui::Color32::from_rgb(0x0e, 0x2a, 0x44));
+                kit::draw_moon(ui.painter(), r.center(), 20.0, kit::ACCENT, egui::Color32::from_rgb(0x0e, 0x2a, 0x44));
                 ui.add_space(6.0);
-                ui.add_space(12.0);
-                if ui.add_sized([180.0, 34.0], egui::Button::new("Connect")).clicked() {
-                    go = true;
-                }
-                if go {
-                    self.connect(ctx);
-                }
-                if !self.msg.is_empty() {
-                    ui.add_space(10.0);
-                    ui.colored_label(egui::Color32::from_rgb(229, 83, 75), &self.msg);
-                }
+                ui.label(egui::RichText::new("RadioMoon").size(26.0).strong().color(egui::Color32::WHITE));
+                ui.label(egui::RichText::new(format!("Studio client {VERSION}")).color(kit::TEXT_DIM));
             });
+            cui.add_space(18.0);
+            let field = |ui: &mut egui::Ui, label: &str, text: &mut String, pw: bool, hint: &str| -> bool {
+                ui.label(egui::RichText::new(label).small().color(kit::TEXT_DIM));
+                let r = ui.add(egui::TextEdit::singleline(text).password(pw).hint_text(hint).desired_width(f32::INFINITY).margin(egui::vec2(10.0, 8.0)));
+                ui.add_space(8.0);
+                r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))
+            };
+            go |= field(&mut cui, "SERVER", &mut self.url, false, "http://server:8080");
+            go |= field(&mut cui, "USER NAME", &mut self.user, false, "");
+            go |= field(&mut cui, "PASSWORD", &mut self.pass, true, "");
+            cui.checkbox(&mut self.remember, "Remember the password on this computer");
+            cui.add_space(12.0);
+            let w = cui.available_width();
+            let b = cui.add_sized([w, 40.0], egui::Button::new(egui::RichText::new("Connect").size(16.0).strong().color(egui::Color32::WHITE)).fill(kit::ACCENT.gamma_multiply(0.85)).rounding(8.0));
+            if b.clicked() {
+                go = true;
+            }
+            if !self.msg.is_empty() {
+                cui.add_space(10.0);
+                cui.colored_label(egui::Color32::from_rgb(255, 120, 110), &self.msg);
+            }
         });
+        if go {
+            self.connect(ctx);
+        }
     }
 }
 

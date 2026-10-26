@@ -412,6 +412,14 @@ fn action(app: &mut App, body: &Value) -> Resp {
                 return Resp::err(400, &e);
             }
         }
+        "delete_tracks" => {
+            if !app.can("settings") {
+                return Resp::err(403, "You are not allowed to delete items of the library");
+            }
+            let ids: Vec<u64> = body["ids"].as_array().map(|a| a.iter().filter_map(|x| x.as_u64()).collect()).unwrap_or_default();
+            let m = app.delete_library_items(&ids, body["files"].as_bool().unwrap_or(false));
+            return Resp::json(json!({ "ok": true, "message": m }));
+        }
         "stream_start" => {
             app.reload_all();
             app.start_stream();

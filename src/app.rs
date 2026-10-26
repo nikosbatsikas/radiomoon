@@ -259,6 +259,48 @@ impl App {
     }
 
     // ---------- data ----------
+    /// Deletes items from the library, and their audio files too when asked (with a server the server does it). Returns the message.
+    pub fn delete_library_items(&mut self, ids: &[u64], files: bool) -> String {
+        if let Some(r) = &self.remote {
+            return match crate::remote::post_json(&r.link, &serde_json::json!({ "do": "delete_tracks", "ids": ids, "files": files })) {
+                Ok(v) => {
+                    self.reload_tracks();
+                    v["message"].as_str().unwrap_or("Deleted").to_string()
+                }
+                Err(e) => e,
+            };
+        }
+        let paths: Vec<String> = ids.iter().filter_map(|id| self.data.track(*id).map(|t| t.path.clone())).collect();
+        self.stop();
+        if self.db.delete_tracks(ids).is_err() {
+            return "The items could not be deleted".into();
+        }
+        let (mut gone, mut failed) = (0, 0);
+        if files {
+            for p in &paths {
+                // a file that is still used by another item of the library stays
+                if p.is_empty() || self.data.tracks.iter().any(|t| t.path == *p && !ids.contains(&t.id)) {
+                    continue;
+                }
+                let f = self.map_path(p);
+                if std::path::Path::new(&f).is_file() {
+                    if std::fs::remove_file(&f).is_ok() {
+                        gone += 1;
+                    } else {
+                        failed += 1;
+                    }
+                }
+            }
+        }
+        self.reload_tracks();
+        self.log = self.db.load_log().unwrap_or_default();
+        if files {
+            format!("{} items deleted, {gone} files deleted{}", ids.len(), if failed > 0 { format!(", {failed} files could not be deleted") } else { String::new() })
+        } else {
+            format!("{} items deleted from the library", ids.len())
+        }
+    }
+
     pub fn reload_tracks(&mut self) {
         self.data.tracks = self.db.list_tracks(None).unwrap_or_default();
         self.data.reindex();
