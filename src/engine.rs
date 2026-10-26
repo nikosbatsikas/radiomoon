@@ -411,10 +411,10 @@ impl Generator {
         let mut c: Vec<&Track> = d
             .tracks
             .iter()
-            .filter(|t| t.kind == "music" && t.enabled && (clock.backup_cat.is_empty() || t.cat1 == clock.backup_cat) && self.allowed(d, t, 2))
+            .filter(|t| t.kind == "music" && t.enabled && t.duration_ms > 0 && (clock.backup_cat.is_empty() || t.cat1 == clock.backup_cat) && self.allowed(d, t, 2))
             .collect();
         if c.is_empty() {
-            c = d.tracks.iter().filter(|t| t.kind == "music" && t.enabled).collect();
+            c = d.tracks.iter().filter(|t| t.kind == "music" && t.enabled && t.duration_ms > 0).collect();
         }
         if c.is_empty() {
             return None;
@@ -433,6 +433,7 @@ impl Generator {
         let filt = |t: &Track| -> bool {
             t.kind == "music"
                 && t.enabled
+                && t.duration_ms > 0 // a song without a length (not analysed, or damaged) would fill every gap with itself
                 && (row.cat1.is_empty() || t.cat1 == row.cat1)
                 && (row.cat2.is_empty() || t.cat2 == row.cat2)
                 && (row.cat3.is_empty() || t.cat3 == row.cat3)

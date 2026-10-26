@@ -881,8 +881,11 @@ impl App {
             .iter()
             .skip(self.current.unwrap_or(0))
             .filter(|t| !t.is_overlay())
-            .map(|t| t.eff_ms())
+            .map(|t| t.eff_ms().max(1000)) // as the generator counts them: an item without a length never makes the list "too short" for ever
             .sum();
+        if pending > 3000 {
+            return;
+        }
         let end_est = now + CDur::milliseconds(rem_ms as i64);
         let classic = self.data.s.classic_auto;
         let need = if classic { pending < self.data.s.classic_decks.max(1) } else { end_est < now + CDur::hours(self.data.s.auto_hours.max(1) as i64) };
