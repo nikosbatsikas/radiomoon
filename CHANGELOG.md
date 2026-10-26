@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.12.2
+- **Client for Windows 7 (experimental):** `RadioMoon-Client-<version>-windows7-x64.zip` and `-windows7-x86.zip` are built for Windows 7 SP1 and newer and offered by the server's download list as "Windows 7". They are built with an experimental Rust target, so they may not work on every PC. The window needs OpenGL 2.0: on a virtual machine without a graphics card, put the `opengl32.dll` of Mesa (software OpenGL) next to `RadioMoon-Client.exe`.
+
 ## 0.12.1
 - **Server watchdog:** when the main loop of the server stops for 60 seconds (the web page answers "error" and the music stops until the service is restarted), the server now writes the cause in the log (`WATCHDOG: ... stuck in [...]`) and restarts itself, so the broadcast continues. Slow requests and slow playout steps (3 s or more) are written in the log.
 - The connections to the database have time limits (connect 8 s, read/write 40 s), so a database connection that was lost no longer makes the server wait for ever.

@@ -588,7 +588,7 @@ fn clients(app: &App) -> Resp {
             let name = e.file_name().to_string_lossy().to_string();
             if let Ok(m) = e.metadata() {
                 if m.is_file() {
-                    let os = if name.contains("windows") { "Windows" } else if name.contains("macos") { "macOS" } else if name.contains("linux") { "Linux" } else { "" };
+                    let os = if name.contains("windows7") { "Windows 7" } else if name.contains("windows") { "Windows" } else if name.contains("macos") { "macOS" } else if name.contains("linux") { "Linux" } else { "" };
                     let arch = ["x64", "x86", "arm64"].iter().find(|a| name.contains(&format!("-{a}"))).copied().unwrap_or("");
                     list.push(json!({ "name": name, "size": m.len(), "os": os, "arch": arch }));
                 }
