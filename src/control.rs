@@ -2605,6 +2605,7 @@ impl App {
             }
         }
         let mut op: Option<ClapOp> = None;
+        let mut upload: Option<Vec<std::path::PathBuf>> = None;
         let mut sent_now = false;
         let sent = self.cp.clap_sent;
         if !view.error.is_empty() {
@@ -2673,6 +2674,11 @@ impl App {
                 if ui.add_enabled(!view.scanning, egui::Button::new(tr("Scan for plugins"))).clicked() {
                     op = Some(ClapOp::Scan);
                 }
+                if ui.button(tr("Upload plugin files...")).on_hover_text(tr("Add .clap files (to the server, when you are connected to one)")).clicked() {
+                    if let Some(f) = rfd::FileDialog::new().add_filter("CLAP", &["clap"]).pick_files() {
+                        upload = Some(f);
+                    }
+                }
                 if view.scanning {
                     ui.spinner();
                     ui.label(tr("Scanning..."));
@@ -2696,6 +2702,9 @@ impl App {
             });
             ui.label(RichText::new(tr("Plugins are searched in the CLAP folders of the system (~/.clap, /usr/lib/clap, Common Files\\CLAP, ...) and in the folders of the environment variable CLAP_PATH. With a server the plugins of the server are used.")).color(kit::GRAY).small());
         });
+        if let Some(f) = upload {
+            self.clap_install(f);
+        }
         if sent_now {
             self.cp.clap_sent = Some(std::time::Instant::now());
         }

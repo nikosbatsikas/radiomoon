@@ -29,6 +29,8 @@ pub enum Cmd {
 #[derive(Default)]
 pub struct Shared {
     pub state: Option<Value>,
+    /// the playlist of the server, when it changed
+    pub log: Option<Vec<crate::model::Track>>,
     pub seq: u64,
     pub user: String,
     pub admin: bool,
@@ -145,11 +147,12 @@ pub fn connect(url: String, user: String, pass: String, ctx: eframe::egui::Conte
             }
             Err(e) => sh2.lock().unwrap().err = e,
         }
+        let mut last_rev: u64 = u64::MAX;
         loop {
             loop {
                 match rx.try_recv() {
                     Ok(Cmd::Quit) => return,
-                    Ok(Cmd::Act(b)) => match call(&base2, &auth2, Some(&b), "/api/action") {
+                    Ok(Cmd::Act(mut b)) => match { b["lite"] = json!(true); call(&base2, &auth2, Some(&b), "/api/action") } {
                         Ok(v) => {
                             let mut g = sh2.lock().unwrap();
                             g.state = Some(v);
@@ -161,8 +164,32 @@ pub fn connect(url: String, user: String, pass: String, ctx: eframe::egui::Conte
                     Err(mpsc::TryRecvError::Disconnected) => return,
                 }
             }
-            match call(&base2, &auth2, None, "/api/state") {
+            match call(&base2, &auth2, None, "/api/state?lite=1") {
                 Ok(v) => {
+                    // the playlist is read again only when it changed
+                    let rev = v["log_rev"].as_u64().unwrap_or(0);
+                    if rev != last_rev {
+                        if let Ok(l) = call(&base2, &auth2, None, "/api/log") {
+                            let items: Vec<crate::model::Track> = l["items"]
+                                .as_array()
+                                .map(|a| {
+                                    a.iter()
+                                        .map(|it| {
+                                            let mut t: crate::model::Track = serde_json::from_value(it["t"].clone()).unwrap_or_default();
+                                            t.src = it["src"].as_str().unwrap_or("").to_string();
+                                            t.reason = it["reason"].as_str().unwrap_or("").to_string();
+                                            t.overlay_pos = it["ov"].as_str().unwrap_or("").to_string();
+                                            t.overlay_custom_ms = it["ovc"].as_u64().unwrap_or(0);
+                                            t.fixed_start = it["fs"].as_str().unwrap_or("").to_string();
+                                            t
+                                        })
+                                        .collect()
+                                })
+                                .unwrap_or_default();
+                            last_rev = l["rev"].as_u64().unwrap_or(rev);
+                            sh2.lock().unwrap().log = Some(items);
+                        }
+                    }
                     let mut g = sh2.lock().unwrap();
                     g.state = Some(v);
                     g.seq += 1;
@@ -191,7 +218,7 @@ pub fn connect(url: String, user: String, pass: String, ctx: eframe::egui::Conte
 pub struct Remote {
     pub link: Link,
     seq: u64,
-    log_rev: u64,
+    cur: Option<usize>,
     el0: u64,
     pos0: u64,
     at: Instant,
@@ -215,7 +242,7 @@ pub struct Remote {
 
 impl Remote {
     pub fn new(link: Link) -> Self {
-        Remote { link, seq: 0, log_rev: u64::MAX, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), streams: Vec::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()), wave_id: 0, bw_at: Instant::now(), bw_rx: 0, bw_tx: 0, rx_rate: 0.0, tx_rate: 0.0 }
+        Remote { link, seq: 0, cur: None, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), streams: Vec::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()), wave_id: 0, bw_at: Instant::now(), bw_rx: 0, bw_tx: 0, rx_rate: 0.0, tx_rate: 0.0 }
     }
     fn running(&self) -> bool {
         self.playing && !self.paused
@@ -302,7 +329,7 @@ impl App {
             };
             self.loop_current = s["loop"].as_bool().unwrap_or(false);
             self.stop_next = s["stopnext"].as_bool().unwrap_or(false);
-            self.current = s["current"].as_u64().map(|x| x as usize);
+            rem.cur = s["current"].as_u64().map(|x| x as usize);
             self.status = s["status"].as_str().unwrap_or("").to_string();
             rem.el0 = s["elapsed"].as_u64().unwrap_or(0);
             rem.pos0 = s["pos"].as_u64().unwrap_or(0);
@@ -315,15 +342,17 @@ impl App {
                 self.history = h.iter().map(|x| (x["time"].as_str().unwrap_or("").to_string(), x["label"].as_str().unwrap_or("").to_string())).collect();
             }
             rem.streams = s["streams"].as_array().map(|a| a.iter().map(|x| (x["i"].as_u64().unwrap_or(0) as usize, x["status"].as_str().unwrap_or("").to_string())).collect()).unwrap_or_default();
-            let rev = s["log_rev"].as_u64().unwrap_or(0);
-            if rev != rem.log_rev {
-                rem.log_rev = rev;
-                self.log = self.db.load_log().unwrap_or_default();
-                if self.sel.map(|i| i >= self.log.len()).unwrap_or(false) {
-                    self.sel = None;
-                }
+        }
+        // the playlist of the server
+        let newlog = rem.link.sh.lock().ok().and_then(|mut g| g.log.take());
+        if let Some(tracks) = newlog {
+            self.log = tracks;
+            if self.sel.map(|i| i >= self.log.len()).unwrap_or(false) {
+                self.sel = None;
             }
         }
+        // the item on air is the one of the server's playlist (never an index that is not in the list)
+        self.current = rem.cur.filter(|c| *c < self.log.len());
         if !rem.online {
             self.status = format!("No connection to the server: {}", rem.err);
         }
@@ -521,7 +550,7 @@ fn fetch_audio(base: &str, auth: &str, id: u64, path: &str, dir: &Path) -> Optio
     Some(file)
 }
 
-fn upload_file(base: &str, auth: &str, f: &Path, kind: &str, o: Option<&crate::library::ImportOpts>, track_id: Option<u64>) -> Result<(), String> {
+pub fn upload_file(base: &str, auth: &str, f: &Path, kind: &str, o: Option<&crate::library::ImportOpts>, track_id: Option<u64>) -> Result<(), String> {
     let name = f.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
     let len = f.metadata().map_err(|e| e.to_string())?.len();
     let file = std::fs::File::open(f).map_err(|e| e.to_string())?;

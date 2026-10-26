@@ -228,8 +228,24 @@ pub struct PluginInfo {
     pub vendor: String,
 }
 
+static PLUGIN_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+/// The folder of the plugins that were added from RadioMoon (uploaded to the server, or copied here).
+pub fn set_plugin_dir(base: &Path) -> PathBuf {
+    let d = base.join("plugins").join("clap");
+    if let Ok(mut g) = PLUGIN_DIR.lock() {
+        *g = Some(d.clone());
+    }
+    d
+}
+
 fn search_dirs() -> Vec<PathBuf> {
     let mut v: Vec<PathBuf> = Vec::new();
+    if let Ok(g) = PLUGIN_DIR.lock() {
+        if let Some(d) = g.as_ref() {
+            v.push(d.clone());
+        }
+    }
     if let Some(p) = std::env::var_os("CLAP_PATH") {
         v.extend(std::env::split_paths(&p));
     }
@@ -791,6 +807,7 @@ pub enum ClapOp {
 impl App {
     /// Builds the chain from the settings when they are different from what runs.
     pub fn clap_apply_settings(&mut self) {
+        set_plugin_dir(&self.base);
         if self.remote.is_some() {
             return;
         }
@@ -850,6 +867,48 @@ impl App {
             None => v.error = "No audio output: effects need the audio engine".into(),
         }
         v
+    }
+
+    /// Adds plugin files: copied to the plugin folder of this program, or uploaded to the server.
+    pub fn clap_install(&mut self, files: Vec<PathBuf>) {
+        let files: Vec<PathBuf> = files.into_iter().filter(|f| f.is_file()).collect();
+        if files.is_empty() {
+            self.status = "Choose .clap plugin files (a folder-type plugin of macOS must be added to the CLAP folder by hand)".into();
+            return;
+        }
+        if let Some(r) = &self.remote {
+            let (base, auth) = (r.link.base.clone(), r.link.auth.clone());
+            let (st, done) = (self.scan_status.clone(), self.scan_done.clone());
+            std::thread::spawn(move || {
+                let (mut ok, mut last) = (0, String::new());
+                for (i, f) in files.iter().enumerate() {
+                    if let Ok(mut s) = st.lock() {
+                        *s = format!("Uploading plugin {} / {}", i + 1, files.len());
+                    }
+                    match crate::remote::upload_file(&base, &auth, f, "clap", None, None) {
+                        Ok(()) => ok += 1,
+                        Err(e) => last = e,
+                    }
+                }
+                if let Ok(mut s) = st.lock() {
+                    *s = if last.is_empty() { format!("{ok} plugin files are on the server") } else { format!("Plugin upload: {ok} done, error: {last}") };
+                }
+                done.store(true, Ordering::SeqCst);
+            });
+            return;
+        }
+        let dir = set_plugin_dir(&self.base);
+        let _ = std::fs::create_dir_all(&dir);
+        let mut ok = 0;
+        for f in &files {
+            if let Some(n) = f.file_name() {
+                if std::fs::copy(f, dir.join(n)).is_ok() {
+                    ok += 1;
+                }
+            }
+        }
+        self.status = format!("{ok} plugin files added");
+        let _ = self.clap_local(ClapOp::Scan);
     }
 
     /// A change of the chain (in this program, or on the server).

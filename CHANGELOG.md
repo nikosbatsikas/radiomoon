@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.11.1
+- **Client in sync with the server:** the client now reads the playlist from the memory of the server (`/api/log`) and not from the database, so the playlist, the song on air and the *Next* button always agree with what the server plays (before: "- off air -" and an empty playlist). The playlist is read again only when it changes.
+- **Upload CLAP plugins:** Control panel > Effects (CLAP) > **Upload plugin files...**. With a server, the `.clap` files are uploaded to the server (folder `plugins/clap` of its data) and the plugin list is refreshed; without a server they are copied to the plugin folder of the program.
+
 ## 0.11.0
 - **CLAP plugin hosting (new):** Control panel > Settings > **Effects (CLAP)**. CLAP effects (the open plugin standard, cleveraudio.org) are loaded on the on-air mix: the sound goes through the chain before the sound card and before the internet broadcast. Scan the CLAP folders (`~/.clap`, `/usr/lib/clap`, `Common Files\CLAP`, `CLAP_PATH`, ...), add effects, set their parameters with sliders, bypass, reorder and remove them. The chain is saved in the settings and loaded at every start.
 - With a server, the plugins run **on the server** (they must be installed there); the client edits the chain through the server.

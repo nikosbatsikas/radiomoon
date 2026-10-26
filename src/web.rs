@@ -213,11 +213,15 @@ fn log_rev(app: &App) -> u64 {
     for t in &app.log {
         t.id.hash(&mut h);
         t.src.hash(&mut h);
+        t.overlay_pos.hash(&mut h);
+        t.fixed_start.hash(&mut h);
+        t.kind.hash(&mut h);
     }
+    app.log.len().hash(&mut h);
     h.finish()
 }
 
-fn state(app: &App) -> Value {
+fn state(app: &App, full: bool) -> Value {
     let (elapsed, paused, volume, live) = app
         .player
         .as_ref()
@@ -230,7 +234,7 @@ fn state(app: &App) -> Value {
         .iter()
         .enumerate()
         .skip(from)
-        .take(300)
+        .take(if full { 300 } else { 0 })
         .map(|(i, t)| {
             let mut v = track_json(t);
             v["i"] = json!(i);
@@ -411,7 +415,7 @@ fn action(app: &mut App, body: &Value) -> Resp {
         },
         _ => return Resp::err(400, "unknown action"),
     }
-    Resp::json(state(app))
+    Resp::json(state(app, body["lite"].as_bool() != Some(true)))
 }
 
 /// Answers one request; runs on the main thread.
@@ -424,7 +428,8 @@ pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
     match (r.method.as_str(), r.path.as_str()) {
         ("GET", "/") | ("GET", "/index.html") => Resp { status: 200, ctype: "text/html; charset=utf-8", body: INDEX.as_bytes().to_vec() },
         ("GET", "/api/login") => Resp::json(json!({ "user": uname, "admin": uadmin, "version": VERSION })),
-        ("GET", "/api/state") => Resp::json(state(app)),
+        ("GET", "/api/state") => Resp::json(state(app, !r.query.contains("lite"))),
+        ("GET", "/api/log") => Resp::json(log_json(app)),
         ("GET", "/api/library") => {
             let mut v = library(app, &r.query);
             v["kinds"] = kinds(app);
@@ -472,6 +477,19 @@ fn clean_name(n: &str) -> String {
 /// First step of an upload: where the file is written (a folder of the data folder of the server).
 fn upload_target(app: &mut App, q: &str) -> Resp {
     let name = clean_name(&qget(q, "name"));
+    if qget(q, "kind") == "clap" {
+        if !app.can("settings") {
+            return Resp::err(403, "You are not allowed to add plugins");
+        }
+        if !name.to_lowercase().ends_with(".clap") {
+            return Resp::err(400, "not a CLAP plugin (.clap)");
+        }
+        let dir = crate::clap_host::set_plugin_dir(&app.base);
+        if std::fs::create_dir_all(&dir).is_err() {
+            return Resp::err(500, "cannot create the plugin folder");
+        }
+        return Resp::json(json!({ "dest": dir.join(&name).to_string_lossy() }));
+    }
     let ext_ok = std::path::Path::new(&name).extension().map(|x| crate::library::EXTS.contains(&x.to_string_lossy().to_lowercase().as_str())).unwrap_or(false);
     if name.is_empty() || !ext_ok {
         return Resp::err(400, "not an audio file");
@@ -508,6 +526,13 @@ fn upload_target(app: &mut App, q: &str) -> Resp {
 fn imported(app: &mut App, q: &str) -> Resp {
     let path = qget(q, "path");
     let p = std::path::Path::new(&path);
+    if qget(q, "kind") == "clap" {
+        if !p.starts_with(app.base.join("plugins")) || !p.is_file() {
+            return Resp::err(400, "bad file");
+        }
+        let _ = app.clap_local(crate::clap_host::ClapOp::Scan);
+        return Resp::json(json!({ "ok": true }));
+    }
     if !p.starts_with(app.base.join("media")) || !p.is_file() {
         return Resp::err(400, "bad file");
     }
@@ -574,4 +599,14 @@ fn client_file(app: &App, name: &str) -> Resp {
         Ok(b) => Resp { status: 200, ctype: "application/octet-stream", body: b },
         Err(_) => Resp::err(404, "not found"),
     }
+}
+
+/// The whole playlist as it is in the memory of the server (the studio of the client shows the same items).
+fn log_json(app: &App) -> Value {
+    let items: Vec<Value> = app
+        .log
+        .iter()
+        .map(|t| json!({ "t": serde_json::to_value(t).unwrap_or(Value::Null), "src": t.src, "reason": t.reason, "ov": t.overlay_pos, "ovc": t.overlay_custom_ms, "fs": t.fixed_start }))
+        .collect();
+    json!({ "rev": log_rev(app), "items": items })
 }

@@ -147,7 +147,6 @@ impl Shell {
         };
         config::save(&self.data, &cfg);
         app::REMOTE_MODE.store(true, std::sync::atomic::Ordering::SeqCst);
-        kit::apply_style(ctx);
         let mut a = app::App::new(dbserver::DbServer::none(), db, cfg, self.data.clone(), self.exe_dir.clone(), String::new());
         // a sound output of this computer only for listening to songs; the broadcast is played by the server
         if let Ok(p) = player::Player::new("", "", "") {
