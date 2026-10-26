@@ -57,8 +57,12 @@ jobs:
         shell: pwsh
         run: |
           $t = if ("${{ matrix.arch }}" -eq "x64") { "x86_64-win7-windows-msvc" } else { "i686-win7-windows-msvc" }
-          cargo build --release --target $t -Zbuild-std=std,panic_abort --bin radiomoon-client
-          if ($LASTEXITCODE -ne 0) { throw "build failed" }
+          cargo build --release --target $t -Zbuild-std=std,panic_abort --bin radiomoon-client 2>&1 | Tee-Object -FilePath build.log
+          if ($LASTEXITCODE -ne 0) {
+            $e = (Select-String -Path build.log -Pattern "error" -Context 0,6 | Select-Object -First 8 | ForEach-Object { $_.Line + " | " + ($_.Context.PostContext -join " | ") }) -join " ## "
+            Write-Host "::error title=windows7 build::$e"
+            throw "build failed"
+          }
           $v = (Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
           $cl = "client-stage\RadioMoon-Client"
           New-Item -ItemType Directory -Force "$cl\lang", "client-dist" | Out-Null
