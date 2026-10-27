@@ -619,17 +619,39 @@ impl eframe::App for App {
                 }
             }
 
+            // clock: dotted ring for the seconds, round neon arc for the minutes
             let cc = pos2(rx + 75.0, r.top() + 75.0);
             let sec = now.second() as usize;
+            let secf = now.second() as f32 + now.timestamp_subsec_millis() as f32 / 1000.0;
             for s in 0..60usize {
                 let a = -PI / 2.0 + 2.0 * PI * s as f32 / 60.0;
-                let q = pos2(cc.x + 58.0 * a.cos(), cc.y + 58.0 * a.sin());
+                let q = pos2(cc.x + 67.0 * a.cos(), cc.y + 67.0 * a.sin());
                 let on = s <= sec;
-                p.circle_filled(q, if s % 5 == 0 { 3.2 } else { 2.0 }, if on { kit::ACCENT } else { Color32::from_rgb(50, 60, 80) });
+                if on && s == sec {
+                    p.circle_filled(q, 5.0, Color32::from_rgba_unmultiplied(56, 182, 255, 60));
+                }
+                p.circle_filled(q, if s % 5 == 0 { 2.6 } else { 1.6 }, if on { kit::ACCENT } else { Color32::from_rgb(50, 60, 80) });
             }
-            p.text(pos2(cc.x, cc.y - 24.0), Align2::CENTER_CENTER, now.format("%A").to_string(), FontId::proportional(13.0), kit::GRAY);
-            p.text(pos2(cc.x, cc.y), Align2::CENTER_CENTER, now.format("%H:%M:%S").to_string(), FontId::proportional(24.0), WHITE);
-            p.text(pos2(cc.x, cc.y + 22.0), Align2::CENTER_CENTER, now.format("%d %B %Y").to_string(), FontId::proportional(12.0), kit::GRAY);
+            let frac = (now.minute() as f32 + secf / 60.0) / 60.0;
+            let rm = 55.0_f32;
+            p.circle_stroke(cc, rm, egui::Stroke::new(6.0_f32, Color32::from_rgb(30, 39, 51)));
+            let n = ((frac * 120.0) as usize).max(1);
+            let pts: Vec<Pos2> = (0..=n)
+                .map(|i| {
+                    let a = -PI / 2.0 + 2.0 * PI * frac * (i as f32 / n as f32);
+                    pos2(cc.x + rm * a.cos(), cc.y + rm * a.sin())
+                })
+                .collect();
+            let (first, last) = (pts[0], pts[pts.len() - 1]);
+            p.add(egui::Shape::line(pts.clone(), egui::Stroke::new(12.0_f32, Color32::from_rgba_unmultiplied(56, 182, 255, 38))));
+            p.add(egui::Shape::line(pts, egui::Stroke::new(6.0_f32, kit::ACCENT)));
+            p.circle_filled(first, 3.0, kit::ACCENT);
+            p.circle_filled(last, 3.0, kit::ACCENT);
+            p.circle_filled(last, 9.0, Color32::from_rgba_unmultiplied(56, 182, 255, 45));
+            p.circle_filled(last, 3.2, WHITE);
+            p.text(pos2(cc.x, cc.y - 21.0), Align2::CENTER_CENTER, now.format("%A").to_string(), FontId::proportional(11.0), kit::GRAY);
+            p.text(pos2(cc.x, cc.y), Align2::CENTER_CENTER, now.format("%H:%M:%S").to_string(), FontId::proportional(21.0), WHITE);
+            p.text(pos2(cc.x, cc.y + 19.0), Align2::CENTER_CENTER, now.format("%d %B %Y").to_string(), FontId::proportional(10.5), kit::GRAY);
 
             let lr = Rect::from_min_size(pos2(rx + 150.0, r.top() + 8.0), vec2(130.0, r.height() - 16.0));
             // the program icon instead of the old blue tile
