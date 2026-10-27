@@ -769,13 +769,16 @@ impl eframe::App for App {
                     let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), row_h), Sense::click());
                     let is_cur = self.current == Some(i);
                     let played = self.current.map(|c| i < c).unwrap_or(false);
+                    // the same colours as the library tabs, darkened
+                    let dark = |c: Color32| Color32::from_rgb((c.r() as f32 * 0.34) as u8, (c.g() as f32 * 0.34) as u8, (c.b() as f32 * 0.34) as u8);
                     let base = match t.kind.as_str() {
-                        "jingle" => Color32::from_rgb(30, 36, 92),
-                        "spot" | "break" => Color32::from_rgb(76, 46, 14),
-                        "sweeper" | "voice" => Color32::from_rgb(50, 30, 80),
+                        "jingle" => dark(Color32::from_rgb(230, 200, 60)),
+                        "spot" | "break" => dark(Color32::from_rgb(60, 200, 90)),
+                        "sweeper" => dark(Color32::from_rgb(180, 90, 220)),
+                        "voice" => dark(Color32::from_rgb(210, 60, 60)),
                         "stitch_hooks" | "stitch_time" | "stitch_news" => Color32::from_rgb(20, 70, 70),
-                        "asset" => Color32::from_rgb(40, 60, 40),
-                        _ => Color32::from_rgb(22, 24, 62),
+                        "asset" => dark(Color32::from_rgb(150, 150, 150)),
+                        _ => dark(Color32::from_rgb(60, 160, 230)),
                     };
                     let bg = if is_cur {
                         kit::lighten(base, 28)

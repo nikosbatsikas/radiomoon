@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.7
+- **Studio playlist:** the row colours are the same as the library tabs (songs blue, spots green, jingles yellow, assets grey, sweepers purple, voice red).
+
 ## 0.14.6
 - **Main auto schedule redesigned:** instead of a wall of coloured buttons there is a brush palette on the left (current brush, search box, clocks and playlists in separate lists) and the weekly grid next to it.
 - **Studio clock B:** round minutes outside and a thin green seconds ring inside. Right-click the clock to choose between A and B.
