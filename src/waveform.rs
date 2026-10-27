@@ -12,30 +12,36 @@ pub fn new_store() -> WaveStore {
     Arc::new(Mutex::new((0, Arc::new(Vec::new()))))
 }
 
+/// The peak levels of a whole file (one value per 4096 samples).
+pub fn peaks_of(path: &str) -> Option<Vec<f32>> {
+    let f = File::open(path).ok()?;
+    let dec = Decoder::new(BufReader::new(f)).ok()?;
+    let mut peaks: Vec<f32> = Vec::new();
+    let (mut m, mut n) = (0i32, 0usize);
+    for s in dec {
+        let a = (s as i32).abs();
+        if a > m {
+            m = a;
+        }
+        n += 1;
+        if n == CHUNK {
+            peaks.push(m as f32 / 32768.0);
+            m = 0;
+            n = 0;
+        }
+    }
+    if n > 0 {
+        peaks.push(m as f32 / 32768.0);
+    }
+    Some(peaks)
+}
+
 pub fn spawn(path: String, id: u64, store: WaveStore) {
     if let Ok(mut g) = store.lock() {
         *g = (id, Arc::new(Vec::new()));
     }
     std::thread::spawn(move || {
-        let Ok(f) = File::open(&path) else { return };
-        let Ok(dec) = Decoder::new(BufReader::new(f)) else { return };
-        let mut peaks: Vec<f32> = Vec::new();
-        let (mut m, mut n) = (0i32, 0usize);
-        for s in dec {
-            let a = (s as i32).abs();
-            if a > m {
-                m = a;
-            }
-            n += 1;
-            if n == CHUNK {
-                peaks.push(m as f32 / 32768.0);
-                m = 0;
-                n = 0;
-            }
-        }
-        if n > 0 {
-            peaks.push(m as f32 / 32768.0);
-        }
+        let Some(peaks) = peaks_of(&path) else { return };
         if let Ok(mut g) = store.lock() {
             if g.0 == id {
                 g.1 = Arc::new(peaks);

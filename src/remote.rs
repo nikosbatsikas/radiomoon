@@ -469,26 +469,20 @@ impl App {
         }
     }
 
-    /// The waveform of the item on air is made from the song of the server (downloaded in the background).
+    /// The server (address and login) of this client.
+    pub fn remote_link(&self) -> Option<(String, String)> {
+        self.remote.as_ref().map(|r| (r.link.base.clone(), r.link.auth.clone()))
+    }
+
+    /// The waveform of the item on air: the server decodes the song and sends only the peaks (some KB), the song is not downloaded.
     fn remote_wave(&mut self, rem: &mut Remote) {
-        if bw_mode() > 0 {
-            return; // the whole song would be downloaded
-        }
-        let cur = self.current.and_then(|c| self.log.get(c)).filter(|t| t.id != 0 && t.kind != "stitch_hooks").map(|t| (t.id, t.path.clone()));
-        let Some((id, path)) = cur else { return };
+        let cur = self.current.and_then(|c| self.log.get(c)).filter(|t| t.id != 0 && t.kind != "stitch_hooks").map(|t| t.id);
+        let Some(id) = cur else { return };
         if rem.wave_id == id {
             return;
         }
         rem.wave_id = id;
-        if let Ok(mut g) = self.wave.lock() {
-            *g = (id, Arc::new(Vec::new()));
-        }
-        let (base, auth, dir, store) = (rem.link.base.clone(), rem.link.auth.clone(), self.base.join("cache"), self.wave.clone());
-        std::thread::spawn(move || {
-            if let Some(f) = fetch_audio(&base, &auth, id, &path, &dir) {
-                crate::waveform::spawn(f.to_string_lossy().to_string(), id, store);
-            }
-        });
+        spawn_wave((rem.link.base.clone(), rem.link.auth.clone()), id, self.wave.clone());
     }
 
     /// The files of the library that are on this computer (an import of another program has the paths of this computer) are uploaded
@@ -813,4 +807,45 @@ pub fn auto_clean(dir: PathBuf) {
     if due {
         std::thread::spawn(move || cache_clean(&dir, 1_000_000_000, Duration::from_secs(24 * 3600)));
     }
+}
+
+/// GET of the server; the answer is read completely.
+pub fn http_get(link: &(String, String), q: &str, secs: u64) -> Option<Vec<u8>> {
+    let resp = ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(5)).timeout_read(Duration::from_secs(secs)).build().get(&format!("{}{q}", link.0)).set("Authorization", &link.1).call().ok()?;
+    let mut v = Vec::new();
+    std::io::Read::read_to_end(&mut resp.into_reader(), &mut v).ok()?;
+    rx(v.len() as u64);
+    Some(v)
+}
+
+/// The waveform of a song is made by the server (2 bytes per point).
+pub fn spawn_wave(link: (String, String), id: u64, store: crate::waveform::WaveStore) {
+    if let Ok(mut g) = store.lock() {
+        *g = (id, Arc::new(Vec::new()));
+    }
+    std::thread::spawn(move || {
+        let Some(b) = http_get(&link, &format!("/api/wave?id={id}"), 120) else { return };
+        let peaks: Vec<f32> = b.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]]) as f32 / 65535.0).collect();
+        if let Ok(mut g) = store.lock() {
+            if g.0 == id {
+                g.1 = Arc::new(peaks);
+            }
+        }
+    });
+}
+
+/// Auto cue on the server: (id, mix in, mix out, duration) arrives in `out`.
+pub fn spawn_autocue(link: (String, String), id: u64, db: f32, out: Arc<Mutex<Option<(u64, u64, u64, u64)>>>) {
+    std::thread::spawn(move || {
+        let Some(b) = http_get(&link, &format!("/api/analyze?id={id}&what=cue&db={db}"), 300) else { return };
+        let Ok(v) = serde_json::from_slice::<Value>(&b) else { return };
+        if let Ok(mut g) = out.lock() {
+            *g = Some((id, v["a"].as_u64().unwrap_or(0), v["b"].as_u64().unwrap_or(0), v["d"].as_u64().unwrap_or(0)));
+        }
+    });
+}
+
+/// The tags of the file of a library item, read by the server.
+pub fn fetch_tags(link: &(String, String), id: u64) -> Option<Value> {
+    serde_json::from_slice(&http_get(link, &format!("/api/tags?id={id}"), 30)?).ok()
 }

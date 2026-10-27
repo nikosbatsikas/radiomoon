@@ -97,6 +97,12 @@ pub fn spawn(bind: &str) -> anyhow::Result<Receiver<Req>> {
                         continue;
                     }
                 }
+                // heavy work on a file (sending it, the waveform, the analysis) is done by this thread: the main thread only gives the path
+                if rq.method().as_str() == "GET" && ["/api/audio", "/api/wave", "/api/analyze", "/api/tags"].iter().any(|p| rq.url() == *p || rq.url().starts_with(&format!("{p}?"))) {
+                    let url = rq.url().to_string();
+                    heavy_http(rq, &url, auth.clone(), &tx);
+                    continue;
+                }
                 // an upload is written to the disk by this thread (it can be big); the main thread only decides where and imports it afterwards
                 if rq.method().as_str() == "POST" && rq.url().starts_with("/api/upload") {
                     let url = rq.url().to_string();
@@ -421,6 +427,41 @@ fn action(app: &mut App, body: &Value) -> Resp {
             let m = app.delete_library_items(&ids, body["files"].as_bool().unwrap_or(false));
             return Resp::json(json!({ "ok": true, "message": m }));
         }
+        "normalize" => {
+            // the analysis of the files runs on the server (the client does not download the songs)
+            if !app.can("settings") {
+                return Resp::err(403, "You are not allowed to change the volume of the items");
+            }
+            let ids: Vec<u64> = body["ids"].as_array().map(|a| a.iter().filter_map(|x| x.as_u64()).collect()).unwrap_or_default();
+            let target = body["target"].as_f64().unwrap_or(0.0) as f32;
+            let items: Vec<(u64, String)> = ids.iter().filter_map(|id| app.data.track(*id).map(|t| (*id, app.map_path(&t.path)))).collect();
+            let (db, st, done) = (app.db.clone(), app.scan_status.clone(), app.scan_done.clone());
+            std::thread::spawn(move || {
+                let tracks = db.list_tracks(None).unwrap_or_default();
+                let (mut ok, mut failed) = (0, 0);
+                for (i, (id, path)) in items.iter().enumerate() {
+                    if let Ok(mut s) = st.lock() {
+                        *s = format!("Normalizing {} / {}", i + 1, items.len());
+                    }
+                    match (tracks.iter().find(|t| t.id == *id).cloned(), crate::waveform::peak_db(path)) {
+                        (Some(mut t), Some(peak)) => {
+                            t.gain_db = target - peak;
+                            if db.update_track(&t).is_ok() {
+                                ok += 1;
+                            } else {
+                                failed += 1;
+                            }
+                        }
+                        _ => failed += 1,
+                    }
+                }
+                if let Ok(mut s) = st.lock() {
+                    *s = format!("Normalize finished: {ok} items{}", if failed > 0 { format!(", {failed} failed") } else { String::new() });
+                }
+                done.store(true, std::sync::atomic::Ordering::SeqCst);
+            });
+            return Resp::json(json!({ "ok": true, "message": format!("Normalizing {} items on the server", items.len()) }));
+        }
         "stream_start" => {
             app.reload_all();
             app.start_stream();
@@ -454,7 +495,7 @@ pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
         }
         ("GET", "/api/pallets") => Resp::json(pallets(app)),
         ("POST", "/api/action") => action(app, &body),
-        ("GET", "/api/audio") => audio(app, &r.query),
+        ("GET", "/api/trackpath") => trackpath(app, &r.query),
         ("GET", "/api/clap") => Resp::json(crate::clap_host::view_json(&app.clap_view())),
         ("GET", "/api/clients") => clients(app),
         ("GET", p) if p.starts_with("/clients/") => client_file(app, &p["/clients/".len()..]),
@@ -466,13 +507,45 @@ pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
 }
 
 /// The audio file of a library item (the studio on another computer listens to it).
-fn audio(app: &App, q: &str) -> Resp {
+/// The path of the file of a library item on the server (asked by the worker threads, which do the heavy work).
+fn trackpath(app: &App, q: &str) -> Resp {
     let id: u64 = qget(q, "id").parse().unwrap_or(0);
     let Some(t) = app.data.track(id) else { return Resp::err(404, "no such item") };
-    let path = app.map_path(&t.path);
-    match std::fs::read(&path) {
-        Ok(b) => {
-            let ctype = match std::path::Path::new(&path).extension().map(|e| e.to_string_lossy().to_lowercase()).as_deref() {
+    Resp::json(json!({ "path": app.map_path(&t.path) }))
+}
+
+fn respond_resp(rq: tiny_http::Request, resp: Resp) {
+    let r = tiny_http::Response::from_data(resp.body)
+        .with_status_code(resp.status)
+        .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], resp.ctype.as_bytes()).unwrap());
+    let _ = rq.respond(r);
+}
+
+static WAVES: std::sync::Mutex<Option<std::collections::HashMap<String, std::sync::Arc<Vec<u8>>>>> = std::sync::Mutex::new(None);
+
+/// /api/audio (the file), /api/wave (its waveform: 2 bytes per point), /api/analyze (peak or auto cue) and /api/tags (the tags of the file).
+fn heavy_http(rq: tiny_http::Request, url: &str, auth: Option<String>, tx: &Sender<Req>) {
+    let (path_part, query) = url.split_once('?').map(|(a, b)| (a.to_string(), b.to_string())).unwrap_or((url.to_string(), String::new()));
+    let (rtx, rrx) = channel();
+    let req = Req { method: "GET".into(), path: "/api/trackpath".into(), query: query.clone(), body: Vec::new(), auth, reply: rtx };
+    if tx.send(req).is_err() {
+        return respond_resp(rq, Resp::err(500, "server is stopping"));
+    }
+    let resp = rrx.recv_timeout(std::time::Duration::from_secs(30)).unwrap_or_else(|_| Resp::err(504, "busy"));
+    if resp.status != 200 {
+        if resp.status == 401 {
+            std::thread::sleep(std::time::Duration::from_millis(1200));
+        }
+        return respond_resp(rq, resp);
+    }
+    let file = serde_json::from_slice::<Value>(&resp.body).ok().and_then(|v| v["path"].as_str().map(|x| x.to_string())).unwrap_or_default();
+    let fp = std::path::Path::new(&file);
+    if !fp.is_file() {
+        return respond_resp(rq, Resp::err(404, "the file is not on the server"));
+    }
+    match path_part.as_str() {
+        "/api/audio" => {
+            let ctype = match fp.extension().map(|e| e.to_string_lossy().to_lowercase()).as_deref() {
                 Some("mp3") => "audio/mpeg",
                 Some("ogg") | Some("opus") => "audio/ogg",
                 Some("flac") => "audio/flac",
@@ -480,9 +553,51 @@ fn audio(app: &App, q: &str) -> Resp {
                 Some("m4a") | Some("aac") => "audio/mp4",
                 _ => "application/octet-stream",
             };
-            Resp { status: 200, ctype, body: b }
+            match std::fs::File::open(fp) {
+                Ok(f) => {
+                    let len = f.metadata().map(|m| m.len() as usize).ok();
+                    let r = tiny_http::Response::new(tiny_http::StatusCode(200), vec![tiny_http::Header::from_bytes(&b"Content-Type"[..], ctype.as_bytes()).unwrap()], f, len, None);
+                    let _ = rq.respond(r);
+                }
+                Err(_) => respond_resp(rq, Resp::err(404, "the file is not on the server")),
+            }
         }
-        Err(_) => Resp::err(404, "the file is not on the server"),
+        "/api/wave" => {
+            let key = format!("{file}|{}", fp.metadata().map(|m| m.len()).unwrap_or(0));
+            let cached = WAVES.lock().ok().and_then(|g| g.as_ref().and_then(|m| m.get(&key).cloned()));
+            let data = match cached {
+                Some(d) => Some(d),
+                None => crate::waveform::peaks_of(&file).map(|p| {
+                    let bytes: Vec<u8> = p.iter().flat_map(|v| ((v.clamp(0.0, 1.0) * 65535.0) as u16).to_le_bytes()).collect();
+                    let d = std::sync::Arc::new(bytes);
+                    if let Ok(mut g) = WAVES.lock() {
+                        let m = g.get_or_insert_with(Default::default);
+                        if m.len() > 300 {
+                            m.clear();
+                        }
+                        m.insert(key, d.clone());
+                    }
+                    d
+                }),
+            };
+            match data {
+                Some(d) => respond_resp(rq, Resp { status: 200, ctype: "application/octet-stream", body: (*d).clone() }),
+                None => respond_resp(rq, Resp::err(500, "the file cannot be decoded")),
+            }
+        }
+        "/api/analyze" => {
+            let db: f32 = qget(&query, "db").parse().unwrap_or(-40.0);
+            let out = if qget(&query, "what") == "cue" {
+                crate::waveform::autocue(&file, db).map(|(a, b, d)| json!({ "a": a, "b": b, "d": d }))
+            } else {
+                crate::waveform::peak_db(&file).map(|p| json!({ "peak": p }))
+            };
+            respond_resp(rq, out.map(Resp::json).unwrap_or_else(|| Resp::err(500, "the file cannot be decoded")));
+        }
+        _ => {
+            let m = crate::library::read_meta(fp, true);
+            respond_resp(rq, Resp::json(json!({ "title": m.title, "artist": m.artist, "album": m.album, "genre": m.genre, "year": m.year, "dur": m.dur })));
+        }
     }
 }
 

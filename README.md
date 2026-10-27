@@ -41,6 +41,7 @@ The server needs no sound card (it can run in a container or a virtual machine a
 - **Connection:** the combo box at the bottom of the studio (and in the login window) chooses *Normal*, *Low bandwidth* or *Very low bandwidth*: the client asks the server less often and does not download waveforms. The status bar shows the download / upload rate.
 - **One folder per server:** the settings and the cache of each server are separate, so two servers never show each other's data.
 - **Uploads:** songs added in the client are uploaded to the server, into one folder per library inside `media` (`songs`, `spots`, `jingles`, `assets`, `sweepers`, `voice`). CLAP plugins are uploaded to the server too.
+- **Light traffic:** the server does the heavy work on songs: normalize volume (in the background), the waveform (a few KB), auto cue and reading tags. A song is downloaded only for the preview.
 - **Cache:** songs downloaded to listen to or to draw the waveform are kept in a local cache. Files older than a day are removed automatically and the cache stays under 1 GB; **Control Panel > Reset database** shows its size and has a *Clear the cache now* button.
 - Closing the client never stops the music or the internet broadcast of the server.
 

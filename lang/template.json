@@ -630,5 +630,6 @@
   "files": "files",
   "Files older than a day are removed automatically and the cache is kept under 1 GB.": "Files older than a day are removed automatically and the cache is kept under 1 GB.",
   "Clear the cache now": "Clear the cache now",
-  "Cache cleared:": "Cache cleared:"
+  "Cache cleared:": "Cache cleared:",
+  "Mass change applied. The server is normalizing the volume in the background": "Mass change applied. The server is normalizing the volume in the background"
 }

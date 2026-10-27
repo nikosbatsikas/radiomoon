@@ -189,6 +189,7 @@ pub struct ControlState {
     pub import_pending: Option<(PathBuf, ImportOpts)>,
     pub edit_wave: crate::waveform::WaveStore,
     pub edit_wave_for: u64,
+    pub edit_cue: std::sync::Arc<std::sync::Mutex<Option<(u64, u64, u64, u64)>>>,
     pub edit_marker: u8,
     pub edit_cursor: u64,
     pub wave_zoom: f32,
@@ -2375,13 +2376,28 @@ impl App {
 
     fn win_track(&mut self, ctx: &egui::Context) {
         let Some(mut t) = self.cp.edit.clone() else { return };
-        let path = self.local_audio(&t.path);
+        // on a client the song stays on the server: the waveform, the auto cue and the tags are made there
+        let link = self.remote_link();
+        let path = if link.is_some() { t.path.clone() } else { self.local_audio(&t.path) };
         if self.cp.edit_wave_for != t.id {
             self.cp.edit_wave_for = t.id;
-            crate::waveform::spawn(path.clone(), t.id, self.cp.edit_wave.clone());
+            match &link {
+                Some(l) => crate::remote::spawn_wave(l.clone(), t.id, self.cp.edit_wave.clone()),
+                None => crate::waveform::spawn(path.clone(), t.id, self.cp.edit_wave.clone()),
+            }
             self.cp.edit_cursor = t.mix_in_ms;
             if let Some(p) = self.player.as_mut() {
                 p.stop_preview();
+            }
+        }
+        if let Ok(mut g) = self.cp.edit_cue.lock() {
+            if let Some((id, a, b, d)) = *g {
+                if id == t.id {
+                    t.mix_in_ms = a;
+                    t.mix_out_ms = b;
+                    t.duration_ms = d;
+                    *g = None;
+                }
             }
         }
         let peaks: std::sync::Arc<Vec<f32>> = match self.cp.edit_wave.lock() {
@@ -2562,19 +2578,32 @@ impl App {
             });
             ui.horizontal(|ui| {
                 if ui.button(tr("Auto cue")).clicked() {
-                    if let Some((a, b, d)) = crate::waveform::autocue(&path, autocue_db) {
+                    if let Some(l) = &link {
+                        crate::remote::spawn_autocue(l.clone(), t.id, autocue_db, self.cp.edit_cue.clone());
+                    } else if let Some((a, b, d)) = crate::waveform::autocue(&path, autocue_db) {
                         t.mix_in_ms = a;
                         t.mix_out_ms = b;
                         t.duration_ms = d;
                     }
                 }
                 if ui.button(tr("Read tags")).clicked() {
-                    let m = library::read_meta(Path::new(&path), true);
-                    t.title = m.title;
-                    t.artist = m.artist;
-                    t.album = m.album;
-                    t.genre = m.genre;
-                    t.year = m.year;
+                    if let Some(l) = &link {
+                        if let Some(v) = crate::remote::fetch_tags(l, t.id) {
+                            let g = |k: &str| v[k].as_str().unwrap_or("").to_string();
+                            t.title = g("title");
+                            t.artist = g("artist");
+                            t.album = g("album");
+                            t.genre = g("genre");
+                            t.year = g("year");
+                        }
+                    } else {
+                        let m = library::read_meta(Path::new(&path), true);
+                        t.title = m.title;
+                        t.artist = m.artist;
+                        t.album = m.album;
+                        t.genre = m.genre;
+                        t.year = m.year;
+                    }
                 }
                 if kit::primary_button(ui, "OK").clicked() {
                     save = true;
@@ -2584,9 +2613,11 @@ impl App {
                 }
             });
         });
+        // the preview needs the song: it is downloaded only now (and then kept in the cache)
+        let play_path = if play.is_some() && link.is_some() { self.local_audio(&t.path) } else { path.clone() };
         if let Some(pl) = self.player.as_mut() {
             if let Some((from, len)) = play {
-                let _ = pl.play_preview(&path, from, len);
+                let _ = pl.play_preview(&play_path, from, len);
             }
             if stop {
                 pl.stop_preview();
@@ -3119,24 +3150,22 @@ impl App {
                     if let Some(v) = m.sep {
                         t.sep_min = v;
                     }
-                    if m.normalize {
-                        // on a client the song is downloaded to analyse it: the copy is deleted again (the disk filled up)
-                        let cache = self.base.join("cache");
-                        let had = std::fs::read_dir(&cache).map(|d| d.flatten().any(|e| e.path().file_stem().map(|x| x.to_string_lossy() == t.id.to_string()).unwrap_or(false))).unwrap_or(false);
-                        let local = self.local_audio(&t.path);
-                        if let Some(peak) = crate::waveform::peak_db(&local) {
+                    if m.normalize && self.remote.is_none() {
+                        if let Some(peak) = crate::waveform::peak_db(&self.map_path(&t.path)) {
                             t.gain_db = target - peak;
-                        }
-                        if self.remote.is_some() && !had && std::path::Path::new(&local).starts_with(&cache) {
-                            let _ = std::fs::remove_file(&local);
                         }
                     }
                     let _ = self.db.update_track(&t);
                 }
             }
+            if m.normalize && self.remote.is_some() {
+                // the server analyses the files (nothing is downloaded) and changes the volumes in the background
+                let ids: Vec<u64> = self.cp.lib_sel.clone();
+                self.remote_cmd(serde_json::json!({ "do": "normalize", "ids": ids, "target": target }));
+            }
             self.reload_tracks();
             self.cp.mass = None;
-            self.cp.msg = tr("Mass change applied");
+            self.cp.msg = if m.normalize && self.remote.is_some() { tr("Mass change applied. The server is normalizing the volume in the background") } else { tr("Mass change applied") };
         } else if cancel {
             self.cp.mass = None;
         } else {

@@ -2,6 +2,13 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.11
+- **Less traffic between the client and the server:** the heavy work on a song is done by the server and only the result travels.
+  - *Normalize volume* (mass change) runs on the server in the background: the client sends one command and downloads nothing.
+  - The waveform (studio and song editor) is made by the server and sent as a few KB instead of the whole song; the server remembers it.
+  - *Auto cue* and *Read tags* in the song editor run on the server. The song is downloaded only when you press the preview play button.
+- **Server:** sending a song, the waveform and the analyses are done by the worker threads, not by the main thread that plays the music (a big file could delay it).
+
 ## 0.14.10
 - **Client cache:** the songs that the client downloads (to listen, for the waveform) are cleaned automatically: files older than a day are removed and the cache stays under 1 GB. *Reset* page: shows the size of the cache and a *Clear the cache now* button.
 - **Normalize volume** (mass change) on a client no longer keeps a copy of every analysed song on the disk.
