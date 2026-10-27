@@ -3,7 +3,7 @@
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
 ## 0.14.13
-- **Listeners:** the header of the studio shows how many listeners are connected to the internet broadcasts now (the sum of all servers; the list per server is shown when the mouse is over it). It is read from the station servers every 20 seconds: Icecast 2 (`status-json.xsl`), Shoutcast v2 (`stats`) and Shoutcast v1 (`7.html`). A client shows the numbers that the server reads.
+- **Listeners:** the header of the studio shows how many listeners are connected to the internet broadcasts now (the sum of all servers). It is read from the station servers every 20 seconds: Icecast 2 (`status-json.xsl`), Shoutcast v2 (`stats`) and Shoutcast v1 (`7.html`). A client shows the numbers that the server reads.
 - **Fix:** deleting items from a library no longer stops the automation: only the item that is on air stops it. The deleted items leave the playlist and the rest keeps playing.
 - The *Internet updater* page was removed from Utilities.
 

@@ -494,15 +494,6 @@ impl eframe::App for App {
                 let lr = Rect::from_min_size(pos2(r.left() + 304.0, r.top()), vec2(150.0, 30.0));
                 p.circle_filled(pos2(lr.left() + 8.0, cy), 4.0, if known { Color32::from_rgb(60, 220, 100) } else { kit::GRAY });
                 p.text(pos2(lr.left() + 20.0, cy), Align2::LEFT_CENTER, txt, FontId::proportional(14.0), WHITE);
-                let tip: Vec<String> = ls
-                    .iter()
-                    .map(|(i, n)| {
-                        let c = self.data.s.streams.get(*i);
-                        let name = c.map(|c| if c.name.is_empty() { format!("{}:{}", c.host, c.port) } else { c.name.clone() }).unwrap_or_default();
-                        format!("{name}: {}", if *n >= 0 { n.to_string() } else { "-".to_string() })
-                    })
-                    .collect();
-                ui.interact(lr, egui::Id::new("hdr_listeners"), Sense::hover()).on_hover_text(tip.join("\n"));
             }
             let h = r.height();
             let mut x = r.right();

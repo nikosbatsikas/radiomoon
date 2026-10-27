@@ -77,7 +77,7 @@ English and Greek are built in. To add a language, copy `lang\template.json` to 
 
 ## Internet broadcast
 
-The studio header shows the number of listeners that are connected (read from the station servers every 20 seconds; hover for each server).
+The studio header shows the number of listeners that are connected (the sum of all servers, read every 20 seconds).
 
 Control Panel > Internet broadcast: add several servers, each Icecast 2 (host, port, mount, user, password), Shoutcast v1 (host, port, password) or Shoutcast v2 (host, port, password, stream ID). The Shoutcast source connects to port+1. MP3, 48-320 kbps. The *Show password* box next to the password shows it while you type. The title of the playing song is sent to every server. Everything played on the main output is in the stream; the preview (monitor) output is not.
 
