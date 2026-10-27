@@ -24,7 +24,7 @@ foreach ($a in $Arch) {
     New-Item -ItemType Directory -Force -Path $dist | Out-Null
     Copy-Item "target\$t\release\radiomoon.exe" "$dist\RadioMoon.exe" -Force
     foreach ($d in "music", "jingles", "commercials", "lang") { New-Item -ItemType Directory -Force -Path "$dist\$d" | Out-Null }
-    Copy-Item "README.md", "CHANGELOG.md" $dist -Force
+    Copy-Item "README.md", "CHANGELOG.md", "LICENSE" $dist -Force
     Copy-Item "lang\*" "$dist\lang" -Force
     New-Item -ItemType File -Force -Path "$dist\portable.flag" | Out-Null
 

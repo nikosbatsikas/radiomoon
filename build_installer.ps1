@@ -20,7 +20,7 @@ if (Test-Path "stage") { Remove-Item "stage" -Recurse -Force }
 $stage = Join-Path $PSScriptRoot "stage\RadioMoon"
 New-Item -ItemType Directory -Force "$stage\lang", "dist" | Out-Null
 Copy-Item "target\$target\release\radiomoon.exe" "$stage\RadioMoon.exe"
-Copy-Item "README.md", "CHANGELOG.md" $stage
+Copy-Item "README.md", "CHANGELOG.md", "LICENSE" $stage
 Copy-Item "lang\*" "$stage\lang"
 
 if ($MariaDbZip -ne "") {
@@ -43,6 +43,7 @@ if (Test-Path "client-stage") { Remove-Item "client-stage" -Recurse -Force }
 New-Item -ItemType Directory -Force "$cl\lang", "client-dist" | Out-Null
 Copy-Item "target\$target\release\radiomoon-client.exe" "$cl\RadioMoon-Client.exe"
 Copy-Item "lang\*" "$cl\lang"
+Copy-Item "LICENSE" $cl
 Compress-Archive -Path $cl -DestinationPath "client-dist\RadioMoon-Client-$v-windows-$Arch.zip" -Force
 
 # portable zip (the flag file makes the program keep all its data next to itself)

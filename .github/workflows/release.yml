@@ -85,7 +85,7 @@ jobs:
           V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           mkdir -p dist RadioMoon/lang
           cp target/release/radiomoon RadioMoon/radiomoon
-          cp README.md CHANGELOG.md RadioMoon/
+          cp README.md CHANGELOG.md LICENSE RadioMoon/
           cp lang/* RadioMoon/lang/
           touch RadioMoon/portable.flag
           tar czf dist/RadioMoon-$V-linux-${{ matrix.arch }}-portable.tar.gz RadioMoon
@@ -223,7 +223,7 @@ jobs:
             cp packaging/server/* $D/
             cp lang/* $D/lang/
             cp clients/* $D/clients/
-            cp README.md CHANGELOG.md $D/
+            cp README.md CHANGELOG.md LICENSE $D/
             tar czf dist/RadioMoon-Server-$V-linux-$name.tar.gz $D
           done
           ls -la dist
