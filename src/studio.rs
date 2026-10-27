@@ -636,7 +636,7 @@ impl eframe::App for App {
             let rm = 55.0_f32;
             p.circle_stroke(cc, rm, egui::Stroke::new(6.0_f32, Color32::from_rgb(30, 39, 51)));
             let n = ((frac * 120.0) as usize).max(1);
-            let pts: Vec<Pos2> = (0..=n)
+            let pts: Vec<egui::Pos2> = (0..=n)
                 .map(|i| {
                     let a = -PI / 2.0 + 2.0 * PI * frac * (i as f32 / n as f32);
                     pos2(cc.x + rm * a.cos(), cc.y + rm * a.sin())

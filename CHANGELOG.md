@@ -2,7 +2,7 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
-## 0.14.4
+## 0.14.5
 - **New studio clock:** the seconds are a dotted ring and the minutes are a smooth round neon arc with round ends and a glowing head; the time, the day and the date are in the centre.
 
 ## 0.14.3
