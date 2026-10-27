@@ -4,6 +4,9 @@ Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a 
 
 ## 0.14.14
 - The listeners in the header are a little higher, level with the volume slider.
+- **Internet broadcast page:** every server that is on air shows its own number of listeners (*Listeners now*).
+- The workflow *cleanup-releases* deletes the old runs of the workflows too (keeps the last 20 of each).
+- The README no longer has the FM / MPX section.
 
 ## 0.14.13
 - **Listeners:** the header of the studio shows how many listeners are connected to the internet broadcasts now (the sum of all servers). It is read from the station servers every 20 seconds: Icecast 2 (`status-json.xsl`), Shoutcast v2 (`stats`) and Shoutcast v1 (`7.html`). A client shows the numbers that the server reads.

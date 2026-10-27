@@ -2844,6 +2844,7 @@ impl App {
         let mut ch = false;
         let mut remove: Option<usize> = None;
         let running: Vec<(usize, String)> = self.px_streams();
+        let listeners: Vec<(usize, i64)> = self.px_listeners();
         let n = self.data.s.streams.len();
         for i in 0..n {
             let title = {
@@ -2905,6 +2906,11 @@ impl App {
                         Some(s) => ui.colored_label(Color32::from_rgb(120, 230, 150), format!("{} {s}", tr("Status:"))),
                         None => ui.label(RichText::new(tr("Not broadcasting")).color(kit::GRAY)),
                     };
+                    if status.is_some() {
+                        let n = listeners.iter().find(|x| x.0 == i).map(|x| x.1).unwrap_or(-1);
+                        let txt = if n >= 0 { format!("{} {n}", tr("Listeners now:")) } else { format!("{} -", tr("Listeners now:")) };
+                        ui.label(RichText::new(txt).strong().size(15.0).color(if n >= 0 { Color32::from_rgb(120, 230, 150) } else { kit::GRAY }));
+                    }
                     if n > 1 && kit::danger_button(ui, "Remove this server").clicked() {
                         remove = Some(i);
                     }
