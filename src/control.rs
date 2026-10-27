@@ -2840,7 +2840,7 @@ impl App {
     }
 
     fn page_stream(&mut self, ui: &mut egui::Ui) {
-        kit::page_title(ui, "Internet broadcast", "Send the on-air mix (MP3, Ogg Opus or Ogg FLAC) to one or more Icecast or Shoutcast (v1 / v2) servers at the same time");
+        kit::page_title(ui, "Internet broadcast", "Send the on-air mix (MP3) to one or more Icecast or Shoutcast (v1 / v2) servers at the same time");
         let mut ch = false;
         let mut remove: Option<usize> = None;
         let running: Vec<(usize, String)> = self.px_streams();
@@ -2862,21 +2862,6 @@ impl App {
                         ch |= ui.radio_value(&mut c.kind, "icecast".to_string(), tr("Icecast 2")).changed();
                         ch |= ui.radio_value(&mut c.kind, "shoutcast".to_string(), tr("Shoutcast v1")).changed();
                         ch |= ui.radio_value(&mut c.kind, "shoutcast2".to_string(), tr("Shoutcast v2")).changed();
-                    });
-                    // Ogg Opus and Ogg FLAC are for Icecast; Shoutcast takes MP3
-                    if c.kind != "icecast" && c.codec != "mp3" {
-                        c.codec = "mp3".into();
-                        ch = true;
-                    }
-                    ui.horizontal(|ui| {
-                        ui.label(tr("Format"));
-                        ch |= ui.radio_value(&mut c.codec, "mp3".to_string(), "MP3").changed();
-                        if c.kind == "icecast" {
-                            ch |= ui.radio_value(&mut c.codec, "opus".to_string(), tr("Ogg Opus")).changed();
-                            ch |= ui.radio_value(&mut c.codec, "flac".to_string(), tr("Ogg FLAC (lossless)")).changed();
-                        } else {
-                            ui.label(RichText::new(tr("(Shoutcast takes MP3)")).color(kit::GRAY).small());
-                        }
                     });
                     ch |= text_row(ui, "Host", &mut c.host);
                     ui.horizontal(|ui| {
@@ -2903,19 +2888,14 @@ impl App {
                             ui.memory_mut(|m| m.data.insert_temp(sid, show));
                         }
                     });
-                    if c.codec == "flac" && c.kind == "icecast" {
-                        ui.label(RichText::new(tr("Lossless: about 700-900 kbps of upload for every server")).color(kit::GRAY).small());
-                    } else {
-                        ui.horizontal(|ui| {
-                            ui.label(tr("Bitrate (kbps)"));
-                            let opts: &[u32] = if c.codec == "opus" { &[32, 48, 64, 96, 128, 160, 192, 256] } else { &[48, 64, 96, 128, 160, 192, 256, 320] };
-                            egui::ComboBox::from_id_salt(("sbr", i)).selected_text(c.bitrate.to_string()).show_ui(ui, |ui| {
-                                for b in opts {
-                                    ch |= ui.selectable_value(&mut c.bitrate, *b, b.to_string()).changed();
-                                }
-                            });
+                    ui.horizontal(|ui| {
+                        ui.label(tr("Bitrate (kbps)"));
+                        egui::ComboBox::from_id_salt(("sbr", i)).selected_text(c.bitrate.to_string()).show_ui(ui, |ui| {
+                            for b in [48u32, 64, 96, 128, 160, 192, 256, 320] {
+                                ch |= ui.selectable_value(&mut c.bitrate, b, b.to_string()).changed();
+                            }
                         });
-                    }
+                    });
                     ch |= text_row(ui, "Station name", &mut c.name);
                     ch |= text_row(ui, "Genre", &mut c.genre);
                     ch |= text_row(ui, "Description", &mut c.description);

@@ -631,9 +631,5 @@
   "Cache cleared:": "Η cache καθαρίστηκε:",
   "Mass change applied. The server is normalizing the volume in the background": "Η μαζική αλλαγή εφαρμόστηκε. Ο server κάνει την κανονικοποίηση έντασης στο παρασκήνιο",
   "listeners": "ακροατές",
-  "Listeners now:": "Ακροατές τώρα:",
-  "Ogg Opus": "Ogg Opus",
-  "Ogg FLAC (lossless)": "Ogg FLAC (χωρίς απώλειες)",
-  "(Shoutcast takes MP3)": "(το Shoutcast δέχεται MP3)",
-  "Lossless: about 700-900 kbps of upload for every server": "Χωρίς απώλειες: περίπου 700-900 kbps upload για κάθε server"
+  "Listeners now:": "Ακροατές τώρα:"
 }

@@ -331,7 +331,6 @@ pub struct StreamCfg {
     pub autostart: bool,
     pub kind: String, // icecast | shoutcast | shoutcast2
     pub sid: u32,     // Shoutcast v2 stream id
-    pub codec: String, // mp3 | opus | flac (Ogg Opus and Ogg FLAC only for Icecast)
     pub host: String,
     pub port: u16,
     pub mount: String,
@@ -351,7 +350,6 @@ impl Default for StreamCfg {
             autostart: false,
             kind: "icecast".into(),
             sid: 1,
-            codec: "mp3".into(),
             host: "localhost".into(),
             port: 8000,
             mount: "/radiomoon".into(),

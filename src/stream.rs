@@ -43,280 +43,6 @@ fn urlenc(s: &str) -> String {
     o
 }
 
-// ------------------------------------------------------------------ encoders
-/// Bytes that an encoder produced (the sink of Ogg and FLAC writers).
-#[derive(Clone, Default)]
-struct SharedBuf(Arc<Mutex<Vec<u8>>>);
-
-impl Write for SharedBuf {
-    fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
-        if let Ok(mut g) = self.0.lock() {
-            g.extend_from_slice(b);
-        }
-        Ok(b.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-impl SharedBuf {
-    fn take(&self) -> Vec<u8> {
-        self.0.lock().map(|mut g| std::mem::take(&mut *g)).unwrap_or_default()
-    }
-}
-
-/// An audio encoder of the broadcast: 44.1 kHz stereo 16 bit in, the bytes of the stream out.
-trait Enc {
-    fn encode(&mut self, pcm: &[i16]) -> Vec<u8>;
-    /// A new song title for the stream itself (Ogg streams); the result is sent to the server.
-    fn set_title(&mut self, _title: &str) -> Vec<u8> {
-        Vec::new()
-    }
-    fn finish(&mut self) -> Vec<u8>;
-}
-
-struct Mp3Enc {
-    enc: mp3lame_encoder::Encoder,
-}
-
-impl Enc for Mp3Enc {
-    fn encode(&mut self, pcm: &[i16]) -> Vec<u8> {
-        let mut out: Vec<u8> = Vec::new();
-        out.reserve(mp3lame_encoder::max_required_buffer_size(pcm.len()));
-        match self.enc.encode(InterleavedPcm(pcm), out.spare_capacity_mut()) {
-            Ok(n) => unsafe { out.set_len(out.len() + n) },
-            Err(_) => out.clear(),
-        }
-        out
-    }
-    fn finish(&mut self) -> Vec<u8> {
-        let mut tail: Vec<u8> = Vec::new();
-        tail.reserve(7200);
-        if let Ok(n) = self.enc.flush::<FlushNoGap>(tail.spare_capacity_mut()) {
-            unsafe { tail.set_len(n) };
-        }
-        tail
-    }
-}
-
-/// 44.1 kHz stereo to 48 kHz (cubic interpolation); Opus does not take 44.1 kHz.
-struct Resampler {
-    buf: Vec<[f32; 2]>,
-    pos: f64,
-}
-
-impl Resampler {
-    fn new() -> Resampler {
-        Resampler { buf: vec![[0.0, 0.0]], pos: 1.0 }
-    }
-    fn process(&mut self, pcm: &[i16], out: &mut Vec<i16>) {
-        for f in pcm.chunks_exact(2) {
-            self.buf.push([f[0] as f32, f[1] as f32]);
-        }
-        let step = 44100.0 / 48000.0;
-        while self.pos + 2.0 < self.buf.len() as f64 {
-            let i = self.pos.floor() as usize;
-            let t = (self.pos - i as f64) as f32;
-            for ch in 0..2 {
-                let (p0, p1, p2, p3) = (self.buf[i - 1][ch], self.buf[i][ch], self.buf[i + 1][ch], self.buf[i + 2][ch]);
-                let v = p1 + 0.5 * t * (p2 - p0 + t * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + t * (3.0 * (p1 - p2) + p3 - p0)));
-                out.push(v.clamp(-32768.0, 32767.0) as i16);
-            }
-            self.pos += step;
-        }
-        let drop = (self.pos.floor() as usize).saturating_sub(1);
-        if drop > 0 {
-            self.buf.drain(..drop);
-            self.pos -= drop as f64;
-        }
-    }
-}
-
-/// Ogg Opus: the Opus encoder and an Ogg writer (a new title starts a new logical stream, as Icecast expects).
-struct OpusEnc {
-    enc: opus::Encoder,
-    rs: Resampler,
-    acc: Vec<i16>,
-    ogg: ogg::writing::PacketWriter<'static, SharedBuf>,
-    sink: SharedBuf,
-    serial: u32,
-    granule: u64,
-    pre_skip: u16,
-    in_page: u32,
-    held: Option<(Vec<u8>, u64)>,
-    started: bool,
-    title: String,
-}
-
-fn opus_head(pre_skip: u16) -> Vec<u8> {
-    let mut h = b"OpusHead".to_vec();
-    h.push(1);
-    h.push(2);
-    h.extend_from_slice(&pre_skip.to_le_bytes());
-    h.extend_from_slice(&44100u32.to_le_bytes());
-    h.extend_from_slice(&0i16.to_le_bytes());
-    h.push(0);
-    h
-}
-
-fn opus_tags(title: &str) -> Vec<u8> {
-    let vendor = format!("RadioMoon {}", env!("CARGO_PKG_VERSION"));
-    let mut t = b"OpusTags".to_vec();
-    t.extend_from_slice(&(vendor.len() as u32).to_le_bytes());
-    t.extend_from_slice(vendor.as_bytes());
-    if title.is_empty() {
-        t.extend_from_slice(&0u32.to_le_bytes());
-    } else {
-        let c = format!("TITLE={title}");
-        t.extend_from_slice(&1u32.to_le_bytes());
-        t.extend_from_slice(&(c.len() as u32).to_le_bytes());
-        t.extend_from_slice(c.as_bytes());
-    }
-    t
-}
-
-impl OpusEnc {
-    fn new(kbps: u32, title: &str) -> Result<OpusEnc, String> {
-        let mut enc = opus::Encoder::new(48000, opus::Channels::Stereo, opus::Application::Audio).map_err(|e| format!("Opus encoder: {e}"))?;
-        let _ = enc.set_bitrate(opus::Bitrate::Bits((kbps.clamp(16, 510) * 1000) as i32));
-        let pre_skip = enc.get_lookahead().unwrap_or(312).clamp(0, 65535) as u16;
-        let sink = SharedBuf::default();
-        let serial = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos() ^ d.as_secs() as u32).unwrap_or(1);
-        Ok(OpusEnc { enc, rs: Resampler::new(), acc: Vec::new(), ogg: ogg::writing::PacketWriter::new(sink.clone()), sink, serial, granule: 0, pre_skip, in_page: 0, held: None, started: false, title: title.to_string() })
-    }
-
-    /// The two header packets of a (new) logical stream.
-    fn start(&mut self) {
-        let pre = if self.started { 0 } else { self.pre_skip };
-        let _ = self.ogg.write_packet(opus_head(pre), self.serial, ogg::writing::PacketWriteEndInfo::EndPage, 0);
-        let _ = self.ogg.write_packet(opus_tags(&self.title), self.serial, ogg::writing::PacketWriteEndInfo::EndPage, 0);
-        self.granule = pre as u64;
-        self.in_page = 0;
-        self.started = true;
-    }
-
-    /// One packet is held back so that the last packet of a stream can be marked as the end.
-    fn push_packet(&mut self, data: Vec<u8>) {
-        self.granule += 960;
-        if let Some((prev, g)) = self.held.replace((data, self.granule)) {
-            self.in_page += 1;
-            let info = if self.in_page >= 5 { ogg::writing::PacketWriteEndInfo::EndPage } else { ogg::writing::PacketWriteEndInfo::NormalPacket };
-            if self.in_page >= 5 {
-                self.in_page = 0;
-            }
-            let _ = self.ogg.write_packet(prev, self.serial, info, g);
-        }
-    }
-
-    fn end_stream(&mut self) {
-        if let Some((prev, g)) = self.held.take() {
-            let _ = self.ogg.write_packet(prev, self.serial, ogg::writing::PacketWriteEndInfo::EndStream, g);
-        }
-    }
-}
-
-impl Enc for OpusEnc {
-    fn encode(&mut self, pcm: &[i16]) -> Vec<u8> {
-        if !self.started {
-            self.start();
-        }
-        let mut r = Vec::new();
-        self.rs.process(pcm, &mut r);
-        self.acc.extend_from_slice(&r);
-        let mut buf = vec![0u8; 4000];
-        while self.acc.len() >= 1920 {
-            let frame: Vec<i16> = self.acc.drain(..1920).collect();
-            if let Ok(n) = self.enc.encode(&frame, &mut buf) {
-                self.push_packet(buf[..n].to_vec());
-            }
-        }
-        self.sink.take()
-    }
-
-    fn set_title(&mut self, title: &str) -> Vec<u8> {
-        if !self.started || title == self.title {
-            self.title = title.to_string();
-            return Vec::new();
-        }
-        self.end_stream();
-        self.title = title.to_string();
-        self.serial = self.serial.wrapping_add(1);
-        self.start();
-        self.sink.take()
-    }
-
-    fn finish(&mut self) -> Vec<u8> {
-        self.end_stream();
-        self.sink.take()
-    }
-}
-
-/// Ogg FLAC (lossless) with libFLAC.
-struct FlacEnc {
-    enc: Option<flac_bound::FlacEncoder<'static>>,
-    sink: SharedBuf,
-}
-
-impl FlacEnc {
-    fn new() -> Result<FlacEnc, String> {
-        let sink = SharedBuf::default();
-        // the encoder keeps a reference to its writer for as long as it lives: the two small boxes stay allocated
-        let w: &'static mut SharedBuf = Box::leak(Box::new(sink.clone()));
-        let ww: &'static mut flac_bound::WriteWrapper<'static> = Box::leak(Box::new(flac_bound::WriteWrapper(w)));
-        let serial = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| (d.subsec_nanos() ^ d.as_secs() as u32) & 0x7fff_ffff).unwrap_or(1) as std::os::raw::c_long;
-        let cfg = flac_bound::FlacEncoder::new().ok_or("FLAC encoder could not be created")?;
-        let enc = cfg
-            .channels(2)
-            .sample_rate(44100)
-            .bits_per_sample(16)
-            .compression_level(5)
-            .blocksize(4096)
-            .ogg_serial_number(serial)
-            .init_write_ogg(ww)
-            .map_err(|e| format!("FLAC encoder: {e:?}"))?;
-        Ok(FlacEnc { enc: Some(enc), sink })
-    }
-}
-
-impl Enc for FlacEnc {
-    fn encode(&mut self, pcm: &[i16]) -> Vec<u8> {
-        if let Some(e) = self.enc.as_mut() {
-            let v: Vec<i32> = pcm.iter().map(|s| *s as i32).collect();
-            let _ = e.process_interleaved(&v, (v.len() / 2) as u32);
-        }
-        self.sink.take()
-    }
-    fn finish(&mut self) -> Vec<u8> {
-        if let Some(e) = self.enc.take() {
-            let _ = e.finish();
-        }
-        self.sink.take()
-    }
-}
-
-fn make_encoder(c: &StreamCfg, title: &str) -> Result<Box<dyn Enc>, String> {
-    match c.codec.as_str() {
-        "opus" => Ok(Box::new(OpusEnc::new(c.bitrate, title)?)),
-        "flac" => Ok(Box::new(FlacEnc::new()?)),
-        _ => {
-            let mut b = Builder::new().ok_or("MP3 encoder could not be created")?;
-            let ok = b.set_num_channels(2).is_ok() && b.set_sample_rate(44_100).is_ok() && b.set_brate(bitrate(c.bitrate)).is_ok() && b.set_quality(Quality::Good).is_ok();
-            let enc = if ok { b.build().ok() } else { None }.ok_or("MP3 encoder could not be started")?;
-            Ok(Box::new(Mp3Enc { enc }))
-        }
-    }
-}
-
-/// Ogg streams (Opus, FLAC) are only for Icecast; Shoutcast takes MP3.
-fn effective_codec(c: &StreamCfg) -> &str {
-    if c.kind == "icecast" && (c.codec == "opus" || c.codec == "flac") {
-        c.codec.as_str()
-    } else {
-        "mp3"
-    }
-}
-
 fn set_status(st: &Arc<Mutex<String>>, s: &str) {
     if let Ok(mut g) = st.lock() {
         *g = s.to_string();
@@ -366,13 +92,8 @@ fn handshake(c: &StreamCfg) -> Result<TcpStream, String> {
         let mut s = connect(&c.host, c.port)?;
         let mount = if c.mount.starts_with('/') { c.mount.clone() } else { format!("/{}", c.mount) };
         let auth = B64.encode(format!("{}:{}", c.user, c.password));
-        let ctype = match effective_codec(c) {
-            "opus" => "audio/ogg",
-            "flac" => "application/ogg",
-            _ => "audio/mpeg",
-        };
         let req = format!(
-            "PUT {mount} HTTP/1.1\r\nHost: {}:{}\r\nAuthorization: Basic {auth}\r\nUser-Agent: RadioMoon/{ver}\r\nContent-Type: {ctype}\r\nice-name: {}\r\nice-genre: {}\r\nice-description: {}\r\nice-url: {}\r\nice-public: {}\r\nice-audio-info: ice-samplerate=44100;ice-bitrate={};ice-channels=2\r\nExpect: 100-continue\r\n\r\n",
+            "PUT {mount} HTTP/1.1\r\nHost: {}:{}\r\nAuthorization: Basic {auth}\r\nUser-Agent: RadioMoon/{ver}\r\nContent-Type: audio/mpeg\r\nice-name: {}\r\nice-genre: {}\r\nice-description: {}\r\nice-url: {}\r\nice-public: {}\r\nice-audio-info: ice-samplerate=44100;ice-bitrate={};ice-channels=2\r\nExpect: 100-continue\r\n\r\n",
             c.host, c.port, c.name, c.genre, c.description, c.url, if c.public { 1 } else { 0 }, c.bitrate
         );
         s.write_all(req.as_bytes()).map_err(|e| e.to_string())?;
@@ -389,9 +110,6 @@ fn handshake(c: &StreamCfg) -> Result<TcpStream, String> {
 }
 
 fn update_title(c: &StreamCfg, title: &str) {
-    if effective_codec(c) != "mp3" {
-        return; // the title of an Ogg stream travels inside the stream
-    }
     let (path, port) = if c.kind == "shoutcast2" {
         (format!("/admin.cgi?sid={}&pass={}&mode=updinfo&song={}", c.sid.max(1), urlenc(&c.password), urlenc(title)), c.port)
     } else if c.kind == "shoutcast" {
@@ -426,22 +144,21 @@ fn run(cfg: StreamCfg, rx: Receiver<Vec<f32>>, stop: Arc<AtomicBool>, status: Ar
                 continue;
             }
         };
-        let mut enc = match make_encoder(&cfg, &last_title) {
-            Ok(e) => e,
-            Err(e) => {
-                set_status(&status, &e);
-                return;
-            }
+        let Some(mut b) = Builder::new() else {
+            set_status(&status, "MP3 encoder could not be created");
+            return;
         };
-        let label = match effective_codec(&cfg) {
-            "opus" => format!("Opus {} kbps", cfg.bitrate),
-            "flac" => "FLAC lossless".to_string(),
-            _ => format!("MP3 {} kbps", cfg.bitrate),
+        let ok = b.set_num_channels(2).is_ok() && b.set_sample_rate(44_100).is_ok() && b.set_brate(bitrate(cfg.bitrate)).is_ok() && b.set_quality(Quality::Good).is_ok();
+        let enc = if ok { b.build().ok() } else { None };
+        let Some(mut enc) = enc else {
+            set_status(&status, "MP3 encoder could not be started");
+            return;
         };
-        set_status(&status, &format!("On air: {label} to {}:{}", cfg.host, cfg.port));
+        set_status(&status, &format!("On air: {} kbps to {}:{}", cfg.bitrate, cfg.host, cfg.port));
         if !last_title.is_empty() {
             update_title(&cfg, &last_title);
         }
+        let mut out: Vec<u8> = Vec::new();
         loop {
             if stop.load(Ordering::Relaxed) {
                 break 'outer;
@@ -449,16 +166,16 @@ fn run(cfg: StreamCfg, rx: Receiver<Vec<f32>>, stop: Arc<AtomicBool>, status: Ar
             while let Ok(t) = meta_rx.try_recv() {
                 last_title = t;
                 update_title(&cfg, &last_title);
-                let b = enc.set_title(&last_title);
-                if !b.is_empty() && sock.write_all(&b).is_err() {
-                    set_status(&status, "Connection lost. Reconnecting...");
-                    continue 'outer;
-                }
             }
             match rx.recv_timeout(Duration::from_millis(500)) {
                 Ok(chunk) => {
                     let pcm: Vec<i16> = chunk.iter().map(|s| (s.clamp(-1.0, 1.0) * 32767.0) as i16).collect();
-                    let out = enc.encode(&pcm);
+                    out.clear();
+                    out.reserve(mp3lame_encoder::max_required_buffer_size(pcm.len()));
+                    match enc.encode(InterleavedPcm(&pcm), out.spare_capacity_mut()) {
+                        Ok(n) => unsafe { out.set_len(out.len() + n) },
+                        Err(_) => continue,
+                    }
                     if !out.is_empty() && sock.write_all(&out).is_err() {
                         set_status(&status, "Connection lost. Reconnecting...");
                         break;
@@ -468,8 +185,10 @@ fn run(cfg: StreamCfg, rx: Receiver<Vec<f32>>, stop: Arc<AtomicBool>, status: Ar
                 Err(RecvTimeoutError::Disconnected) => break 'outer,
             }
         }
-        let tail = enc.finish();
-        if !tail.is_empty() {
+        let mut tail: Vec<u8> = Vec::new();
+        tail.reserve(7200);
+        if let Ok(n) = enc.flush::<FlushNoGap>(tail.spare_capacity_mut()) {
+            unsafe { tail.set_len(n) };
             let _ = sock.write_all(&tail);
         }
     }

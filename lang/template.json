@@ -633,9 +633,5 @@
   "Cache cleared:": "Cache cleared:",
   "Mass change applied. The server is normalizing the volume in the background": "Mass change applied. The server is normalizing the volume in the background",
   "listeners": "listeners",
-  "Listeners now:": "Listeners now:",
-  "Ogg Opus": "Ogg Opus",
-  "Ogg FLAC (lossless)": "Ogg FLAC (lossless)",
-  "(Shoutcast takes MP3)": "(Shoutcast takes MP3)",
-  "Lossless: about 700-900 kbps of upload for every server": "Lossless: about 700-900 kbps of upload for every server"
+  "Listeners now:": "Listeners now:"
 }

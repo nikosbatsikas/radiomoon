@@ -81,7 +81,7 @@ Portable folder layout (Windows x64): `RadioMoon.exe`, `portable.flag`, `lang\`,
 
 ## Internet broadcast
 
-Control Panel > Internet broadcast: add several servers, each **Icecast 2** (host, port, mount, user, password), **Shoutcast v1** (host, port, password) or **Shoutcast v2** (host, port, password, stream ID). The Shoutcast source connects to port+1. Formats: **MP3** (48-320 kbps; Icecast and Shoutcast), **Ogg Opus** (32-256 kbps; Icecast) and **Ogg FLAC** (lossless, about 700-900 kbps; Icecast; no song titles). The *Show password* box next to the password field shows it while you type. The title of the playing song is sent to every server. Everything played on the main output is in the stream; the preview (monitor) output is not.
+Control Panel > Internet broadcast: add several servers, each **Icecast 2** (host, port, mount, user, password), **Shoutcast v1** (host, port, password) or **Shoutcast v2** (host, port, password, stream ID). The Shoutcast source connects to port+1. MP3, 48-320 kbps. The *Show password* box next to the password field shows it while you type. The title of the playing song is sent to every server. Everything played on the main output is in the stream; the preview (monitor) output is not.
 
 The number of listeners is read from the station servers every 20 seconds (Icecast `status-json.xsl`, Shoutcast v2 `stats`, Shoutcast v1 `7.html`) and shown in the header of the studio.
 
