@@ -33,7 +33,16 @@ To upgrade later, unpack the new package and run `sudo ./install.sh upgrade` (se
 Open `http://<server>:8080/` in a browser. User `admin`; the password is in `/var/lib/radiomoon/webserver.json` (created at the first start). Settings (`RADIOMOON_BIND`) are in `/etc/radiomoon/server.env`.
 Run by hand: `radiomoon-server --bind 0.0.0.0:8080 --data /var/lib/radiomoon --db-user radiomoon --db-password ...`.
 
-**RadioMoon client** (`radiomoon-client`, in the Windows setup as "RadioMoon Client"): the same studio and control panel as the desktop program, but the server plays. Enter the address of the server (`http://server:8080`) and your user name and password. Nothing else is needed: the database of the server is reached through the server itself (no database port is opened). Songs added in the client are uploaded to the server (folder `media` in its data folder) and can be listened to from there.
+The server needs no sound card (it can run in a container or a virtual machine and send only the internet stream). A watchdog restarts it if it ever stops responding, and the installer tunes MariaDB for it.
+
+**RadioMoon client** (`radiomoon-client`, in the Windows setup as "RadioMoon Client"): the same studio and control panel as the desktop program, but the server plays. Nothing else is needed than the address of the server (`http://server:8080`), a user name and a password: the database of the server is reached through the server itself (no database port is opened).
+
+- **Login window:** centred card with *Remember password* and a drop-down list of the servers used before. The window opens maximized.
+- **Connection:** the combo box at the bottom of the studio (and in the login window) chooses *Normal*, *Low bandwidth* or *Very low bandwidth*: the client asks the server less often and does not download waveforms. The status bar shows the download / upload rate.
+- **One folder per server:** the settings and the cache of each server are separate, so two servers never show each other's data.
+- **Uploads:** songs added in the client are uploaded to the server, into one folder per library inside `media` (`songs`, `spots`, `jingles`, `assets`, `sweepers`, `voice`). CLAP plugins are uploaded to the server too.
+- **Cache:** songs downloaded to listen to or to draw the waveform are kept in a local cache. Files older than a day are removed automatically and the cache stays under 1 GB; **Control Panel > Reset database** shows its size and has a *Clear the cache now* button.
+- Closing the client never stops the music or the internet broadcast of the server.
 
 ## Portable or installed
 
@@ -67,7 +76,7 @@ English and Greek are built in. To add a language, copy `lang\template.json` to 
 
 ## Internet broadcast
 
-Control Panel > Internet broadcast: add several servers, each Icecast 2 (host, port, mount, user, password) or Shoutcast v1 (host, port, password; the source connects to port+1). MP3, 48-320 kbps. Everything played on the main output is in the stream; the preview (monitor) output is not.
+Control Panel > Internet broadcast: add several servers, each Icecast 2 (host, port, mount, user, password), Shoutcast v1 (host, port, password) or Shoutcast v2 (host, port, password, stream ID). The Shoutcast source connects to port+1. MP3, 48-320 kbps. The *Show password* box next to the password shows it while you type. The title of the playing song is sent to every server. Everything played on the main output is in the stream; the preview (monitor) output is not.
 
 ## FM / MPX
 
@@ -78,6 +87,7 @@ The FM multiplex programs (MPX Transmitter and MPX Receiver: stereo, RDS, L24 or
 Control Panel > Utilities > Import from Jazler / MegaMix. The type of the database is detected automatically; for MegaMix the songs, jingles / effects, commercials, artists, styles / categories / eras and playlists are imported (the music sequence rules are not converted). Select the old `.mdb` database (Access 2000-2003), press **Scan file**, choose what to import (songs, spots and campaigns, playlists, jingle pallets, play history) and press **Start import**.
 
 - If the audio files are on another drive or folder, use the old/new path-start fields.
+- On a client, tick the option to **upload the files to the server and change the paths**: every imported file is copied to the server and the library points to the copy.
 - Existing data is never overwritten: known file paths and same-named categories, playlists, campaigns and pallets are skipped.
 - User passwords are not imported. Newer Access formats must first be saved as Access 2000.
 
@@ -92,8 +102,8 @@ Control Panel > Backup & restore: a daily automatic backup (default 03:00, keeps
 ## Studio screen
 
 - **Header:** AUTO / MANUAL / OFFLINE, layout (classic / simple / wide), Control Panel, volume.
-- **Deck:** next, countdown, waveform with mix marks, VU, clock, Restart / Loop / Pause / StopNext.
-- **Left:** playlist. Double-click plays, headphones = preview, Move Up/Down, "EXACT TIME" items. Delete removes the selected item from the playlist (the library record stays).
+- **Deck:** next, countdown, waveform with mix marks, VU, Restart / Loop / Pause / StopNext, and a neon clock (round minutes outside, seconds ring inside).
+- **Left:** playlist. The rows have the colours of the library tabs (songs blue, spots green, jingles yellow, assets grey, sweepers purple, voice red). Double-click plays, headphones = preview, Move Up/Down, "EXACT TIME" items. Delete removes the selected item from the playlist (the library record stays).
 - **Centre:** database tabs (Songs, Spots, Jingles, Assets, Sweepers, Voice, Memos).
 - **Right:** instant jingle pallets (right-click a button to assign / clear / colour) and Central (history, upcoming ad breaks, problems, memos).
 - **Default shortcuts:** F1 next, F2 pause, F3 stop, F4 restart, F5 loop, F6 stopnext, F7 stop jingles.
@@ -103,9 +113,15 @@ Control Panel > Backup & restore: a daily automatic backup (default 03:00, keeps
 | Group | Contents |
 |---|---|
 | Libraries | Songs (3 categories + vocal + properties, intro, mix points, hooks, volume, song separation, playlister code, mass change, normalize, statistics), Spots (campaigns, breaks, priorities, playlister import), Jingles, Assets, Sweepers, Voice tracks, Memos, Instant jingle pallets, Stitcher |
-| Scheduling | Main auto schedule (clocks, 7x24 grid, randomness, artist separation, next-day separation, restrictive rules, classic auto), Playlists, Force clocks, Final log creator, Log viewer |
-| Settings | General, Sound outputs, Shortcuts, Users & security, Audio folder mappings, Internet broadcast, Backup & restore, Database server |
+| Scheduling | Main auto schedule (clocks, weekday x half-hour grid, randomness, artist separation, next-day separation, restrictive rules, classic auto), Playlists, Force clocks, Live rebroadcast, Final log creator, Log viewer |
+| Settings | General, Sound outputs, Effects (CLAP), Shortcuts, Users & security, Audio folder mappings, Internet broadcast, Backup & restore, Database server |
 | Utilities | Internet updater files, Import from Jazler / MegaMix, Integrity check, Broadcasting reports, Reset database |
+
+- **Main auto schedule:** pick a brush in the palette on the left (a clock or a playlist, with a search box; *none* erases) and click or drag over the cells of the grid. Click a day name to fill the day, an hour label to fill that hour on every day.
+- **Station IDs:** make a campaign with the spot of the station ID and give it priority *1 Station ID* on the break times; it plays first in the break. Or put a *jingle* row in a clock.
+- **Delete from a library:** you are asked whether the audio files are deleted too.
+- **Reset database:** deletes the selected libraries, or everything except the settings.
+- **Effects (CLAP):** loads `.clap` plugins on the main output (on a server the plugins are uploaded to it). If a plugin does not load, the reason is shown in the list.
 
 ## First steps
 
@@ -125,4 +141,4 @@ Control Panel > Scheduling > Live rebroadcast.
 
 ## Not included
 
-Weather, VST plug-ins, microphone recording of voice tracks.
+Weather, VST plug-ins (CLAP plug-ins are supported), microphone recording of voice tracks, a client for Windows 7.
