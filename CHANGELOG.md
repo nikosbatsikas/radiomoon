@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.9
+- **Fix:** closing the client stopped the internet broadcast on the server (the client sent a *stop broadcast* command while it was closing). A client never stops the broadcast when it closes now.
+
 ## 0.14.8
 - **Internet broadcast:** Shoutcast v2 (DNAS 2.x) servers with a stream ID (the source connects to the next port, the title is updated per stream); *Show password* option next to the password field.
 

@@ -997,7 +997,10 @@ impl App {
 
 impl Drop for App {
     fn drop(&mut self) {
-        self.stop_stream();
+        // a client (remote mode) must never stop the broadcast that runs on the server when its window is closed
+        if self.remote.is_none() {
+            self.stop_stream();
+        }
         if self.server.owned() {
             let _ = self.db.shutdown();
             self.server.mark_shutdown();
