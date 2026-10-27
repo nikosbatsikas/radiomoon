@@ -46,6 +46,33 @@ copy_program() {
     fi
 }
 
+# Settings that make the database faster on a small server (a commit does not wait for the disk every time, the working data stays in memory).
+# They are written to the MariaDB settings and also applied now, without a restart.
+tune_db() {
+    MEM=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null); [ -n "$MEM" ] || MEM=1024
+    BP=$((MEM/4)); [ "$BP" -lt 128 ] && BP=128; [ "$BP" -gt 1024 ] && BP=1024
+    TUNE="innodb_flush_log_at_trx_commit=2
+innodb_buffer_pool_size=${BP}M
+max_connections=100"
+}
+apply_tune_now() {
+    SQLC=""; command -v mariadb >/dev/null 2>&1 && SQLC=mariadb; [ -z "$SQLC" ] && command -v mysql >/dev/null 2>&1 && SQLC=mysql
+    [ -n "$SQLC" ] || return 0
+    $SQLC -e "SET GLOBAL innodb_flush_log_at_trx_commit=2; SET GLOBAL innodb_buffer_pool_size=$((BP*1024*1024)); SET GLOBAL max_connections=100;" >/dev/null 2>&1 || true
+}
+tune_existing_cnf() { # upgrade: add the settings to the file of the installation, keep the bind address
+    tune_db
+    for d in /etc/my.cnf.d /etc/mysql/mariadb.conf.d /etc/mysql/conf.d; do
+        f="$d/99-radiomoon.cnf"
+        if [ -f "$f" ]; then
+            grep -v -e '^innodb_flush_log_at_trx_commit' -e '^innodb_buffer_pool_size' -e '^max_connections' "$f" > "$f.new" && printf '%s\n' "$TUNE" >> "$f.new" && mv "$f.new" "$f"
+            apply_tune_now
+            echo "Database settings tuned (buffer ${BP} MB)."
+            break
+        fi
+    done
+}
+
 do_upgrade() {
     [ -x /opt/radiomoon/radiomoon-server ] || { echo "RadioMoon server is not installed here: run ./install.sh to install it."; exit 1; }
     OLD=$(/opt/radiomoon/radiomoon-server --version 2>/dev/null || echo "unknown")
@@ -60,6 +87,7 @@ do_upgrade() {
         echo "The new program could not open the database. The old program is kept as /opt/radiomoon/radiomoon-server.old"
         exit 1
     }
+    tune_existing_cnf
     svc_install
     echo "Upgrade finished. Settings, database, songs and the web password were kept."
 }
@@ -139,7 +167,8 @@ BIND=127.0.0.1
 [ "$RADIOMOON_REMOTE_DB" = 1 ] && BIND=0.0.0.0
 for d in /etc/my.cnf.d /etc/mysql/mariadb.conf.d /etc/mysql/conf.d; do
     if [ -d "$d" ]; then
-        printf '[mysqld]\nbind-address=%s\nport=3306\n' "$BIND" > "$d/99-radiomoon.cnf"
+        tune_db
+        printf '[mysqld]\nbind-address=%s\nport=3306\n%s\n' "$BIND" "$TUNE" > "$d/99-radiomoon.cnf"
         break
     fi
 done

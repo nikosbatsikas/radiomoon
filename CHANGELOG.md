@@ -2,6 +2,12 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.1
+- **Faster database and client:**
+  - The installer (install and upgrade) tunes MariaDB: commits do not wait for the disk every time (`innodb_flush_log_at_trx_commit=2`), a buffer in memory (a quarter of the memory, 128 MB - 1 GB) and the number of connections. The settings are applied at once, without a restart.
+  - The client no longer reads the whole library again every minute: the server tells when the library or the documents changed (`data_rev`), and the client reads them again only then (otherwise every 15 minutes).
+  - The database tunnel sends the big answers (the list of songs when the client starts) in fewer, bigger parts.
+
 ## 0.14.0
 - **Import from Jazler / MegaMix with a server:** new option *Upload the audio files to the server at the end of the import and change the paths in the database*. When the import is finished the client uploads the audio files to the server and the library points to the copies on the server (the same as the button *Upload the songs to the server*, but started by the import). Importing a folder of songs with a server already uploads the files and adds them with their path on the server.
 - **Low bandwidth connections (client):** new *Connection* setting in the login window and in the status bar of the studio: *Normal*, *Low bandwidth* (the state of the server is read every 1.5 s, the library every 5 minutes, no waveform download) and *Very low bandwidth* (every 4 s, the library every 15 minutes). The buttons of the studio are sent at once in every mode. The studio window already shrinks to fit a small screen.

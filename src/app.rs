@@ -104,6 +104,8 @@ pub struct App {
     pub gen: Option<Generator>,
     pub final_loaded: String,
     pub last_fill: Instant,
+    /// Counts the reloads of the library and the documents: the clients read them again when this number changes.
+    pub data_rev: u64,
     pub stop_next: bool,
     pub loop_current: bool,
     pub lib_kind: &'static str,
@@ -162,6 +164,7 @@ impl App {
             gen: None,
             final_loaded: String::new(),
             last_fill: Instant::now(),
+            data_rev: 0,
             stop_next: false,
             loop_current: false,
             lib_kind: "music",
@@ -302,11 +305,13 @@ impl App {
     }
 
     pub fn reload_tracks(&mut self) {
+        self.data_rev += 1;
         self.data.tracks = self.db.list_tracks(None).unwrap_or_default();
         self.data.reindex();
     }
 
     pub fn reload_docs(&mut self) {
+        self.data_rev += 1;
         let db = &self.db;
         self.data.cats = db.docs("category").unwrap_or_default();
         self.data.clocks = db.docs("clock").unwrap_or_default();

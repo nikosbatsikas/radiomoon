@@ -262,6 +262,7 @@ fn state(app: &App, full: bool) -> Value {
         "elapsed": elapsed,
         "pos": app.player.as_ref().map(|p| p.pos_ms()).unwrap_or(0),
         "log_rev": log_rev(app),
+        "data_rev": app.data_rev,
         "paused": paused,
         "volume": volume,
         "loop": app.loop_current,
@@ -669,7 +670,7 @@ fn tunnel_open(app: &mut App) -> Resp {
     let t = std::sync::Arc::new(Tun { w: std::sync::Mutex::new(sock), buf: std::sync::Mutex::new((Vec::new(), false)), cv: std::sync::Condvar::new(), last: std::sync::Mutex::new(std::time::Instant::now()) });
     let t2 = t.clone();
     std::thread::spawn(move || {
-        let mut b = vec![0u8; 65536];
+        let mut b = vec![0u8; 262144];
         loop {
             match rd.read(&mut b) {
                 Ok(0) | Err(_) => break,
@@ -727,7 +728,11 @@ fn tunnel_http(mut rq: tiny_http::Request, rest: &str) {
                 }
                 g = t.cv.wait_timeout(g, end - now).unwrap().0;
             }
-            let n = g.0.len().min(1 << 20);
+            // a short wait collects the rest of an answer (a big list of songs): fewer requests
+            if !g.0.is_empty() && !g.1 && g.0.len() < (256 << 10) {
+                g = t.cv.wait_timeout(g, std::time::Duration::from_millis(3)).unwrap().0;
+            }
+            let n = g.0.len().min(4 << 20);
             let data: Vec<u8> = g.0.drain(..n).collect();
             let closed = g.1 && g.0.is_empty();
             drop(g);

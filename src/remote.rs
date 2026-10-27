@@ -245,6 +245,7 @@ pub struct Remote {
     pub link: Link,
     seq: u64,
     cur: Option<usize>,
+    data_rev: Option<u64>,
     el0: u64,
     pos0: u64,
     at: Instant,
@@ -268,7 +269,7 @@ pub struct Remote {
 
 impl Remote {
     pub fn new(link: Link) -> Self {
-        Remote { link, seq: 0, cur: None, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), streams: Vec::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()), wave_id: 0, bw_at: Instant::now(), bw_rx: 0, bw_tx: 0, rx_rate: 0.0, tx_rate: 0.0 }
+        Remote { link, seq: 0, cur: None, data_rev: None, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), streams: Vec::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()), wave_id: 0, bw_at: Instant::now(), bw_rx: 0, bw_tx: 0, rx_rate: 0.0, tx_rate: 0.0 }
     }
     fn running(&self) -> bool {
         self.playing && !self.paused
@@ -356,6 +357,14 @@ impl App {
             self.loop_current = s["loop"].as_bool().unwrap_or(false);
             self.stop_next = s["stopnext"].as_bool().unwrap_or(false);
             rem.cur = s["current"].as_u64().map(|x| x as usize);
+            // the library or the documents were changed on the server (by this or another client): read them again
+            if let Some(r) = s["data_rev"].as_u64() {
+                if rem.data_rev.map(|o| o != r).unwrap_or(false) {
+                    rem.last_data = Instant::now();
+                    self.reload_all();
+                }
+                rem.data_rev = Some(r);
+            }
             self.status = s["status"].as_str().unwrap_or("").to_string();
             rem.el0 = s["elapsed"].as_u64().unwrap_or(0);
             rem.pos0 = s["pos"].as_u64().unwrap_or(0);
@@ -389,7 +398,7 @@ impl App {
             rem.last_data = Instant::now();
         }
         rem.cp_was_open = self.cp_open;
-        if rem.last_data.elapsed() > Duration::from_secs(match bw_mode() { 0 => 60, 1 => 300, _ => 900 }) {
+        if rem.last_data.elapsed() > Duration::from_secs(match bw_mode() { 0 => 900, 1 => 1800, _ => 3600 }) {
             rem.last_data = Instant::now();
             self.reload_all();
         }
