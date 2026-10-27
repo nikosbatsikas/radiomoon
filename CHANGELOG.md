@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.16
+- Build: the release build sets `CMAKE_POLICY_VERSION_MINIMUM` (the Opus and FLAC libraries need it with cmake 4) and shows the build errors of Windows, macOS and the server in the run summary. The program is the same as 0.14.15.
+
 ## 0.14.15
 - **Internet broadcast formats:** besides MP3 an Icecast 2 server can be fed with **Ogg Opus** (32-256 kbps) or **Ogg FLAC** (lossless). Shoutcast v1 / v2 take MP3 only. The format is chosen for every server (*Format*). The title of the song is sent inside an Opus stream, and with MP3 as before; an Ogg FLAC stream has no titles.
 

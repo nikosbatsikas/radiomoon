@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+# cmake 4 refuses the old CMakeLists of the bundled C libraries (Opus, FLAC) without this
+env:
+  CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -31,6 +35,13 @@ jobs:
         run: |
           if ("${{ matrix.arch }}" -eq "x64") { ./build_installer.ps1 -Arch x64 -MariaDbZip "$PWD\mariadb.zip" }
           else { ./build_installer.ps1 -Arch ${{ matrix.arch }} }
+      - name: Why did it fail
+        if: failure()
+        shell: bash
+        run: |
+          cargo build --release --message-format=short > why.log 2>&1 || true
+          ERR=$(grep -v -E '^ *(Compiling|Downloaded|Downloading|Fresh|Blocking)' why.log | tail -60 | cut -c1-500 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+          echo "::error title=Build log::$ERR"
       - uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.arch }}
@@ -106,7 +117,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build
-        run: cargo build --release
+        run: |
+          set +e
+          cargo build --release > why.log 2>&1
+          RC=$?
+          if [ $RC != 0 ]; then
+            ERR=$(grep -v -E '^ *(Compiling|Downloaded|Downloading|Fresh|Blocking)' why.log | tail -60 | cut -c1-500 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            echo "::error title=Build log::$ERR"
+          fi
+          exit $RC
       - name: App bundle and dmg
         run: |
           V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
@@ -161,8 +180,8 @@ jobs:
             FLAGS='-C target-feature=-crt-static'
           fi
           touch build.log; echo 99 > rc.txt
-          docker run --rm -v "$PWD":/src -w /src -e RUSTFLAGS="$FLAGS" ${{ matrix.image }} sh -c "$SETUP && cargo build --release --no-default-features --features server,vendored-ssl --bin radiomoon-server --message-format=short > build.log 2>&1; echo \$? > rc.txt; tail -40 build.log" || true
-          ERR=$(grep -E 'error|Error|failed' build.log | head -40 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' || true)
+          docker run --rm -v "$PWD":/src -w /src -e RUSTFLAGS="$FLAGS" -e CMAKE_POLICY_VERSION_MINIMUM=3.5 -e CFLAGS=-fPIC -e CXXFLAGS=-fPIC ${{ matrix.image }} sh -c "$SETUP && cargo build --release --no-default-features --features server,vendored-ssl --bin radiomoon-server --message-format=short > build.log 2>&1; echo \$? > rc.txt; tail -40 build.log" || true
+          ERR=$( (grep -A25 -E 'linking with|custom build command' build.log | cut -c1-600; grep -E 'error|Error|failed' build.log) | head -70 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' || true)
           [ -n "$ERR" ] && echo "::error title=Server build::$ERR" || true
           tail -30 build.log
           [ "$(cat rc.txt)" = 0 ] && [ -f target/release/radiomoon-server ] || exit 1
