@@ -1,0 +1,68 @@
+# Keeps the last 10 GOOD releases (published, with the packages attached) and their tags.
+# Older releases and their tags are deleted, and so are older tags that have no release (builds that failed).
+# Runs after every successful "release" workflow, or by hand (Actions > cleanup-releases > Run workflow;
+# tick "dry run" to only see what would be deleted).
+name: cleanup-releases
+on:
+  workflow_run:
+    workflows: ["release"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: "How many good releases to keep"
+        default: "10"
+      dry_run:
+        description: "Dry run: only list what would be deleted"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: cleanup-releases
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete the old releases and tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP: ${{ github.event.inputs.keep || '10' }}
+          DRY: ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          set -eu
+          R="${{ github.repository }}"
+          # tag, draft, number of packages, id - newest version first
+          gh api --paginate "repos/$R/releases?per_page=100" --jq '.[] | [.tag_name, (.draft|tostring), (.assets|length|tostring), (.id|tostring)] | @tsv' \
+            | sort -t "$(printf '\t')" -k1,1 -V -r > releases.tsv
+          good=0; cutoff=""
+          while IFS="$(printf '\t')" read -r tag draft assets id; do
+            if [ "$draft" = "false" ] && [ "$assets" -gt 0 ]; then
+              good=$((good+1))
+              if [ "$good" -eq "$KEEP" ]; then cutoff="$tag"; fi
+            fi
+          done < releases.tsv
+          echo "good releases: $good, keeping $KEEP, oldest kept: ${cutoff:-none}"
+          if [ -z "$cutoff" ]; then echo "Fewer than $KEEP good releases - nothing to delete."; exit 0; fi
+          del() { if [ "$DRY" = "true" ]; then echo "would delete: $*"; else "$@"; fi; }
+          seen=0
+          while IFS="$(printf '\t')" read -r tag draft assets id; do
+            if [ "$seen" -eq 1 ]; then
+              echo "delete release $tag"
+              del gh api -X DELETE "repos/$R/releases/$id" || true
+              del gh api -X DELETE "repos/$R/git/refs/tags/$tag" || true
+            fi
+            if [ "$tag" = "$cutoff" ]; then seen=1; fi
+          done < releases.tsv
+          # tags without a release that are older than the oldest kept release
+          cut -f1 releases.tsv > with_release.txt
+          gh api --paginate "repos/$R/tags?per_page=100" --jq '.[].name' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | while read -r tag; do
+            if grep -qx "$tag" with_release.txt; then continue; fi
+            first=$(printf '%s\n%s\n' "$tag" "$cutoff" | sort -V | head -1)
+            if [ "$first" = "$tag" ] && [ "$tag" != "$cutoff" ]; then
+              echo "delete tag $tag (no release)"
+              del gh api -X DELETE "repos/$R/git/refs/tags/$tag" || true
+            fi
+          done

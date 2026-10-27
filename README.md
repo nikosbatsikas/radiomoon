@@ -63,6 +63,8 @@ To publish a release (automatic): change `version` in `Cargo.toml`, add its `## 
 2. Commit, then create the tag `vX.Y.Z` (on GitHub: Releases > Draft a new release > new tag) matching the version.
 3. The Release workflow builds every platform, attaches the packages to that release and replaces its description with the matching `## x.y.z` section of `CHANGELOG.md`. It never creates a release itself; if it cannot find one it stops with a message (create the release, then re-run the workflow).
 
+The *cleanup-releases* workflow keeps the last 10 good releases (with their packages) and their tags and deletes the older ones; it runs after every successful release and can be started by hand (Actions > cleanup-releases > Run workflow; *dry run* only lists what would be deleted).
+
 Developers: the database layout is in the `sql/` folder: `sql/schema.sql` (latest full layout) and `sql/migrations/NNNN_name.sql` (upgrade steps). Both are embedded in the program; register new migrations in `src/schema.rs` (see `sql/migrations/README.md`).
 
 ## Portable folder layout (Windows x64)
