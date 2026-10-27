@@ -435,6 +435,7 @@ fn action(app: &mut App, body: &Value) -> Resp {
             let ids: Vec<u64> = body["ids"].as_array().map(|a| a.iter().filter_map(|x| x.as_u64()).collect()).unwrap_or_default();
             let target = body["target"].as_f64().unwrap_or(0.0) as f32;
             let items: Vec<(u64, String)> = ids.iter().filter_map(|id| app.data.track(*id).map(|t| (*id, app.map_path(&t.path)))).collect();
+            let count = items.len();
             let (db, st, done) = (app.db.clone(), app.scan_status.clone(), app.scan_done.clone());
             std::thread::spawn(move || {
                 let tracks = db.list_tracks(None).unwrap_or_default();
@@ -460,7 +461,7 @@ fn action(app: &mut App, body: &Value) -> Resp {
                 }
                 done.store(true, std::sync::atomic::Ordering::SeqCst);
             });
-            return Resp::json(json!({ "ok": true, "message": format!("Normalizing {} items on the server", items.len()) }));
+            return Resp::json(json!({ "ok": true, "message": format!("Normalizing {count} items on the server") }));
         }
         "stream_start" => {
             app.reload_all();

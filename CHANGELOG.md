@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.12
+- Fix of a compile error of the server in 0.14.11 (the changes of 0.14.11 are the same).
+
 ## 0.14.11
 - **Less traffic between the client and the server:** the heavy work on a song is done by the server and only the result travels.
   - *Normalize volume* (mass change) runs on the server in the background: the client sends one command and downloads nothing.
