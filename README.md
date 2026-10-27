@@ -85,10 +85,6 @@ Control Panel > Internet broadcast: add several servers, each **Icecast 2** (hos
 
 The number of listeners is read from the station servers every 20 seconds (Icecast `status-json.xsl`, Shoutcast v2 `stats`, Shoutcast v1 `7.html`) and shown in the header of the studio.
 
-### FM / MPX
-
-The FM multiplex programs (MPX Transmitter and MPX Receiver: stereo, RDS, L24 or lossless FLAC over IP) are a separate project since RadioMoon 0.6.0: [radiomoon-mpx](https://github.com/nikosbatsikas/radiomoon-mpx). To put RadioMoon on air, enable its internet broadcast and use that stream as the MPX Transmitter's source; the song titles RadioMoon sends to the server become the RDS RadioText.
-
 ## Live rebroadcast
 
 Control Panel > Scheduling > Live rebroadcast.
