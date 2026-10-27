@@ -7,12 +7,12 @@ Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a 
 
 ## 0.14.6
 - **Main auto schedule redesigned:** instead of a wall of coloured buttons there is a brush palette on the left (current brush, search box, clocks and playlists in separate lists) and the weekly grid next to it.
-- **Studio clock B:** round minutes outside and a thin green seconds ring inside. Right-click the clock to choose between A and B.
+- **Studio clock:** round neon minutes outside and a thin green seconds ring inside (the dotted-seconds clock was removed).
 - **Fix:** the edit windows (playlist, campaign, ...) opened only the first time; afterwards they stayed behind the control panel, so clicks did nothing. They are now always on top.
 - **Fix:** all campaigns showed the same times: the marked break times of the campaign edited before were reused. The times and days now come from the campaign being edited, and the campaign list shows the break times of each campaign.
 
 ## 0.14.5
-- **New studio clock:** the seconds are a dotted ring and the minutes are a smooth round neon arc with round ends and a glowing head; the time, the day and the date are in the centre.
+- **New studio clock** with round neon minutes; the time, the day and the date are in the centre.
 
 ## 0.14.3
 - **Client:** the window is asked to maximize until the system confirms it; the login card is taller so that the *Connect* button is inside it; the list of servers has a single arrow.

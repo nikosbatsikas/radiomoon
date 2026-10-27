@@ -621,10 +621,8 @@ impl eframe::App for App {
 
             // clock: dotted ring for the seconds, round neon arc for the minutes
             let cc = pos2(rx + 75.0, r.top() + 75.0);
-            let sec = now.second() as usize;
             let secf = now.second() as f32 + now.timestamp_subsec_millis() as f32 / 1000.0;
             let frac = (now.minute() as f32 + secf / 60.0) / 60.0;
-            let style_b = clock_style(&self.base) == 1;
             let arc = |rad: f32, f: f32| -> Vec<egui::Pos2> {
                 let n = ((f * 120.0) as usize).max(1);
                 (0..=n)
@@ -634,29 +632,8 @@ impl eframe::App for App {
                     })
                     .collect()
             };
-            if !style_b {
-                // A: dotted ring for the seconds, round neon arc for the minutes
-                for s in 0..60usize {
-                    let a = -PI / 2.0 + 2.0 * PI * s as f32 / 60.0;
-                    let q = pos2(cc.x + 67.0 * a.cos(), cc.y + 67.0 * a.sin());
-                    let on = s <= sec;
-                    if on && s == sec {
-                        p.circle_filled(q, 5.0, Color32::from_rgba_unmultiplied(56, 182, 255, 60));
-                    }
-                    p.circle_filled(q, if s % 5 == 0 { 2.6 } else { 1.6 }, if on { kit::ACCENT } else { Color32::from_rgb(50, 60, 80) });
-                }
-                let rm = 55.0_f32;
-                p.circle_stroke(cc, rm, egui::Stroke::new(6.0_f32, Color32::from_rgb(30, 39, 51)));
-                let pts = arc(rm, frac);
-                let (first, last) = (pts[0], pts[pts.len() - 1]);
-                p.add(egui::Shape::line(pts.clone(), egui::Stroke::new(12.0_f32, Color32::from_rgba_unmultiplied(56, 182, 255, 38))));
-                p.add(egui::Shape::line(pts, egui::Stroke::new(6.0_f32, kit::ACCENT)));
-                p.circle_filled(first, 3.0, kit::ACCENT);
-                p.circle_filled(last, 3.0, kit::ACCENT);
-                p.circle_filled(last, 9.0, Color32::from_rgba_unmultiplied(56, 182, 255, 45));
-                p.circle_filled(last, 3.2, WHITE);
-            } else {
-                // B: round minutes outside, thin green seconds ring inside
+            {
+                // round neon minutes outside, thin green seconds ring inside
                 let (rm, rs) = (66.0_f32, 53.0_f32);
                 p.circle_stroke(cc, rm, egui::Stroke::new(7.0_f32, Color32::from_rgb(30, 39, 51)));
                 let pts = arc(rm, frac);
@@ -675,19 +652,6 @@ impl eframe::App for App {
                     p.add(egui::Shape::line(ps, egui::Stroke::new(2.0_f32, Color32::from_rgb(52, 211, 134))));
                 }
             }
-            // right-click the clock to choose the style
-            let cresp = ui.interact(Rect::from_center_size(cc, vec2(150.0, 150.0)), egui::Id::new("clock_style_area"), Sense::click());
-            cresp.context_menu(|ui| {
-                let cur = clock_style(&self.base);
-                if ui.selectable_label(cur == 0, tr("Clock A: dotted seconds, round minutes")).clicked() {
-                    set_clock_style(&self.base, 0);
-                    ui.close_menu();
-                }
-                if ui.selectable_label(cur == 1, tr("Clock B: round minutes, thin seconds")).clicked() {
-                    set_clock_style(&self.base, 1);
-                    ui.close_menu();
-                }
-            });
             p.text(pos2(cc.x, cc.y - 21.0), Align2::CENTER_CENTER, now.format("%A").to_string(), FontId::proportional(11.0), kit::GRAY);
             p.text(pos2(cc.x, cc.y), Align2::CENTER_CENTER, now.format("%H:%M:%S").to_string(), FontId::proportional(21.0), WHITE);
             p.text(pos2(cc.x, cc.y + 19.0), Align2::CENTER_CENTER, now.format("%d %B %Y").to_string(), FontId::proportional(10.5), kit::GRAY);
@@ -1359,22 +1323,4 @@ impl App {
             eprintln!("slow step: backup/live {} ms", t.elapsed().as_millis());
         }
     }
-}
-
-static CLOCK_STYLE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(255);
-
-/// 0 = A (dotted seconds, round minutes), 1 = B (round minutes, thin seconds); kept in clock_style.txt
-fn clock_style(base: &std::path::Path) -> u8 {
-    let v = CLOCK_STYLE.load(Ordering::Relaxed);
-    if v != 255 {
-        return v;
-    }
-    let v = std::fs::read_to_string(base.join("clock_style.txt")).ok().and_then(|t| t.trim().parse::<u8>().ok()).unwrap_or(0).min(1);
-    CLOCK_STYLE.store(v, Ordering::Relaxed);
-    v
-}
-
-fn set_clock_style(base: &std::path::Path, v: u8) {
-    CLOCK_STYLE.store(v, Ordering::Relaxed);
-    let _ = std::fs::write(base.join("clock_style.txt"), v.to_string());
 }
