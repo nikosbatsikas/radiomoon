@@ -152,7 +152,7 @@ To publish a release (automatic): change `version` in `Cargo.toml`, add its `## 
 2. Commit, then create the tag `vX.Y.Z` (on GitHub: Releases > Draft a new release > new tag) matching the version.
 3. The *release* workflow builds every platform, attaches the packages to that release and replaces its description with the matching `## x.y.z` section of `CHANGELOG.md`. It never creates a release itself; if it cannot find one it stops with a message (create the release, then re-run the workflow).
 
-The *cleanup-releases* workflow keeps the last 10 good releases (published, with their packages) and their tags and deletes the older ones. It runs after every successful release and can be started by hand (Actions > cleanup-releases > Run workflow; *dry run* only lists what would be deleted).
+The *cleanup-releases* workflow keeps the last 10 good releases (published, with their packages) and their tags and deletes the older ones. It also deletes the old runs of the workflows (the last 20 runs of each workflow stay). It runs after every successful release and can be started by hand (Actions > cleanup-releases > Run workflow; *dry run* only lists what would be deleted).
 
 ## Build locally (Windows)
 

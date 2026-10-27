@@ -1,5 +1,6 @@
 # Keeps the last 10 GOOD releases (published, with the packages attached) and their tags.
 # Older releases and their tags are deleted, and so are older tags that have no release (builds that failed).
+# The history of the workflow runs is cleaned too: the last 20 runs of every workflow are kept.
 # Runs after every successful "release" workflow, or by hand (Actions > cleanup-releases > Run workflow;
 # tick "dry run" to only see what would be deleted).
 name: cleanup-releases
@@ -12,12 +13,16 @@ on:
       keep:
         description: "How many good releases to keep"
         default: "10"
+      keep_runs:
+        description: "How many runs of every workflow to keep"
+        default: "20"
       dry_run:
         description: "Dry run: only list what would be deleted"
         type: boolean
         default: false
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: cleanup-releases
   cancel-in-progress: false
@@ -30,7 +35,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           KEEP: ${{ github.event.inputs.keep || '10' }}
+          KEEP_RUNS: ${{ github.event.inputs.keep_runs || '20' }}
           DRY: ${{ github.event.inputs.dry_run || 'false' }}
+          THIS_RUN: ${{ github.run_id }}
         run: |
           set -eu
           R="${{ github.repository }}"
@@ -45,8 +52,8 @@ jobs:
             fi
           done < releases.tsv
           echo "good releases: $good, keeping $KEEP, oldest kept: ${cutoff:-none}"
-          if [ -z "$cutoff" ]; then echo "Fewer than $KEEP good releases - nothing to delete."; exit 0; fi
           del() { if [ "$DRY" = "true" ]; then echo "would delete: $*"; else "$@"; fi; }
+          if [ -z "$cutoff" ]; then echo "Fewer than $KEEP good releases - no release is deleted."; fi
           seen=0
           while IFS="$(printf '\t')" read -r tag draft assets id; do
             if [ "$seen" -eq 1 ]; then
@@ -58,7 +65,7 @@ jobs:
           done < releases.tsv
           # tags without a release that are older than the oldest kept release
           cut -f1 releases.tsv > with_release.txt
-          gh api --paginate "repos/$R/tags?per_page=100" --jq '.[].name' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | while read -r tag; do
+          [ -z "$cutoff" ] || gh api --paginate "repos/$R/tags?per_page=100" --jq '.[].name' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | while read -r tag; do
             if grep -qx "$tag" with_release.txt; then continue; fi
             first=$(printf '%s\n%s\n' "$tag" "$cutoff" | sort -V | head -1)
             if [ "$first" = "$tag" ] && [ "$tag" != "$cutoff" ]; then
@@ -66,3 +73,11 @@ jobs:
               del gh api -X DELETE "repos/$R/git/refs/tags/$tag" || true
             fi
           done
+          # old runs of the workflows (the newest KEEP_RUNS of every workflow stay; a run that is not finished is never deleted)
+          gh api --paginate "repos/$R/actions/runs?per_page=100" --jq '.workflow_runs[] | [.id, .name, .status] | @tsv' \
+            | awk -F '\t' -v k="$KEEP_RUNS" -v me="$THIS_RUN" '{ c[$2]++; if ($3 == "completed" && c[$2] > k && $1 != me) print $1 }' > old_runs.txt
+          echo "old workflow runs to delete: $(wc -l < old_runs.txt)"
+          while read -r rid; do
+            [ -n "$rid" ] || continue
+            del gh api -X DELETE "repos/$R/actions/runs/$rid" || true
+          done < old_runs.txt
