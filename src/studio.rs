@@ -492,8 +492,8 @@ impl eframe::App for App {
                 let known = ls.iter().any(|x| x.1 >= 0);
                 let txt = if known { format!("{total} {}", tr("listeners")) } else { format!("- {}", tr("listeners")) };
                 let lr = Rect::from_min_size(pos2(r.left() + 304.0, r.top()), vec2(150.0, 30.0));
-                p.circle_filled(pos2(lr.left() + 8.0, cy), 4.0, if known { Color32::from_rgb(60, 220, 100) } else { kit::GRAY });
-                p.text(pos2(lr.left() + 20.0, cy), Align2::LEFT_CENTER, txt, FontId::proportional(14.0), WHITE);
+                p.circle_filled(pos2(lr.left() + 8.0, cy - 3.0), 4.0, if known { Color32::from_rgb(60, 220, 100) } else { kit::GRAY });
+                p.text(pos2(lr.left() + 20.0, cy - 3.0), Align2::LEFT_CENTER, txt, FontId::proportional(14.0), WHITE);
             }
             let h = r.height();
             let mut x = r.right();
