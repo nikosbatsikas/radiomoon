@@ -111,6 +111,9 @@ pub struct ControlState {
     pub clap_poll: Option<std::time::Instant>,
     /// items to delete from the library, waiting for the answer of the question (and whether the files are deleted too)
     pub del_ask: Option<(Vec<u64>, bool)>,
+    /// Jazler import with a server: upload the audio files to the server when the import is finished and change the paths
+    pub jz_upload: bool,
+    pub jz_upload_pending: bool,
     // library
     pub lib_filter: String,
     pub lib_cat: String,
@@ -2059,6 +2062,13 @@ impl App {
         if self.cp.jz_done.swap(false, Ordering::SeqCst) {
             self.reload_tracks();
             self.reload_docs();
+            if self.cp.jz_upload_pending {
+                self.cp.jz_upload_pending = false;
+                if self.remote.is_some() {
+                    self.remote_upload_local();
+                    self.cp.msg = tr("Upload to the server started in the background");
+                }
+            }
         }
         let mut o = self.cp.jz_opts.clone().unwrap_or_default();
         ui.add_enabled_ui(!busy, |ui| {
@@ -2105,7 +2115,11 @@ impl App {
                 ui.label(tr("New path start"));
                 ui.add(egui::TextEdit::singleline(&mut o.replace_to).desired_width(160.0));
             });
+            if self.remote.is_some() {
+                ui.checkbox(&mut self.cp.jz_upload, tr("Upload the audio files to the server at the end of the import and change the paths in the database"));
+            }
             if ui.button(tr("Start import")).clicked() && !self.cp.jz_path.trim().is_empty() {
+                self.cp.jz_upload_pending = self.cp.jz_upload && self.remote.is_some();
                 self.cp.jz_busy.store(true, Ordering::SeqCst);
                 self.cp.jz_report.lock().unwrap().clear();
                 *self.cp.jz_status.lock().unwrap() = "Starting ...".into();

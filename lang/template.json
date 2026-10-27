@@ -607,5 +607,9 @@
   "Add .clap files (to the server, when you are connected to one)": "Add .clap files (to the server, when you are connected to one)",
   "Delete from the library": "Delete from the library",
   "items will be deleted from the library.": "items will be deleted from the library.",
-  "Also delete the audio files from the disk (with a server: from the disk of the server)": "Also delete the audio files from the disk (with a server: from the disk of the server)"
+  "Also delete the audio files from the disk (with a server: from the disk of the server)": "Also delete the audio files from the disk (with a server: from the disk of the server)",
+  "Low bandwidth": "Low bandwidth",
+  "Very low bandwidth": "Very low bandwidth",
+  "Normal connection": "Normal connection",
+  "Upload the audio files to the server at the end of the import and change the paths in the database": "Upload the audio files to the server at the end of the import and change the paths in the database"
 }

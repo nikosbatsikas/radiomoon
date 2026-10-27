@@ -673,7 +673,24 @@ impl eframe::App for App {
             let sv = self.px_streams();
             let live = if sv.is_empty() { String::new() } else { format!("   [LIVE: {}]", sv.iter().map(|(_, t)| t.clone()).collect::<Vec<_>>().join(" | ")) };
             let bw = self.remote.as_ref().map(|r| format!("   [server: \u{2193} {}  \u{2191} {}]", crate::remote::fmt_rate(r.rx_rate), crate::remote::fmt_rate(r.tx_rate))).unwrap_or_default();
-            ui.label(egui::RichText::new(format!("{}    {}{}{}{}", self.status, scan, who, live, bw)).color(kit::GRAY).size(12.0));
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(format!("{}    {}{}{}{}", self.status, scan, who, live, bw)).color(kit::GRAY).size(12.0));
+                if self.remote.is_some() {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let mut m = crate::remote::bw_mode();
+                        let old = m;
+                        egui::ComboBox::from_id_salt("bw_mode").width(170.0).selected_text(tr(crate::remote::bw_name(m))).show_ui(ui, |ui| {
+                            for k in 0..3u8 {
+                                ui.selectable_value(&mut m, k, tr(crate::remote::bw_name(k)));
+                            }
+                        });
+                        if m != old {
+                            crate::remote::LOW_BW.store(m, Ordering::Relaxed);
+                            crate::remote::save_bw(&self.base);
+                        }
+                    });
+                }
+            });
         });
 
         // ---- playlist (left) ----

@@ -21,6 +21,21 @@ pub fn tx(n: u64) {
     TX_BYTES.fetch_add(n, Ordering::Relaxed);
 }
 
+/// Connection quality: 0 normal, 1 low bandwidth, 2 very low bandwidth (slower refresh, no waveform download).
+pub static LOW_BW: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+pub fn bw_mode() -> u8 {
+    LOW_BW.load(Ordering::Relaxed).min(2)
+}
+
+pub fn bw_name(m: u8) -> &'static str {
+    match m {
+        1 => "Low bandwidth",
+        2 => "Very low bandwidth",
+        _ => "Normal connection",
+    }
+}
+
 pub enum Cmd {
     Act(Value),
     Quit,
@@ -148,9 +163,10 @@ pub fn connect(url: String, user: String, pass: String, ctx: eframe::egui::Conte
             Err(e) => sh2.lock().unwrap().err = e,
         }
         let mut last_rev: u64 = u64::MAX;
+        let mut carry: Option<Cmd> = None;
         loop {
             loop {
-                match rx.try_recv() {
+                match carry.take().map(Ok).unwrap_or_else(|| rx.try_recv()) {
                     Ok(Cmd::Quit) => return,
                     Ok(Cmd::Act(mut b)) => match { b["lite"] = json!(true); call(&base2, &auth2, Some(&b), "/api/action") } {
                         Ok(v) => {
@@ -209,7 +225,17 @@ pub fn connect(url: String, user: String, pass: String, ctx: eframe::egui::Conte
                 }
             }
             ctx.request_repaint();
-            std::thread::sleep(Duration::from_millis(400));
+            // the next reading of the state; a button of the studio wakes this thread at once
+            let poll = match bw_mode() {
+                1 => 1500,
+                2 => 4000,
+                _ => 400,
+            };
+            match rx.recv_timeout(Duration::from_millis(poll)) {
+                Ok(c) => carry = Some(c),
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => return,
+            }
         }
     });
     Link { tx, sh, base, auth }
@@ -363,7 +389,7 @@ impl App {
             rem.last_data = Instant::now();
         }
         rem.cp_was_open = self.cp_open;
-        if rem.last_data.elapsed() > Duration::from_secs(60) {
+        if rem.last_data.elapsed() > Duration::from_secs(match bw_mode() { 0 => 60, 1 => 300, _ => 900 }) {
             rem.last_data = Instant::now();
             self.reload_all();
         }
@@ -435,6 +461,9 @@ impl App {
 
     /// The waveform of the item on air is made from the song of the server (downloaded in the background).
     fn remote_wave(&mut self, rem: &mut Remote) {
+        if bw_mode() > 0 {
+            return; // the whole song would be downloaded
+        }
         let cur = self.current.and_then(|c| self.log.get(c)).filter(|t| t.id != 0 && t.kind != "stitch_hooks").map(|t| (t.id, t.path.clone()));
         let Some((id, path)) = cur else { return };
         if rem.wave_id == id {
@@ -677,4 +706,16 @@ fn relay(local: std::net::TcpStream, base: String, auth: String) {
     }
     let _ = ag.post(&format!("{base}/api/tunnel/close?id={id}")).set("Authorization", &auth).send_bytes(&[]);
     let _ = l.shutdown(std::net::Shutdown::Both);
+}
+
+/// The connection quality is kept in client.json (next to the folders of the servers).
+pub fn save_bw(base: &Path) {
+    if let Some(f) = base.parent().and_then(|p| p.parent()).map(|p| p.join("client.json")) {
+        if let Ok(t) = std::fs::read_to_string(&f) {
+            if let Ok(mut v) = serde_json::from_str::<Value>(&t) {
+                v["bw"] = json!(bw_mode());
+                let _ = std::fs::write(&f, v.to_string());
+            }
+        }
+    }
 }

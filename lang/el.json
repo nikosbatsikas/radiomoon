@@ -605,5 +605,9 @@
   "Add .clap files (to the server, when you are connected to one)": "Προσθήκη αρχείων .clap (στον server, όταν είστε συνδεδεμένοι σε έναν)",
   "Delete from the library": "Διαγραφή από τη βιβλιοθήκη",
   "items will be deleted from the library.": "αντικείμενα θα διαγραφούν από τη βιβλιοθήκη.",
-  "Also delete the audio files from the disk (with a server: from the disk of the server)": "Διαγραφή και των αρχείων ήχου από το δίσκο (με server: από το δίσκο του server)"
+  "Also delete the audio files from the disk (with a server: from the disk of the server)": "Διαγραφή και των αρχείων ήχου από το δίσκο (με server: από το δίσκο του server)",
+  "Low bandwidth": "Χαμηλό εύρος ζώνης",
+  "Very low bandwidth": "Πολύ χαμηλό εύρος ζώνης",
+  "Normal connection": "Κανονική σύνδεση",
+  "Upload the audio files to the server at the end of the import and change the paths in the database": "Ανέβασμα των αρχείων ήχου στον server στο τέλος της εισαγωγής και αλλαγή των διαδρομών στη βάση"
 }

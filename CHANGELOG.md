@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.0
+- **Import from Jazler / MegaMix with a server:** new option *Upload the audio files to the server at the end of the import and change the paths in the database*. When the import is finished the client uploads the audio files to the server and the library points to the copies on the server (the same as the button *Upload the songs to the server*, but started by the import). Importing a folder of songs with a server already uploads the files and adds them with their path on the server.
+- **Low bandwidth connections (client):** new *Connection* setting in the login window and in the status bar of the studio: *Normal*, *Low bandwidth* (the state of the server is read every 1.5 s, the library every 5 minutes, no waveform download) and *Very low bandwidth* (every 4 s, the library every 15 minutes). The buttons of the studio are sent at once in every mode. The studio window already shrinks to fit a small screen.
+
 ## 0.13.0
 - **Delete from the library asks about the files:** *Delete selected* now opens a question. A checkbox deletes the audio files from the disk too (with a server: from the disk of the server). A file that another item of the library still uses is kept. The server answers the number of files that were deleted.
 - **New login window of the client:** a centred login card with the moon logo on an animated dark-blue background, labelled fields, and the option **Remember the password on this computer** (the password is kept encrypted in the settings of the client; leave it off on a shared computer).

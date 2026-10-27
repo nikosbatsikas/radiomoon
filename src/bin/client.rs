@@ -72,6 +72,7 @@ struct Shell {
     user: String,
     pass: String,
     remember: bool,
+    bw: u8,
     msg: String,
     app: Option<app::App>,
     data: PathBuf,
@@ -89,6 +90,7 @@ impl Shell {
             user: g("user", "admin"),
             pass: saved["pass"].as_str().and_then(config::decrypt).unwrap_or_default(),
             remember: saved["remember"].as_bool().unwrap_or(false),
+            bw: saved["bw"].as_u64().unwrap_or(0).min(2) as u8,
             msg: String::new(),
             app: None,
             data,
@@ -100,8 +102,9 @@ impl Shell {
         self.msg.clear();
         let _ = std::fs::write(
             self.data.join("client.json"),
-            (if self.remember { json!({ "url": self.url, "user": self.user, "remember": true, "pass": config::encrypt(&self.pass) }) } else { json!({ "url": self.url, "user": self.user, "remember": false }) }).to_string(),
+            (if self.remember { json!({ "url": self.url, "user": self.user, "remember": true, "bw": self.bw, "pass": config::encrypt(&self.pass) }) } else { json!({ "url": self.url, "user": self.user, "remember": false, "bw": self.bw }) }).to_string(),
         );
+        remote::LOW_BW.store(self.bw, std::sync::atomic::Ordering::Relaxed);
         let link = remote::connect(self.url.clone(), self.user.clone(), self.pass.clone(), ctx.clone());
         let t0 = Instant::now();
         let (user, admin) = loop {
@@ -221,6 +224,13 @@ impl eframe::App for Shell {
             go |= field(&mut cui, "SERVER", &mut self.url, false, "http://server:8080");
             go |= field(&mut cui, "USER NAME", &mut self.user, false, "");
             go |= field(&mut cui, "PASSWORD", &mut self.pass, true, "");
+            cui.label(egui::RichText::new("CONNECTION").small().color(kit::TEXT_DIM));
+            egui::ComboBox::from_id_salt("login_bw").width(cui.available_width()).selected_text(remote::bw_name(self.bw)).show_ui(&mut cui, |ui| {
+                for k in 0..3u8 {
+                    ui.selectable_value(&mut self.bw, k, remote::bw_name(k));
+                }
+            });
+            cui.add_space(8.0);
             cui.checkbox(&mut self.remember, "Remember the password on this computer");
             cui.add_space(12.0);
             let w = cui.available_width();
