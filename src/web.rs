@@ -525,7 +525,17 @@ fn upload_target(app: &mut App, q: &str) -> Resp {
     if !app.can(perm) {
         return Resp::err(403, "You are not allowed to add items to this library");
     }
-    let dir = app.base.join("media").join(&kind);
+    // one folder for every library: media/songs, media/spots, media/jingles ...
+    let folder = match kind.as_str() {
+        "music" => "songs",
+        "spot" => "spots",
+        "jingle" => "jingles",
+        "asset" => "assets",
+        "sweeper" => "sweepers",
+        "voice" => "voice",
+        other => other,
+    };
+    let dir = app.base.join("media").join(folder);
     if std::fs::create_dir_all(&dir).is_err() {
         return Resp::err(500, "cannot create the media folder");
     }

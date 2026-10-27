@@ -75,7 +75,7 @@ struct Shell {
     bw: u8,
     /// servers used before: (address, user name, encrypted password or empty)
     history: Vec<(String, String, String)>,
-    first: bool,
+    first_tries: u32,
     msg: String,
     app: Option<app::App>,
     data: PathBuf,
@@ -98,7 +98,7 @@ impl Shell {
                 .as_array()
                 .map(|a| a.iter().map(|x| (x["url"].as_str().unwrap_or("").to_string(), x["user"].as_str().unwrap_or("").to_string(), x["pass"].as_str().unwrap_or("").to_string())).filter(|x| !x.0.is_empty()).collect())
                 .unwrap_or_default(),
-            first: true,
+            first_tries: 0,
             msg: String::new(),
             app: None,
             data,
@@ -189,9 +189,11 @@ impl eframe::App for Shell {
             eframe::App::update(a, ctx, frame);
             return;
         }
-        if self.first {
-            self.first = false;
+        // the window is maximized (asked again for the first seconds, until the system confirms it)
+        if self.first_tries < 40 && ctx.input(|i| i.viewport().maximized) != Some(true) {
+            self.first_tries += 1;
             ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+            ctx.request_repaint();
         }
         let mut go = false;
         egui::CentralPanel::default().frame(egui::Frame::none().fill(kit::BG)).show(ctx, |ui| {
@@ -219,7 +221,7 @@ impl eframe::App for Shell {
             ui.ctx().request_repaint_after(Duration::from_millis(60));
 
             // the login card in the centre
-            let card = egui::Rect::from_center_size(full.center(), egui::vec2(400.0_f32.min(full.width() - 24.0), 470.0_f32.min(full.height() - 16.0)));
+            let card = egui::Rect::from_center_size(full.center(), egui::vec2(400.0_f32.min(full.width() - 24.0), 560.0_f32.min(full.height() - 16.0)));
             ui.painter().rect_filled(card.translate(egui::vec2(0.0, 6.0)).expand(2.0), 18.0, egui::Color32::from_black_alpha(90));
             ui.painter().rect(card, 16.0, kit::CARD, egui::Stroke::new(1.0_f32, kit::BORDER));
             let inner = card.shrink2(egui::vec2(30.0, 24.0));
@@ -249,7 +251,7 @@ impl eframe::App for Shell {
                 // the servers that were used before
                 let mut pick: Option<usize> = None;
                 let mut clear = false;
-                egui::ComboBox::from_id_salt("server_history").width(30.0).selected_text("\u{25BC}").show_ui(ui, |ui| {
+                egui::ComboBox::from_id_salt("server_history").width(30.0).selected_text("").show_ui(ui, |ui| {
                     if self.history.is_empty() {
                         ui.label(egui::RichText::new("No server yet").color(kit::TEXT_DIM));
                     }
