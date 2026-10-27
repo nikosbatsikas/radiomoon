@@ -59,12 +59,24 @@ fn connect(host: &str, port: u16) -> Result<TcpStream, String> {
 
 fn handshake(c: &StreamCfg) -> Result<TcpStream, String> {
     let ver = env!("CARGO_PKG_VERSION");
-    if c.kind == "shoutcast" {
-        // Shoutcast v1: the source port is the listener port + 1
+    if c.kind == "shoutcast" || c.kind == "shoutcast2" {
+        // Shoutcast: the source port is the listener port + 1
+        let v2 = c.kind == "shoutcast2";
         let mut s = connect(&c.host, c.port + 1)?;
-        s.write_all(format!("{}\r\n", c.password).as_bytes()).map_err(|e| e.to_string())?;
-        let mut buf = [0u8; 256];
-        let n = s.read(&mut buf).map_err(|e| e.to_string())?;
+        // v2 (DNAS 2.x) names the stream: "password:#streamid"
+        let first = if v2 { format!("{}:#{}\r\n", c.password, c.sid.max(1)) } else { format!("{}\r\n", c.password) };
+        s.write_all(first.as_bytes()).map_err(|e| e.to_string())?;
+        let mut buf = [0u8; 512];
+        let mut n = s.read(&mut buf).map_err(|e| e.to_string())?;
+        if v2 {
+            // "OK2\r\nicy-caps:11\r\n\r\n" may arrive in pieces
+            while n < buf.len() && !buf[..n].windows(4).any(|w| w == b"\r\n\r\n") {
+                match s.read(&mut buf[n..]) {
+                    Ok(0) | Err(_) => break,
+                    Ok(k) => n += k,
+                }
+            }
+        }
         let reply = String::from_utf8_lossy(&buf[..n]).to_string();
         if !reply.starts_with("OK") {
             return Err(format!("server refused the password ({})", reply.trim()));
@@ -97,7 +109,9 @@ fn handshake(c: &StreamCfg) -> Result<TcpStream, String> {
 }
 
 fn update_title(c: &StreamCfg, title: &str) {
-    let (path, port) = if c.kind == "shoutcast" {
+    let (path, port) = if c.kind == "shoutcast2" {
+        (format!("/admin.cgi?sid={}&pass={}&mode=updinfo&song={}", c.sid.max(1), urlenc(&c.password), urlenc(title)), c.port)
+    } else if c.kind == "shoutcast" {
         (format!("/admin.cgi?pass={}&mode=updinfo&song={}", urlenc(&c.password), urlenc(title)), c.port)
     } else {
         let mount = if c.mount.starts_with('/') { c.mount.clone() } else { format!("/{}", c.mount) };

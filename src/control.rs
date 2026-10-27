@@ -2829,7 +2829,7 @@ impl App {
     }
 
     fn page_stream(&mut self, ui: &mut egui::Ui) {
-        kit::page_title(ui, "Internet broadcast", "Send the on-air mix (MP3) to one or more Icecast or Shoutcast servers at the same time");
+        kit::page_title(ui, "Internet broadcast", "Send the on-air mix (MP3) to one or more Icecast or Shoutcast (v1 / v2) servers at the same time");
         let mut ch = false;
         let mut remove: Option<usize> = None;
         let running: Vec<(usize, String)> = self.px_streams();
@@ -2849,13 +2849,18 @@ impl App {
                         ui.label(tr("Server type"));
                         ch |= ui.radio_value(&mut c.kind, "icecast".to_string(), tr("Icecast 2")).changed();
                         ch |= ui.radio_value(&mut c.kind, "shoutcast".to_string(), tr("Shoutcast v1")).changed();
+                        ch |= ui.radio_value(&mut c.kind, "shoutcast2".to_string(), tr("Shoutcast v2")).changed();
                     });
                     ch |= text_row(ui, "Host", &mut c.host);
                     ui.horizontal(|ui| {
                         ui.label(tr("Port"));
                         ch |= ui.add(egui::DragValue::new(&mut c.port).range(1..=65534)).changed();
-                        if c.kind == "shoutcast" {
+                        if c.kind != "icecast" {
                             ui.label(RichText::new(tr("(the source connects to the next port)")).color(kit::GRAY).small());
+                        }
+                        if c.kind == "shoutcast2" {
+                            ui.label(tr("Stream ID"));
+                            ch |= ui.add(egui::DragValue::new(&mut c.sid).range(1..=2147483647)).changed();
                         }
                     });
                     if c.kind == "icecast" {
@@ -2864,7 +2869,12 @@ impl App {
                     }
                     ui.horizontal(|ui| {
                         ui.label(tr("Password"));
-                        ch |= ui.add(egui::TextEdit::singleline(&mut c.password).password(true)).changed();
+                        let sid = egui::Id::new(("show_pw", i));
+                        let mut show = ui.memory(|m| m.data.get_temp::<bool>(sid).unwrap_or(false));
+                        ch |= ui.add(egui::TextEdit::singleline(&mut c.password).password(!show)).changed();
+                        if ui.checkbox(&mut show, tr("Show password")).changed() {
+                            ui.memory_mut(|m| m.data.insert_temp(sid, show));
+                        }
                     });
                     ui.horizontal(|ui| {
                         ui.label(tr("Bitrate (kbps)"));

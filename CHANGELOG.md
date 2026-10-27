@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.8
+- **Internet broadcast:** Shoutcast v2 (DNAS 2.x) servers with a stream ID (the source connects to the next port, the title is updated per stream); *Show password* option next to the password field.
+
 ## 0.14.7
 - **Studio playlist:** the row colours are the same as the library tabs (songs blue, spots green, jingles yellow, assets grey, sweepers purple, voice red).
 

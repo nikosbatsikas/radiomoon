@@ -620,5 +620,8 @@
   "CLOCKS": "ΡΟΛΟΓΙΑ",
   "PLAYLISTS (played at the start of the block)": "PLAYLISTS (παίζουν στην αρχή του μπλοκ)",
   "Clock A: dotted seconds, round minutes": "Ρολόι A: τελείες δευτερολέπτων, στρογγυλά λεπτά",
-  "Clock B: round minutes, thin seconds": "Ρολόι B: στρογγυλά λεπτά, λεπτά δευτερόλεπτα"
+  "Clock B: round minutes, thin seconds": "Ρολόι B: στρογγυλά λεπτά, λεπτά δευτερόλεπτα",
+  "Shoutcast v2": "Shoutcast v2",
+  "Stream ID": "Αναγνωριστικό stream (ID)",
+  "Show password": "Εμφάνιση κωδικού"
 }

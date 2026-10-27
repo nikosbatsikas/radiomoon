@@ -329,7 +329,8 @@ pub struct StitchCfg {
 pub struct StreamCfg {
     pub enabled: bool,
     pub autostart: bool,
-    pub kind: String, // icecast | shoutcast
+    pub kind: String, // icecast | shoutcast | shoutcast2
+    pub sid: u32,     // Shoutcast v2 stream id
     pub host: String,
     pub port: u16,
     pub mount: String,
@@ -348,6 +349,7 @@ impl Default for StreamCfg {
             enabled: false,
             autostart: false,
             kind: "icecast".into(),
+            sid: 1,
             host: "localhost".into(),
             port: 8000,
             mount: "/radiomoon".into(),

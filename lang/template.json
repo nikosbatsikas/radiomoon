@@ -622,5 +622,8 @@
   "CLOCKS": "CLOCKS",
   "PLAYLISTS (played at the start of the block)": "PLAYLISTS (played at the start of the block)",
   "Clock A: dotted seconds, round minutes": "Clock A: dotted seconds, round minutes",
-  "Clock B: round minutes, thin seconds": "Clock B: round minutes, thin seconds"
+  "Clock B: round minutes, thin seconds": "Clock B: round minutes, thin seconds",
+  "Shoutcast v2": "Shoutcast v2",
+  "Stream ID": "Αναγνωριστικό stream (ID)",
+  "Show password": "Εμφάνιση κωδικού"
 }
