@@ -3,6 +3,7 @@
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
 ## 0.14.1
+- **Fixed: upload at the Jazler import did not change the paths.** The server did not know the songs that the client had just added to the database, so it answered "no such item" and the path stayed as it was. The server now reads the library again when it does not know an item, and it no longer reads the whole library again for every uploaded file.
 - **Faster database and client:**
   - The installer (install and upgrade) tunes MariaDB: commits do not wait for the disk every time (`innodb_flush_log_at_trx_commit=2`), a buffer in memory (a quarter of the memory, 128 MB - 1 GB) and the number of connections. The settings are applied at once, without a restart.
   - The client no longer reads the whole library again every minute: the server tells when the library or the documents changed (`data_rev`), and the client reads them again only then (otherwise every 15 minutes).

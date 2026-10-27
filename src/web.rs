@@ -568,11 +568,19 @@ fn imported(app: &mut App, q: &str) -> Resp {
     };
     if let Ok(id) = qget(q, "track_id").parse::<u64>() {
         // an item of the library that was imported from another program: it now points to the copy on the server
-        return match app.data.track(id).cloned() {
+        // (the items were added by the client straight to the database: the server reads the library again when it does not know the item)
+        let mut found = app.data.track(id).cloned();
+        if found.is_none() {
+            app.reload_tracks();
+            found = app.data.track(id).cloned();
+        }
+        return match found {
             Some(mut t) => {
                 t.path = path.clone();
                 if app.db.update_track(&t).is_ok() {
-                    app.reload_tracks();
+                    if let Some(x) = app.data.tracks.iter_mut().find(|x| x.id == id) {
+                        x.path = path.clone();
+                    }
                     Resp::json(json!({ "ok": true }))
                 } else {
                     Resp::err(500, "the library could not be updated")
