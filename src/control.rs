@@ -178,6 +178,7 @@ pub struct ControlState {
     pub rep_from: String,
     pub rep_to: String,
     pub reset_kinds: Vec<String>,
+    pub reset_all_ok: bool,
     pub map_from: String,
     pub map_to: String,
     pub msg: String,
@@ -2154,14 +2155,6 @@ impl App {
             if !st.is_empty() {
                 ui.label(st);
             }
-            if self.remote.is_some() {
-                ui.add_space(6.0);
-                ui.label(tr("The songs of the imported library are on this computer. Upload them to the server (the library then points to the copies on the server):"));
-                if ui.button(tr("Upload the songs to the server")).clicked() {
-                    self.remote_upload_local();
-                    self.cp.msg = tr("Upload to the server started in the background");
-                }
-            }
         }
         for l in self.cp.jz_report.lock().unwrap().iter() {
             ui.label(l);
@@ -2273,6 +2266,28 @@ impl App {
             self.log = self.db.load_log().unwrap_or_default();
             self.cp.msg = tr("Libraries reset");
             self.cp.reset_kinds.clear();
+        }
+        ui.add_space(14.0);
+        ui.separator();
+        ui.label(RichText::new(tr("Delete everything except the settings")).strong());
+        ui.label(tr("Deletes all libraries, clocks, playlists, campaigns, categories, breaks, the playlist and the play history. Only the settings and the user accounts stay. The audio files are never touched."));
+        ui.checkbox(&mut self.cp.reset_all_ok, tr("I understand that this cannot be undone"));
+        if ui.add_enabled(self.cp.reset_all_ok, egui::Button::new(RichText::new(tr("Delete everything except the settings")).color(Color32::WHITE)).fill(Color32::from_rgb(190, 50, 50))).clicked() {
+            self.cp.reset_all_ok = false;
+            self.stop();
+            match self.db.reset_all_but_settings() {
+                Ok(()) => {
+                    if let Some(r) = &self.remote {
+                        let _ = r.link.tx.send(crate::remote::Cmd::Act(serde_json::json!({ "do": "clear" })));
+                        let _ = r.link.tx.send(crate::remote::Cmd::Act(serde_json::json!({ "do": "reload" })));
+                    }
+                    self.log.clear();
+                    self.reload_docs();
+                    self.reload_tracks();
+                    self.cp.msg = tr("Everything except the settings was deleted");
+                }
+                Err(e) => self.cp.msg = format!("{e}"),
+            }
         }
     }
 

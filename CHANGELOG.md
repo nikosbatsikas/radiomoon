@@ -3,6 +3,8 @@
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
 ## 0.14.1
+- **Reset database > Delete everything except the settings:** new button (with a confirmation checkbox) that deletes all libraries, clocks, playlists, campaigns, categories, breaks, the playlist and the play history. The settings and the user accounts stay.
+- **Client:** the window opens maximized, and the server address has a drop-down list of the servers used before (user name, and the password when it was remembered). The button *Upload the songs to the server* was removed from the Jazler import page: the upload is done by the option of the import.
 - **Fixed: upload at the Jazler import did not change the paths.** The server did not know the songs that the client had just added to the database, so it answered "no such item" and the path stayed as it was. The server now reads the library again when it does not know an item, and it no longer reads the whole library again for every uploaded file.
 - **Faster database and client:**
   - The installer (install and upgrade) tunes MariaDB: commits do not wait for the disk every time (`innodb_flush_log_at_trx_commit=2`), a buffer in memory (a quarter of the memory, 128 MB - 1 GB) and the number of connections. The settings are applied at once, without a restart.

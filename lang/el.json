@@ -609,5 +609,9 @@
   "Low bandwidth": "Χαμηλό εύρος ζώνης",
   "Very low bandwidth": "Πολύ χαμηλό εύρος ζώνης",
   "Normal connection": "Κανονική σύνδεση",
-  "Upload the audio files to the server at the end of the import and change the paths in the database": "Ανέβασμα των αρχείων ήχου στον server στο τέλος της εισαγωγής και αλλαγή των διαδρομών στη βάση"
+  "Upload the audio files to the server at the end of the import and change the paths in the database": "Ανέβασμα των αρχείων ήχου στον server στο τέλος της εισαγωγής και αλλαγή των διαδρομών στη βάση",
+  "Delete everything except the settings": "Διαγραφή όλων εκτός από τις ρυθμίσεις",
+  "Deletes all libraries, clocks, playlists, campaigns, categories, breaks, the playlist and the play history. Only the settings and the user accounts stay. The audio files are never touched.": "Διαγράφει όλες τις βιβλιοθήκες, ρολόγια, playlists, καμπάνιες, κατηγορίες, διαλείμματα, τη λίστα και το ιστορικό. Μένουν μόνο οι ρυθμίσεις και οι χρήστες. Τα αρχεία ήχου δεν πειράζονται.",
+  "I understand that this cannot be undone": "Καταλαβαίνω ότι δεν αναιρείται",
+  "Everything except the settings was deleted": "Διαγράφηκαν όλα εκτός από τις ρυθμίσεις"
 }

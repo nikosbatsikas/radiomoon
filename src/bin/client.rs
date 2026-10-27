@@ -73,6 +73,9 @@ struct Shell {
     pass: String,
     remember: bool,
     bw: u8,
+    /// servers used before: (address, user name, encrypted password or empty)
+    history: Vec<(String, String, String)>,
+    first: bool,
     msg: String,
     app: Option<app::App>,
     data: PathBuf,
@@ -91,6 +94,11 @@ impl Shell {
             pass: saved["pass"].as_str().and_then(config::decrypt).unwrap_or_default(),
             remember: saved["remember"].as_bool().unwrap_or(false),
             bw: saved["bw"].as_u64().unwrap_or(0).min(2) as u8,
+            history: saved["servers"]
+                .as_array()
+                .map(|a| a.iter().map(|x| (x["url"].as_str().unwrap_or("").to_string(), x["user"].as_str().unwrap_or("").to_string(), x["pass"].as_str().unwrap_or("").to_string())).filter(|x| !x.0.is_empty()).collect())
+                .unwrap_or_default(),
+            first: true,
             msg: String::new(),
             app: None,
             data,
@@ -100,9 +108,15 @@ impl Shell {
 
     fn connect(&mut self, ctx: &egui::Context) {
         self.msg.clear();
+        // the list of the servers that were used (the last one first); the password only when it is remembered
+        let enc = if self.remember { config::encrypt(&self.pass) } else { String::new() };
+        self.history.retain(|h| !(h.0 == self.url && h.1 == self.user));
+        self.history.insert(0, (self.url.clone(), self.user.clone(), enc.clone()));
+        self.history.truncate(12);
+        let servers: Vec<Value> = self.history.iter().map(|h| json!({ "url": h.0, "user": h.1, "pass": h.2 })).collect();
         let _ = std::fs::write(
             self.data.join("client.json"),
-            (if self.remember { json!({ "url": self.url, "user": self.user, "remember": true, "bw": self.bw, "pass": config::encrypt(&self.pass) }) } else { json!({ "url": self.url, "user": self.user, "remember": false, "bw": self.bw }) }).to_string(),
+            (if self.remember { json!({ "url": self.url, "user": self.user, "remember": true, "bw": self.bw, "pass": enc, "servers": servers }) } else { json!({ "url": self.url, "user": self.user, "remember": false, "bw": self.bw, "servers": servers }) }).to_string(),
         );
         remote::LOW_BW.store(self.bw, std::sync::atomic::Ordering::Relaxed);
         let link = remote::connect(self.url.clone(), self.user.clone(), self.pass.clone(), ctx.clone());
@@ -175,6 +189,10 @@ impl eframe::App for Shell {
             eframe::App::update(a, ctx, frame);
             return;
         }
+        if self.first {
+            self.first = false;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+        }
         let mut go = false;
         egui::CentralPanel::default().frame(egui::Frame::none().fill(kit::BG)).show(ctx, |ui| {
             let full = ui.max_rect();
@@ -221,7 +239,49 @@ impl eframe::App for Shell {
                 ui.add_space(8.0);
                 r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))
             };
-            go |= field(&mut cui, "SERVER", &mut self.url, false, "http://server:8080");
+            cui.label(egui::RichText::new("SERVER").small().color(kit::TEXT_DIM));
+            cui.horizontal(|ui| {
+                let w = ui.available_width() - 44.0;
+                let r = ui.add(egui::TextEdit::singleline(&mut self.url).hint_text("http://server:8080").desired_width(w).margin(egui::vec2(10.0, 8.0)));
+                if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    go = true;
+                }
+                // the servers that were used before
+                let mut pick: Option<usize> = None;
+                let mut clear = false;
+                egui::ComboBox::from_id_salt("server_history").width(30.0).selected_text("\u{25BC}").show_ui(ui, |ui| {
+                    if self.history.is_empty() {
+                        ui.label(egui::RichText::new("No server yet").color(kit::TEXT_DIM));
+                    }
+                    for (i, h) in self.history.iter().enumerate() {
+                        if ui.selectable_label(false, format!("{}  ({})", h.0, h.1)).clicked() {
+                            pick = Some(i);
+                        }
+                    }
+                    if !self.history.is_empty() {
+                        ui.separator();
+                        if ui.selectable_label(false, egui::RichText::new("Clear the list").color(kit::TEXT_DIM)).clicked() {
+                            clear = true;
+                        }
+                    }
+                });
+                if let Some(i) = pick {
+                    let h = self.history[i].clone();
+                    self.url = h.0;
+                    self.user = h.1;
+                    match config::decrypt(&h.2) {
+                        Some(p) if !h.2.is_empty() => {
+                            self.pass = p;
+                            self.remember = true;
+                        }
+                        _ => self.pass.clear(),
+                    }
+                }
+                if clear {
+                    self.history.clear();
+                }
+            });
+            cui.add_space(8.0);
             go |= field(&mut cui, "USER NAME", &mut self.user, false, "");
             go |= field(&mut cui, "PASSWORD", &mut self.pass, true, "");
             cui.label(egui::RichText::new("CONNECTION").small().color(kit::TEXT_DIM));

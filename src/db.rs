@@ -159,6 +159,17 @@ impl Db {
         Ok(())
     }
 
+    /// Everything except the settings (and the user accounts, so that nobody is locked out): the libraries, the clocks, playlists,
+    /// campaigns, the playlist on air and the history.
+    pub fn reset_all_but_settings(&self) -> Result<()> {
+        let mut c = self.pool.get_conn()?;
+        c.query_drop("DELETE FROM log_entries")?;
+        c.query_drop("DELETE FROM play_history")?;
+        c.query_drop("DELETE FROM tracks")?;
+        c.query_drop("DELETE FROM docs WHERE kind<>'user'")?;
+        Ok(())
+    }
+
     // ---------- generic documents (clocks, campaigns, playlists ...) ----------
     pub fn docs<T: DeserializeOwned + HasId>(&self, kind: &str) -> Result<Vec<T>> {
         let mut c = self.pool.get_conn()?;

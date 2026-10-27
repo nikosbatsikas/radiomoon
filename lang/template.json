@@ -611,5 +611,9 @@
   "Low bandwidth": "Low bandwidth",
   "Very low bandwidth": "Very low bandwidth",
   "Normal connection": "Normal connection",
-  "Upload the audio files to the server at the end of the import and change the paths in the database": "Upload the audio files to the server at the end of the import and change the paths in the database"
+  "Upload the audio files to the server at the end of the import and change the paths in the database": "Upload the audio files to the server at the end of the import and change the paths in the database",
+  "Delete everything except the settings": "Delete everything except the settings",
+  "Deletes all libraries, clocks, playlists, campaigns, categories, breaks, the playlist and the play history. Only the settings and the user accounts stay. The audio files are never touched.": "Deletes all libraries, clocks, playlists, campaigns, categories, breaks, the playlist and the play history. Only the settings and the user accounts stay. The audio files are never touched.",
+  "I understand that this cannot be undone": "I understand that this cannot be undone",
+  "Everything except the settings was deleted": "Everything except the settings was deleted"
 }
