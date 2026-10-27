@@ -167,3 +167,7 @@ No Rust on your PC? Push the folder to a GitHub repository and let the *release*
 4. Result: `dist\RadioMoon-Portable` (folder) and `dist\RadioMoon-Portable.zip`.
 
 Developers: the database layout is in the `sql/` folder: `sql/schema.sql` (latest full layout) and `sql/migrations/NNNN_name.sql` (upgrade steps). Both are embedded in the program; register new migrations in `src/schema.rs` (see `sql/migrations/README.md`).
+
+## License
+
+Copyright (c) 2026 Nikos Batsikas. All rights reserved. See the `LICENSE` file. Third-party libraries keep their own licenses.
