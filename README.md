@@ -77,6 +77,8 @@ English and Greek are built in. To add a language, copy `lang\template.json` to 
 
 ## Internet broadcast
 
+The studio header shows the number of listeners that are connected (read from the station servers every 20 seconds; hover for each server).
+
 Control Panel > Internet broadcast: add several servers, each Icecast 2 (host, port, mount, user, password), Shoutcast v1 (host, port, password) or Shoutcast v2 (host, port, password, stream ID). The Shoutcast source connects to port+1. MP3, 48-320 kbps. The *Show password* box next to the password shows it while you type. The title of the playing song is sent to every server. Everything played on the main output is in the stream; the preview (monitor) output is not.
 
 ## FM / MPX
@@ -116,7 +118,7 @@ Control Panel > Backup & restore: a daily automatic backup (default 03:00, keeps
 | Libraries | Songs (3 categories + vocal + properties, intro, mix points, hooks, volume, song separation, playlister code, mass change, normalize, statistics), Spots (campaigns, breaks, priorities, playlister import), Jingles, Assets, Sweepers, Voice tracks, Memos, Instant jingle pallets, Stitcher |
 | Scheduling | Main auto schedule (clocks, weekday x half-hour grid, randomness, artist separation, next-day separation, restrictive rules, classic auto), Playlists, Force clocks, Live rebroadcast, Final log creator, Log viewer |
 | Settings | General, Sound outputs, Effects (CLAP), Shortcuts, Users & security, Audio folder mappings, Internet broadcast, Backup & restore, Database server |
-| Utilities | Internet updater files, Import from Jazler / MegaMix, Integrity check, Broadcasting reports, Reset database |
+| Utilities | Import from Jazler / MegaMix, Integrity check, Broadcasting reports, Reset database |
 
 - **Main auto schedule:** pick a brush in the palette on the left (a clock or a playlist, with a search box; *none* erases) and click or drag over the cells of the grid. Click a day name to fill the day, an hour label to fill that hour on every day.
 - **Station IDs:** make a campaign with the spot of the station ID and give it priority *1 Station ID* on the break times; it plays first in the break. Or put a *jingle* row in a clock.

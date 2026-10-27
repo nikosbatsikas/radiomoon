@@ -256,6 +256,7 @@ pub struct Remote {
     pub online: bool,
     pub err: String,
     pub streams: Vec<(usize, String)>,
+    pub listeners: Vec<(usize, i64)>,
     last_data: Instant,
     cp_was_open: bool,
     fails: Mutex<std::collections::HashMap<u64, Instant>>,
@@ -269,7 +270,7 @@ pub struct Remote {
 
 impl Remote {
     pub fn new(link: Link) -> Self {
-        Remote { link, seq: 0, cur: None, data_rev: None, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), streams: Vec::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()), wave_id: 0, bw_at: Instant::now(), bw_rx: 0, bw_tx: 0, rx_rate: 0.0, tx_rate: 0.0 }
+        Remote { link, seq: 0, cur: None, data_rev: None, el0: 0, pos0: 0, at: Instant::now(), playing: false, paused: false, volume: 1.0, live: false, online: false, err: String::new(), streams: Vec::new(), listeners: Vec::new(), last_data: Instant::now(), cp_was_open: false, fails: Mutex::new(Default::default()), wave_id: 0, bw_at: Instant::now(), bw_rx: 0, bw_tx: 0, rx_rate: 0.0, tx_rate: 0.0 }
     }
     fn running(&self) -> bool {
         self.playing && !self.paused
@@ -319,6 +320,13 @@ impl App {
         match &self.remote {
             Some(r) => r.streams.clone(),
             None => self.streamers.iter().map(|(i, _, s)| (*i, s.status_text())).collect(),
+        }
+    }
+    /// Listeners of every internet broadcast that runs (-1 = not known).
+    pub fn px_listeners(&self) -> Vec<(usize, i64)> {
+        match &self.remote {
+            Some(r) => r.listeners.clone(),
+            None => self.streamers.iter().map(|(i, _, s)| (*i, s.listeners())).collect(),
         }
     }
     /// A command for the server (broadcast start / stop).
@@ -378,6 +386,7 @@ impl App {
                 self.history = h.iter().map(|x| (x["time"].as_str().unwrap_or("").to_string(), x["label"].as_str().unwrap_or("").to_string())).collect();
             }
             rem.streams = s["streams"].as_array().map(|a| a.iter().map(|x| (x["i"].as_u64().unwrap_or(0) as usize, x["status"].as_str().unwrap_or("").to_string())).collect()).unwrap_or_default();
+            rem.listeners = s["streams"].as_array().map(|a| a.iter().map(|x| (x["i"].as_u64().unwrap_or(0) as usize, x["listeners"].as_i64().unwrap_or(-1))).collect()).unwrap_or_default();
         }
         // the playlist of the server
         let newlog = rem.link.sh.lock().ok().and_then(|mut g| g.log.take());

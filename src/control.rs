@@ -42,7 +42,6 @@ pub enum Page {
     Server,
     Stream,
     Backup,
-    Updater,
     Jazler,
     Integrity,
     Reports,
@@ -92,7 +91,6 @@ const NAV: [(&str, &[(Page, &str, &str)]); 4] = [
     (
         "Utilities",
         &[
-            (Page::Updater, "Internet updater", "utilities"),
             (Page::Jazler, "Import from Jazler / MegaMix", "utilities"),
             (Page::Integrity, "Integrity check", "utilities"),
             (Page::Reports, "Broadcasting reports", "utilities"),
@@ -420,7 +418,6 @@ impl App {
                                     Page::Server => self.page_server(ui),
                                     Page::Stream => self.page_stream(ui),
                                     Page::Backup => self.page_backup(ui),
-                                    Page::Updater => self.page_updater(ui),
                                     Page::Jazler => self.page_jazler(ui),
                                     Page::Integrity => self.page_integrity(ui),
                                     Page::Reports => self.page_reports(ui),
@@ -2079,36 +2076,6 @@ impl App {
     }
 
     // ---------------------------------------------------------------- utilities
-    fn page_updater(&mut self, ui: &mut egui::Ui) {
-        ui.heading(tr("Internet updater"));
-        ui.label(tr("Each time a track starts, the files below are written (NowOnAir.txt/.xml, AirPlayNext.xml, AirPlayHistory.xml, CurrentAlbumImage.jpg)."));
-        let mut ch = false;
-        let s = &mut self.data.s;
-        path_row(ui, "Export folder", &mut s.export_dir, true);
-        ch |= ui.checkbox(&mut s.export_next, tr("AirPlayNext.xml")).changed();
-        ch |= ui.checkbox(&mut s.export_history, tr("AirPlayHistory.xml")).changed();
-        ch |= ui.checkbox(&mut s.export_art, tr("CurrentAlbumImage.jpg (cover art)")).changed();
-        ui.label(tr("What to announce for each library type (empty = normal metadata, NO-UPDATE = skip, or a custom message):"));
-        for (k, name) in KINDS.iter().filter(|k| k.0 != "memo") {
-            let pos = s.msg_kinds.iter().position(|m| m.0 == *k);
-            let mut v = pos.map(|p| s.msg_kinds[p].1.clone()).unwrap_or_default();
-            ui.horizontal(|ui| {
-                ui.label(format!("{name:<14}"));
-                if ui.text_edit_singleline(&mut v).changed() {
-                    match pos {
-                        Some(p) => s.msg_kinds[p].1 = v.clone(),
-                        None => s.msg_kinds.push((k.to_string(), v.clone())),
-                    }
-                    ch = true;
-                }
-            });
-        }
-        if ch {
-            self.save_settings();
-        }
-        ui.label(tr("Uploading by HTTP/TCP/TuneIn and stream encoders are not part of this version: point your web tools at the export folder."));
-    }
-
     fn page_jazler(&mut self, ui: &mut egui::Ui) {
         use std::sync::atomic::Ordering;
         ui.heading(tr("Import from Jazler / MegaMix"));

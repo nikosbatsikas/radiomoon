@@ -629,5 +629,6 @@
   "Files older than a day are removed automatically and the cache is kept under 1 GB.": "Τα αρχεία παλαιότερα από μία μέρα διαγράφονται αυτόματα και η cache κρατιέται κάτω από 1 GB.",
   "Clear the cache now": "Καθαρισμός cache τώρα",
   "Cache cleared:": "Η cache καθαρίστηκε:",
-  "Mass change applied. The server is normalizing the volume in the background": "Η μαζική αλλαγή εφαρμόστηκε. Ο server κάνει την κανονικοποίηση έντασης στο παρασκήνιο"
+  "Mass change applied. The server is normalizing the volume in the background": "Η μαζική αλλαγή εφαρμόστηκε. Ο server κάνει την κανονικοποίηση έντασης στο παρασκήνιο",
+  "listeners": "ακροατές"
 }

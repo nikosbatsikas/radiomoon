@@ -485,6 +485,25 @@ impl eframe::App for App {
             if ui.put(vr, egui::Slider::new(&mut vol, 0.0..=1.0).show_value(false)).changed() {
                 actions.push(Action::Volume(vol));
             }
+            // listeners that are connected to the internet broadcasts
+            let ls = self.px_listeners();
+            if !ls.is_empty() {
+                let total: i64 = ls.iter().filter(|x| x.1 >= 0).map(|x| x.1).sum();
+                let known = ls.iter().any(|x| x.1 >= 0);
+                let txt = if known { format!("{total} {}", tr("listeners")) } else { format!("- {}", tr("listeners")) };
+                let lr = Rect::from_min_size(pos2(r.left() + 304.0, r.top()), vec2(150.0, 30.0));
+                p.circle_filled(pos2(lr.left() + 8.0, cy), 4.0, if known { Color32::from_rgb(60, 220, 100) } else { kit::GRAY });
+                p.text(pos2(lr.left() + 20.0, cy), Align2::LEFT_CENTER, txt, FontId::proportional(14.0), WHITE);
+                let tip: Vec<String> = ls
+                    .iter()
+                    .map(|(i, n)| {
+                        let c = self.data.s.streams.get(*i);
+                        let name = c.map(|c| if c.name.is_empty() { format!("{}:{}", c.host, c.port) } else { c.name.clone() }).unwrap_or_default();
+                        format!("{name}: {}", if *n >= 0 { n.to_string() } else { "-".to_string() })
+                    })
+                    .collect();
+                ui.interact(lr, egui::Id::new("hdr_listeners"), Sense::hover()).on_hover_text(tip.join("\n"));
+            }
             let h = r.height();
             let mut x = r.right();
             let mut slot = |w: f32| -> Rect {

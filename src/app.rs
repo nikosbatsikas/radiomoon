@@ -274,7 +274,10 @@ impl App {
             };
         }
         let paths: Vec<String> = ids.iter().filter_map(|id| self.data.track(*id).map(|t| t.path.clone())).collect();
-        self.stop();
+        // only an item that is on air stops the program; deleting other songs never interrupts the automation
+        if self.current.and_then(|c| self.log.get(c)).map(|t| ids.contains(&t.id)).unwrap_or(false) {
+            self.stop();
+        }
         if self.db.delete_tracks(ids).is_err() {
             return "The items could not be deleted".into();
         }
@@ -296,7 +299,25 @@ impl App {
             }
         }
         self.reload_tracks();
-        self.log = self.db.load_log().unwrap_or_default();
+        // the deleted items leave the playlist; the item on air and the position in the list are kept
+        let cur = self.current;
+        let mut before = 0usize;
+        let mut kept: Vec<Track> = Vec::with_capacity(self.log.len());
+        for (i, t) in self.log.iter().enumerate() {
+            if t.id != 0 && ids.contains(&t.id) {
+                if cur.map(|c| i < c).unwrap_or(false) {
+                    before += 1;
+                }
+                continue;
+            }
+            kept.push(t.clone());
+        }
+        self.log = kept;
+        self.current = cur.map(|c| c.saturating_sub(before)).filter(|c| *c < self.log.len());
+        if let Some(sel) = self.sel {
+            self.sel = if sel < self.log.len() { Some(sel) } else { None };
+        }
+        self.save_log();
         if files {
             format!("{} items deleted, {gone} files deleted{}", ids.len(), if failed > 0 { format!(", {failed} files could not be deleted") } else { String::new() })
         } else {

@@ -5,7 +5,7 @@ use base64::Engine;
 use mp3lame_encoder::{Bitrate, Builder, FlushNoGap, InterleavedPcm, Quality};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -14,6 +14,7 @@ pub struct Streamer {
     stop: Arc<AtomicBool>,
     pub status: Arc<Mutex<String>>,
     meta_tx: Sender<String>,
+    listeners: Arc<AtomicI64>, // -1 = not known
 }
 
 fn bitrate(k: u32) -> Bitrate {
@@ -200,8 +201,26 @@ impl Streamer {
         let status = Arc::new(Mutex::new(String::from("Starting...")));
         let (meta_tx, meta_rx) = std::sync::mpsc::channel();
         let (s2, st2) = (stop.clone(), status.clone());
+        let listeners = Arc::new(AtomicI64::new(-1));
+        {
+            // the number of listeners is asked from the server of the station every 20 seconds
+            let (c, stop, l) = (cfg.clone(), stop.clone(), listeners.clone());
+            std::thread::spawn(move || {
+                let mut first = true;
+                while !stop.load(Ordering::Relaxed) {
+                    for _ in 0..(if first { 25 } else { 200 }) {
+                        if stop.load(Ordering::Relaxed) {
+                            return;
+                        }
+                        std::thread::sleep(Duration::from_millis(100));
+                    }
+                    first = false;
+                    l.store(fetch_listeners(&c).unwrap_or(-1), Ordering::Relaxed);
+                }
+            });
+        }
         std::thread::spawn(move || run(cfg, rx, s2, st2, meta_rx));
-        Streamer { stop, status, meta_tx }
+        Streamer { stop, status, meta_tx, listeners }
     }
 
     pub fn set_title(&self, title: &str) {
@@ -212,7 +231,86 @@ impl Streamer {
         self.status.lock().map(|s| s.clone()).unwrap_or_default()
     }
 
+    /// Listeners that are connected to the server of the station now (-1 = the server did not tell).
+    pub fn listeners(&self) -> i64 {
+        self.listeners.load(Ordering::Relaxed)
+    }
+
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
     }
+}
+
+/// GET of a page of the station server; returns the body.
+fn http_body(host: &str, port: u16, path: &str) -> Option<String> {
+    let mut s = connect(host, port).ok()?;
+    let req = format!("GET {path} HTTP/1.0\r\nHost: {host}:{port}\r\nUser-Agent: Mozilla/5.0 (RadioMoon)\r\nConnection: close\r\n\r\n");
+    s.write_all(req.as_bytes()).ok()?;
+    let mut buf = Vec::new();
+    let _ = s.take(256 * 1024).read_to_end(&mut buf);
+    let t = String::from_utf8_lossy(&buf).to_string();
+    if !t.starts_with("HTTP/1.") || t.lines().next().map(|l| !l.contains(" 200")).unwrap_or(true) {
+        return None;
+    }
+    Some(t.split_once("\r\n\r\n").map(|x| x.1.to_string()).unwrap_or_default())
+}
+
+/// All the whole numbers that follow `key` (for example `"listeners":`).
+fn nums_after(body: &str, key: &str) -> Vec<i64> {
+    let mut v = Vec::new();
+    let mut rest = body;
+    while let Some(i) = rest.find(key) {
+        rest = &rest[i + key.len()..];
+        let d: String = rest.trim_start().chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(n) = d.parse::<i64>() {
+            v.push(n);
+        }
+    }
+    v
+}
+
+/// The number of listeners that are connected now: Icecast (status-json.xsl), Shoutcast v2 (stats) or Shoutcast v1 (7.html).
+fn fetch_listeners(c: &StreamCfg) -> Option<i64> {
+    match c.kind.as_str() {
+        "shoutcast2" => {
+            let sid = c.sid.max(1);
+            if let Some(b) = http_body(&c.host, c.port, &format!("/stats?sid={sid}&json=1")) {
+                if let Some(n) = nums_after(&b, "\"currentlisteners\":").first() {
+                    return Some(*n);
+                }
+            }
+            let b = http_body(&c.host, c.port, &format!("/7.html?sid={sid}"))?;
+            seven_html(&b)
+        }
+        "shoutcast" => seven_html(&http_body(&c.host, c.port, "/7.html")?),
+        _ => {
+            let b = http_body(&c.host, c.port, "/status-json.xsl")?;
+            let mount = if c.mount.starts_with('/') { c.mount.clone() } else { format!("/{}", c.mount) };
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&b) {
+                let src = &v["icestats"]["source"];
+                let list: Vec<&serde_json::Value> = match src {
+                    serde_json::Value::Array(a) => a.iter().collect(),
+                    serde_json::Value::Null => Vec::new(),
+                    o => vec![o],
+                };
+                let mine: Vec<&serde_json::Value> = list.iter().copied().filter(|x| x["listenurl"].as_str().map(|u| u.ends_with(&mount)).unwrap_or(false)).collect();
+                let pick = if mine.is_empty() { list } else { mine };
+                return Some(pick.iter().map(|x| x["listeners"].as_i64().unwrap_or(0)).sum());
+            }
+            // the page of some Icecast versions is not valid JSON: the numbers are read from the text
+            let n = nums_after(&b, "\"listeners\":");
+            if n.is_empty() {
+                None
+            } else {
+                Some(n.iter().sum())
+            }
+        }
+    }
+}
+
+/// `<body>listeners,status,peak,max,unique,bitrate,title</body>`
+fn seven_html(b: &str) -> Option<i64> {
+    let i = b.find("<body>")? + 6;
+    let j = b[i..].find("</body>").map(|x| x + i).unwrap_or(b.len());
+    b[i..j].split(',').next()?.trim().parse().ok()
 }

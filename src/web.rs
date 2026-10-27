@@ -279,7 +279,7 @@ fn state(app: &App, full: bool) -> Value {
         "log": log,
         "history": hist,
         "audio": app.player.is_some(),
-        "streams": app.streamers.iter().map(|(i, _, st)| json!({ "i": i, "status": st.status_text() })).collect::<Vec<_>>(),
+        "streams": app.streamers.iter().map(|(i, _, st)| json!({ "i": i, "status": st.status_text(), "listeners": st.listeners() })).collect::<Vec<_>>(),
     })
 }
 
