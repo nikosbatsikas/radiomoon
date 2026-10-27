@@ -2,6 +2,9 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.15
+- **Internet broadcast formats:** besides MP3 an Icecast 2 server can be fed with **Ogg Opus** (32-256 kbps) or **Ogg FLAC** (lossless). Shoutcast v1 / v2 take MP3 only. The format is chosen for every server (*Format*). The title of the song is sent inside an Opus stream, and with MP3 as before; an Ogg FLAC stream has no titles.
+
 ## 0.14.14
 - The listeners in the header are a little higher, level with the volume slider.
 - **Internet broadcast page:** every server that is on air shows its own number of listeners (*Listeners now*).

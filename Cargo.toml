@@ -1,6 +1,6 @@
 [package]
 name = "radiomoon"
-version = "0.14.14"
+version = "0.14.15"
 edition = "2021"
 description = "RadioMoon - radio automation software"
 license = "LicenseRef-RadioMoon"
@@ -49,6 +49,9 @@ rfd = { version = "0.15", optional = true }
 anyhow = "1"
 sha2 = "0.10"
 mp3lame-encoder = "0.2"
+opus = "0.3"
+ogg = "0.9"
+flac-bound = { version = "0.5", default-features = false, features = ["libflac"] }
 flate2 = "1"
 base64 = "0.22"
 aes-gcm = "0.10"
