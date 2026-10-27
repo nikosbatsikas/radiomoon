@@ -2301,6 +2301,19 @@ impl App {
     }
 
     fn page_reset(&mut self, ui: &mut egui::Ui) {
+        if self.remote.is_some() {
+            // the songs that this client downloaded to listen to them and to draw the waveform
+            let cache = self.base.join("cache");
+            let (n, bytes) = crate::remote::cache_size(&cache);
+            ui.heading(tr("Cache of this computer"));
+            ui.label(format!("{n} {}  ({:.1} MB)", tr("files"), bytes as f64 / 1_000_000.0));
+            ui.label(RichText::new(tr("Files older than a day are removed automatically and the cache is kept under 1 GB.")).color(kit::GRAY).small());
+            if ui.button(tr("Clear the cache now")).clicked() {
+                let freed = crate::remote::cache_clear(&cache);
+                self.cp.msg = format!("{} {:.1} MB", tr("Cache cleared:"), freed as f64 / 1_000_000.0);
+            }
+            ui.separator();
+        }
         ui.heading(tr("Reset database"));
         ui.label(tr("Deletes the selected libraries (the audio files themselves are never touched)."));
         for (k, n) in KINDS.iter().filter(|k| k.0 != "memo") {
@@ -3107,8 +3120,15 @@ impl App {
                         t.sep_min = v;
                     }
                     if m.normalize {
-                        if let Some(peak) = crate::waveform::peak_db(&self.local_audio(&t.path)) {
+                        // on a client the song is downloaded to analyse it: the copy is deleted again (the disk filled up)
+                        let cache = self.base.join("cache");
+                        let had = std::fs::read_dir(&cache).map(|d| d.flatten().any(|e| e.path().file_stem().map(|x| x.to_string_lossy() == t.id.to_string()).unwrap_or(false))).unwrap_or(false);
+                        let local = self.local_audio(&t.path);
+                        if let Some(peak) = crate::waveform::peak_db(&local) {
                             t.gain_db = target - peak;
+                        }
+                        if self.remote.is_some() && !had && std::path::Path::new(&local).starts_with(&cache) {
+                            let _ = std::fs::remove_file(&local);
                         }
                     }
                     let _ = self.db.update_track(&t);

@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.10
+- **Client cache:** the songs that the client downloads (to listen, for the waveform) are cleaned automatically: files older than a day are removed and the cache stays under 1 GB. *Reset* page: shows the size of the cache and a *Clear the cache now* button.
+- **Normalize volume** (mass change) on a client no longer keeps a copy of every analysed song on the disk.
+
 ## 0.14.9
 - **Fix:** closing the client stopped the internet broadcast on the server (the client sent a *stop broadcast* command while it was closing). A client never stops the broadcast when it closes now.
 

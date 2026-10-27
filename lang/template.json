@@ -625,5 +625,10 @@
   "Clock B: round minutes, thin seconds": "Clock B: round minutes, thin seconds",
   "Shoutcast v2": "Shoutcast v2",
   "Stream ID": "Αναγνωριστικό stream (ID)",
-  "Show password": "Εμφάνιση κωδικού"
+  "Show password": "Εμφάνιση κωδικού",
+  "Cache of this computer": "Cache of this computer",
+  "files": "files",
+  "Files older than a day are removed automatically and the cache is kept under 1 GB.": "Files older than a day are removed automatically and the cache is kept under 1 GB.",
+  "Clear the cache now": "Clear the cache now",
+  "Cache cleared:": "Cache cleared:"
 }

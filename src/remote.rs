@@ -335,6 +335,7 @@ impl App {
     /// Every second or so in remote mode: takes over what the server tells (mode, current item, playlist, volume...).
     pub fn remote_tick(&mut self) {
         let Some(mut rem) = self.remote.take() else { return };
+        auto_clean(self.base.join("cache"));
         let (st, seq, online, err) = {
             let g = rem.link.sh.lock().unwrap();
             (if g.seq != rem.seq { g.state.clone() } else { None }, g.seq, g.online, g.err.clone())
@@ -726,5 +727,90 @@ pub fn save_bw(base: &Path) {
                 let _ = std::fs::write(&f, v.to_string());
             }
         }
+    }
+}
+
+/// (number of files, bytes) of the cache folder of this client.
+pub fn cache_size(dir: &Path) -> (usize, u64) {
+    let mut n = (0usize, 0u64);
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for e in rd.flatten() {
+            if let Ok(m) = e.metadata() {
+                if m.is_file() {
+                    n.0 += 1;
+                    n.1 += m.len();
+                }
+            }
+        }
+    }
+    n
+}
+
+/// Deletes everything in the cache folder; returns the freed bytes.
+pub fn cache_clear(dir: &Path) -> u64 {
+    let mut freed = 0;
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for e in rd.flatten() {
+            let len = e.metadata().map(|m| m.len()).unwrap_or(0);
+            if e.path().is_file() && std::fs::remove_file(e.path()).is_ok() {
+                freed += len;
+            }
+        }
+    }
+    freed
+}
+
+/// Keeps the cache small: removes the files that were not touched for `max_age` and then the oldest ones until the folder is
+/// under `max_bytes`. Files of the last 10 minutes are never removed (they may be in use).
+pub fn cache_clean(dir: &Path, max_bytes: u64, max_age: Duration) {
+    let now = std::time::SystemTime::now();
+    let mut files: Vec<(PathBuf, u64, Duration)> = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for e in rd.flatten() {
+            if let Ok(m) = e.metadata() {
+                if m.is_file() {
+                    let age = m.modified().ok().and_then(|t| now.duration_since(t).ok()).unwrap_or(Duration::ZERO);
+                    files.push((e.path(), m.len(), age));
+                }
+            }
+        }
+    }
+    let recent = Duration::from_secs(600);
+    let mut total: u64 = files.iter().map(|f| f.1).sum();
+    files.retain(|f| {
+        if f.2 > max_age && f.2 > recent && std::fs::remove_file(&f.0).is_ok() {
+            total = total.saturating_sub(f.1);
+            false
+        } else {
+            true
+        }
+    });
+    files.sort_by(|a, b| b.2.cmp(&a.2)); // the oldest first
+    for f in files {
+        if total <= max_bytes {
+            break;
+        }
+        if f.2 > recent && std::fs::remove_file(&f.0).is_ok() {
+            total = total.saturating_sub(f.1);
+        }
+    }
+}
+
+static LAST_CLEAN: std::sync::Mutex<Option<Instant>> = std::sync::Mutex::new(None);
+
+/// At start and then every 30 minutes: files older than a day are removed and the cache is kept under 1 GB.
+pub fn auto_clean(dir: PathBuf) {
+    let due = match LAST_CLEAN.lock() {
+        Ok(mut g) => {
+            let d = g.map(|t| t.elapsed() > Duration::from_secs(1800)).unwrap_or(true);
+            if d {
+                *g = Some(Instant::now());
+            }
+            d
+        }
+        Err(_) => false,
+    };
+    if due {
+        std::thread::spawn(move || cache_clean(&dir, 1_000_000_000, Duration::from_secs(24 * 3600)));
     }
 }
