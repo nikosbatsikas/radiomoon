@@ -615,5 +615,12 @@
   "Delete everything except the settings": "Delete everything except the settings",
   "Deletes all libraries, clocks, playlists, campaigns, categories, breaks, the playlist and the play history. Only the settings and the user accounts stay. The audio files are never touched.": "Deletes all libraries, clocks, playlists, campaigns, categories, breaks, the playlist and the play history. Only the settings and the user accounts stay. The audio files are never touched.",
   "I understand that this cannot be undone": "I understand that this cannot be undone",
-  "Everything except the settings was deleted": "Everything except the settings was deleted"
+  "Everything except the settings was deleted": "Everything except the settings was deleted",
+  "BRUSH": "BRUSH",
+  "(none) - erase": "(none) - erase",
+  "search clock or playlist...": "search clock or playlist...",
+  "CLOCKS": "CLOCKS",
+  "PLAYLISTS (played at the start of the block)": "PLAYLISTS (played at the start of the block)",
+  "Clock A: dotted seconds, round minutes": "Clock A: dotted seconds, round minutes",
+  "Clock B: round minutes, thin seconds": "Clock B: round minutes, thin seconds"
 }

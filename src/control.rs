@@ -136,6 +136,7 @@ pub struct ControlState {
     // clocks
     pub clock: Option<Clock>,
     pub grid_brush: u64,
+    pub grid_q: String,
     pub new_row: ClockRow,
     pub rule: Rule,
     // playlists
@@ -263,7 +264,7 @@ fn dialog<'a>(ctx: &egui::Context, title: impl Into<String>) -> egui::Window<'a>
     let key = title.split(|c| c == ':' || c == '(').next().unwrap_or("").trim().to_string();
     let sc = ctx.screen_rect();
     let size = vec2((sc.width() - 120.0).clamp(560.0, 860.0), (sc.height() - 100.0).clamp(420.0, 700.0));
-    egui::Window::new(title).id(egui::Id::new(("rm_dialog", key))).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, [0.0, 0.0]).fixed_size(size)
+    egui::Window::new(title).id(egui::Id::new(("rm_dialog", key))).order(egui::Order::Foreground).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, [0.0, 0.0]).fixed_size(size)
 }
 
 /// Text field with a Browse button (folder or file).
@@ -859,7 +860,11 @@ impl App {
         for c in &self.data.campaigns {
             ui.horizontal(|ui| {
                 let end = if c.never { "never".to_string() } else { c.end.clone() };
-                ui.label(format!("{}{} [{}] {} -> {} ({} spots, {} slots)", if c.enabled { "" } else { "(off) " }, c.name, c.mode, c.start, end, c.spots.len(), c.slots.len()));
+                let mut tms: Vec<String> = c.slots.iter().map(|s| s.time.clone()).collect();
+                tms.sort();
+                tms.dedup();
+                let tshow = if tms.is_empty() { "-".to_string() } else { tms.join(" ") };
+                ui.label(format!("{}{} [{}] {} -> {} ({} spots, {} slots) @ {}", if c.enabled { "" } else { "(off) " }, c.name, c.mode, c.start, end, c.spots.len(), c.slots.len(), tshow));
                 if ui.small_button(tr("edit")).clicked() {
                     edit = Some(c.clone());
                 }
@@ -872,10 +877,21 @@ impl App {
                 }
             });
         }
-        if edit.is_some() {
-            self.cp.camp = edit;
-            self.cp.camp_prio = 4;
-            self.cp.camp_days = [true; 7];
+        if let Some(c) = edit {
+            // the marked break times / days belong to the campaign being edited, not to the one edited before
+            let mut tms: Vec<String> = c.slots.iter().map(|s| s.time.clone()).collect();
+            tms.sort();
+            tms.dedup();
+            self.cp.camp_times = tms;
+            self.cp.camp_prio = c.slots.first().map(|s| s.priority).unwrap_or(4);
+            let mut days = [false; 7];
+            for s in &c.slots {
+                if s.weekday >= 0 && (s.weekday as usize) < 7 {
+                    days[s.weekday as usize] = true;
+                }
+            }
+            self.cp.camp_days = if days.iter().any(|d| *d) { days } else { [true; 7] };
+            self.cp.camp = Some(c);
         }
         if let Some(id) = del {
             self.del_doc(id);
@@ -1123,22 +1139,58 @@ impl App {
         let mut names: Vec<(u64, String, [u8; 3])> = self.data.clocks.iter().map(|c| (c.id, c.name.clone(), c.color)).collect();
         // playlists can be called at a time from the same schedule (purple)
         names.extend(self.data.playlists.iter().map(|p| (p.id, format!("\u{25B6} {}", p.name), [120, 80, 170])));
-        // ---- brush: the clocks as coloured chips
-        ui.horizontal_wrapped(|ui| {
-            let mut chip = |ui: &mut egui::Ui, id: u64, label: &str, col: Color32| {
-                let on = self.cp.grid_brush == id;
-                let fg = if (col.r() as u32 * 299 + col.g() as u32 * 587 + col.b() as u32 * 114) / 1000 > 150 { Color32::BLACK } else { Color32::WHITE };
-                let b = egui::Button::new(RichText::new(label).color(fg)).fill(col).stroke(if on { Stroke::new(2.0_f32, Color32::WHITE) } else { Stroke::new(1.0_f32, kit::BORDER) });
-                if ui.add(b).clicked() {
-                    self.cp.grid_brush = id;
-                }
-            };
-            chip(ui, 0, &tr("(none)"), kit::CONTROL);
-            for (id, n, c) in &names {
-                chip(ui, *id, n, Color32::from_rgb(c[0], c[1], c[2]));
-            }
+        ui.horizontal_top(|ui| {
+        // ---- left: the brush palette (clocks and playlists), with a search box
+        ui.allocate_ui_with_layout(egui::vec2(230.0, 640.0), egui::Layout::top_down(egui::Align::LEFT), |ui| {
+            egui::Frame::none().fill(kit::INSET).rounding(8.0).inner_margin(8.0).show(ui, |ui| {
+                ui.set_width(214.0);
+                ui.label(RichText::new(tr("BRUSH")).small().color(kit::TEXT_DIM));
+                let cur = names.iter().find(|n| n.0 == self.cp.grid_brush).cloned();
+                let (cr, _) = ui.allocate_exact_size(egui::vec2(214.0, 34.0), Sense::hover());
+                let ccol = cur.as_ref().map(|c| Color32::from_rgb(c.2[0], c.2[1], c.2[2])).unwrap_or(kit::CONTROL);
+                ui.painter().rect_filled(cr, 6.0, ccol);
+                let cfg = if (ccol.r() as u32 * 299 + ccol.g() as u32 * 587 + ccol.b() as u32 * 114) / 1000 > 150 { Color32::BLACK } else { Color32::WHITE };
+                let ctxt = cur.as_ref().map(|c| c.1.clone()).unwrap_or_else(|| tr("(none) - erase"));
+                ui.painter().text(cr.center(), Align2::CENTER_CENTER, ctxt, FontId::proportional(14.0), cfg);
+                ui.add_space(6.0);
+                ui.add(egui::TextEdit::singleline(&mut self.cp.grid_q).desired_width(214.0).hint_text(tr("search clock or playlist...")));
+                ui.add_space(4.0);
+                let q = self.cp.grid_q.to_lowercase();
+                egui::ScrollArea::vertical().id_salt("brushlist").max_height(540.0).auto_shrink([false, false]).show(ui, |ui| {
+                    let mut row = |ui: &mut egui::Ui, id: u64, label: &str, col: Color32, brush: &mut u64| {
+                        let (r, resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 26.0), Sense::click());
+                        let on = *brush == id;
+                        if on {
+                            ui.painter().rect_filled(r, 5.0, kit::ACCENT.gamma_multiply(0.28));
+                        } else if resp.hovered() {
+                            ui.painter().rect_filled(r, 5.0, kit::CONTROL_HOVER);
+                        }
+                        ui.painter().rect_filled(Rect::from_min_size(pos2(r.left() + 6.0, r.top() + 5.0), egui::vec2(16.0, 16.0)), 4.0, col);
+                        let g = ui.painter().layout_no_wrap(label.to_string(), FontId::proportional(13.0), kit::TEXT);
+                        let clip = ui.painter().with_clip_rect(Rect::from_min_max(pos2(r.left() + 28.0, r.top()), pos2(r.right() - 4.0, r.bottom())));
+                        clip.galley(pos2(r.left() + 30.0, r.center().y - g.size().y / 2.0), g, kit::TEXT);
+                        if resp.clicked() {
+                            *brush = id;
+                        }
+                    };
+                    row(ui, 0, &tr("(none) - erase"), kit::CONTROL, &mut self.cp.grid_brush);
+                    ui.add_space(4.0);
+                    ui.label(RichText::new(tr("CLOCKS")).small().color(kit::TEXT_DIM));
+                    for c in self.data.clocks.iter().filter(|c| q.is_empty() || c.name.to_lowercase().contains(&q)) {
+                        row(ui, c.id, &c.name, Color32::from_rgb(c.color[0], c.color[1], c.color[2]), &mut self.cp.grid_brush);
+                    }
+                    ui.add_space(4.0);
+                    ui.label(RichText::new(tr("PLAYLISTS (played at the start of the block)")).small().color(kit::TEXT_DIM));
+                    for pl in self.data.playlists.iter().filter(|p| q.is_empty() || p.name.to_lowercase().contains(&q)) {
+                        row(ui, pl.id, &format!("\u{25B6} {}", pl.name), Color32::from_rgb(120, 80, 170), &mut self.cp.grid_brush);
+                    }
+                });
+            });
         });
-        ui.add_space(4.0);
+        ui.add_space(8.0);
+        // ---- right: the weekly grid
+        let gw = ui.available_width().max(420.0);
+        ui.allocate_ui_with_layout(egui::vec2(gw, 20.0), egui::Layout::top_down(egui::Align::LEFT), |ui| {
         // 48 slots a day: index = weekday * 48 + hour * 2 + (minute >= 30)
         let mut grid = self.data.s.clock_grid.clone();
         if grid.len() == 168 {
@@ -1239,6 +1291,8 @@ impl App {
             self.data.s.clock_grid = grid; // convert an old hourly schedule once
             self.save_settings();
         }
+        });
+        });
         ui.separator();
         ui.heading(tr("Song selection settings"));
         let mut ch = false;
@@ -3167,7 +3221,7 @@ impl App {
                         for t in self.cp.camp_times.clone() {
                             if c.mode == "weekly" {
                                 for d in 0..7 {
-                                    if self.cp.camp_days[d] {
+                                    if self.cp.camp_days[d] && !c.slots.iter().any(|x| x.weekday == d as i8 && x.time == t && x.priority == self.cp.camp_prio) {
                                         c.slots.push(Slot { weekday: d as i8, time: t.clone(), priority: self.cp.camp_prio, ..Default::default() });
                                     }
                                 }

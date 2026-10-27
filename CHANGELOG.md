@@ -2,6 +2,12 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.6
+- **Main auto schedule redesigned:** instead of a wall of coloured buttons there is a brush palette on the left (current brush, search box, clocks and playlists in separate lists) and the weekly grid next to it.
+- **Studio clock B:** round minutes outside and a thin green seconds ring inside. Right-click the clock to choose between A and B.
+- **Fix:** the edit windows (playlist, campaign, ...) opened only the first time; afterwards they stayed behind the control panel, so clicks did nothing. They are now always on top.
+- **Fix:** all campaigns showed the same times: the marked break times of the campaign edited before were reused. The times and days now come from the campaign being edited, and the campaign list shows the break times of each campaign.
+
 ## 0.14.5
 - **New studio clock:** the seconds are a dotted ring and the minutes are a smooth round neon arc with round ends and a glowing head; the time, the day and the date are in the centre.
 
