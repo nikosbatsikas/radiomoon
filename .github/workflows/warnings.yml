@@ -1,0 +1,56 @@
+# Compiles the program (window edition and server edition) and shows every compiler warning as an annotation of the run,
+# so the code can be kept free of warnings (unused code, unused imports, ...). Runs on every change of the source.
+name: warnings
+on:
+  push:
+    paths: ["src/**", "Cargo.toml", ".github/workflows/warnings.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+
+env:
+  CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        edition:
+          - { name: window, args: "--bins" }
+          - { name: server, args: "--no-default-features --features server --bin radiomoon-server" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: System libraries
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config libxkbcommon-dev libwayland-dev libgtk-3-dev cmake
+      - name: cargo check (${{ matrix.edition.name }})
+        run: |
+          cargo check ${{ matrix.edition.args }} --message-format=json > check.json 2> check.err || { echo "cargo check failed:"; tail -40 check.err; }
+          python3 - <<'PY'
+          import json
+          seen = set()
+          n = 0
+          for line in open("check.json"):
+              try:
+                  m = json.loads(line)
+              except ValueError:
+                  continue
+              if m.get("reason") != "compiler-message":
+                  continue
+              d = m["message"]
+              if d["level"] not in ("warning", "error"):
+                  continue
+              sp = next((s for s in d["spans"] if s["is_primary"]), None)
+              if not sp or not sp["file_name"].startswith("src/"):
+                  continue
+              key = (sp["file_name"], sp["line_start"], d["message"])
+              if key in seen:
+                  continue
+              seen.add(key)
+              n += 1
+              lvl = "error" if d["level"] == "error" else "warning"
+              print(f"::{lvl} file={sp['file_name']},line={sp['line_start']}::{d['message']}")
+          print(f"{n} warnings or errors in the program's own source")
+          PY
