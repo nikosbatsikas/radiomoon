@@ -2,6 +2,12 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.22
+
+- The web studio shows the number of listeners (the sum of all internet broadcast servers, in the header, and per server in the broadcast line).
+- The About windows and the README have the contact e-mail.
+- The wiki has real screenshots (made by the wiki-screenshots workflow).
+
 ## 0.14.21
 
 - The web studio has the same blue look as the client sign-in, and a **Sign out** button.
