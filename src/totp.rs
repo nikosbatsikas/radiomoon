@@ -115,6 +115,7 @@ pub fn verify(secret_b32: &str, code: &str, now: u64) -> bool {
     (step.saturating_sub(1)..=step + 1).any(|s| code_at(&secret, s) == want)
 }
 
+#[allow(dead_code)] // the server checks the sign-in
 /// Splits a typed password at the end into (password, code): the code is the last 6 digits.
 pub fn split_code(typed: &str) -> Option<(&str, &str)> {
     if typed.len() > 6 && typed.is_char_boundary(typed.len() - 6) {

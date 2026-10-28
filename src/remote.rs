@@ -1,6 +1,8 @@
 //! Remote mode: the studio window of the desktop program controls a RadioMoon server. The server plays; this window shows the
 //! same studio, sends the buttons to the server and keeps a copy of its state. Closing the window never stops the broadcast.
 //! The library and the settings are read from the same database; songs are uploaded to the server and played back from it.
+// the connection to a server is used by radiomoon-client (the window program of a server only has the cache and the helpers)
+#![allow(dead_code)]
 use crate::app::{App, Mode};
 use crate::studio::Action;
 use base64::Engine;
