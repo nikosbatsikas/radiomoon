@@ -31,3 +31,7 @@ It runs in two ways:
 - [[Troubleshooting]]
 
 The newest version is on the **Releases** page of the repository; what changed is in `CHANGELOG.md`.
+
+## Contact
+
+Nikos Batsikas: nikos@velikanet.net

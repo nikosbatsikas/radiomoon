@@ -633,6 +633,7 @@
   "Update the server now": "Update the server now",
   "What is new": "What is new",
   "The server restarts for a moment (the broadcast stops). Then close this client and open it again: it installs the same version as the server.": "The server restarts for a moment (the broadcast stops). Then close this client and open it again: it installs the same version as the server.",
+  "Contact": "Contact",
   "On / bypass": "On / bypass",
   "Parameters": "Parameters",
   "This plugin has no parameters that can be set here.": "This plugin has no parameters that can be set here.",

@@ -631,6 +631,7 @@
   "Update the server now": "Ενημέρωση του server τώρα",
   "What is new": "Τι νέο υπάρχει",
   "The server restarts for a moment (the broadcast stops). Then close this client and open it again: it installs the same version as the server.": "Ο server επανεκκινείται για λίγο (η εκπομπή σταματά). Μετά κλείστε αυτό το client και ανοίξτε το ξανά: εγκαθιστά την ίδια έκδοση με τον server.",
+  "Contact": "Επικοινωνία",
   "On / bypass": "Ενεργό / παράκαμψη",
   "Parameters": "Παράμετροι",
   "This plugin has no parameters that can be set here.": "Αυτό το plugin δεν έχει παραμέτρους που να ρυθμίζονται εδώ.",

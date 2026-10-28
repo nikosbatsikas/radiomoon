@@ -1203,6 +1203,9 @@ impl App {
                     ui.label(egui::RichText::new("Nikos Batsikas").size(15.0).strong().color(kit::TEXT));
                     ui.label(egui::RichText::new(tr("Author - idea, design, testing")).color(dim));
                     ui.end_row();
+                    ui.label(egui::RichText::new(tr("Contact")).color(dim));
+                    ui.hyperlink_to("nikos@velikanet.net", "mailto:nikos@velikanet.net");
+                    ui.end_row();
                     ui.label(egui::RichText::new("Claude").size(15.0).strong().color(kit::TEXT));
                     ui.label(egui::RichText::new(tr("AI pair programmer by Anthropic")).color(dim));
                     ui.end_row();
