@@ -490,8 +490,8 @@ impl eframe::App for App {
             if !ls.is_empty() {
                 let total: i64 = ls.iter().filter(|x| x.1 >= 0).map(|x| x.1).sum();
                 let known = ls.iter().any(|x| x.1 >= 0);
-                let txt = if known { format!("{total} {}", tr("listeners")) } else { format!("- {}", tr("listeners")) };
-                let lr = Rect::from_min_size(pos2(r.left() + 304.0, r.top()), vec2(150.0, 30.0));
+                let txt = if known { format!("{total} {}", tr(if total == 1 { "listener" } else { "listeners" })) } else { format!("- {}", tr("listeners")) };
+                let lr = Rect::from_min_size(pos2(r.left() + 326.0, r.top()), vec2(150.0, 30.0));
                 p.circle_filled(pos2(lr.left() + 8.0, cy - 3.0), 4.0, if known { Color32::from_rgb(60, 220, 100) } else { kit::GRAY });
                 p.text(pos2(lr.left() + 20.0, cy - 3.0), Align2::LEFT_CENTER, txt, FontId::proportional(14.0), WHITE);
             }

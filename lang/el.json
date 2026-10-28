@@ -631,6 +631,7 @@
   "Clear the cache now": "Καθαρισμός cache τώρα",
   "Cache cleared:": "Η cache καθαρίστηκε:",
   "Mass change applied. The server is normalizing the volume in the background": "Η μαζική αλλαγή εφαρμόστηκε. Ο server κάνει την κανονικοποίηση έντασης στο παρασκήνιο",
+  "listener": "ακροατής",
   "listeners": "ακροατές",
   "Listeners now:": "Ακροατές τώρα:"
 }

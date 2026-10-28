@@ -633,6 +633,7 @@
   "Clear the cache now": "Clear the cache now",
   "Cache cleared:": "Cache cleared:",
   "Mass change applied. The server is normalizing the volume in the background": "Mass change applied. The server is normalizing the volume in the background",
+  "listener": "listener",
   "listeners": "listeners",
   "Listeners now:": "Listeners now:"
 }

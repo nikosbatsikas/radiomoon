@@ -4,6 +4,7 @@ Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a 
 
 ## 0.14.19
 
+- **Listeners in the header:** moved a little to the right so it does not touch the volume knob; "1 listener" in the singular.
 - **Client of a server:** the pages **Audio folder mappings** and **Database server**, and the **Folder** field of the automatic backup, are not shown any more: they belong to the server (its paths, its database and its backups), not to the client. The program without a server keeps them.
 
 ## 0.14.18
