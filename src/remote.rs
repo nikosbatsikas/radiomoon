@@ -547,6 +547,64 @@ impl App {
         });
     }
 
+    /// Moves this program to a server: the database (a backup file) replaces the database of the server, then the audio files of the
+    /// library are uploaded and the songs get their new place on the server. Progress is in `scan_status`; `scan_done` is set at the end.
+    pub fn move_to_server(&mut self, url: &str, user: &str, pass: &str) -> Result<(), String> {
+        let base = base_url(url);
+        let auth = format!("Basic {}", base64::engine::general_purpose::STANDARD.encode(format!("{user}:{pass}")));
+        let v = call(&base, &auth, None, "/api/login").map_err(|e| if e == "401" { "Wrong user name, password or code".to_string() } else { format!("Cannot reach the server: {e}") })?;
+        if v["admin"].as_bool() != Some(true) {
+            return Err("Only an administrator can replace the database of the server".into());
+        }
+        let sv = v["version"].as_str().unwrap_or("").to_string();
+        if sv != crate::app::VERSION {
+            return Err(format!("The server is version {sv}, this program is {}: install the same version on both first", crate::app::VERSION));
+        }
+        let tmp = std::env::temp_dir().join("radiomoon-move.rmbak");
+        crate::backup::export(&self.db, &tmp, crate::app::VERSION).map_err(|e| format!("cannot make the backup: {e:#}"))?;
+        let items: Vec<(u64, String, String)> = self
+            .data
+            .tracks
+            .iter()
+            .filter(|t| t.kind != "memo" && !t.path.is_empty() && Path::new(&t.path).is_file())
+            .map(|t| (t.id, t.kind.clone(), t.path.clone()))
+            .collect();
+        let (st, done) = (self.scan_status.clone(), self.scan_done.clone());
+        if let Ok(mut s) = st.lock() {
+            *s = "Sending the database to the server...".into();
+        }
+        done.store(false, Ordering::SeqCst);
+        std::thread::spawn(move || {
+            let say = |m: String| {
+                if let Ok(mut s) = st.lock() {
+                    *s = m;
+                }
+            };
+            let sent = post_file(&base, &auth, "/api/restore", &tmp, 900);
+            let _ = std::fs::remove_file(&tmp);
+            if let Err(e) = sent {
+                say(format!("The database was not sent: {e}"));
+                done.store(true, Ordering::SeqCst);
+                return;
+            }
+            let (mut ok, mut failed) = (0, 0);
+            let mut last = String::new();
+            for (i, (id, kind, path)) in items.iter().enumerate() {
+                say(format!("Uploading the songs {} / {}: {}", i + 1, items.len(), Path::new(path).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()));
+                match upload_file(&base, &auth, Path::new(path), kind, None, Some(*id)) {
+                    Ok(()) => ok += 1,
+                    Err(e) => {
+                        failed += 1;
+                        last = e;
+                    }
+                }
+            }
+            say(if failed > 0 { format!("Finished: the database and {ok} files are on the server, {failed} files failed ({last})") } else { format!("Finished: the database and {ok} files are on the server. Connect with the RadioMoon client.") });
+            done.store(true, Ordering::SeqCst);
+        });
+        Ok(())
+    }
+
     /// Imports files or a folder of this computer into the library of the server: every audio file is uploaded, then the server adds it.
     pub fn remote_import(&mut self, path: PathBuf, o: crate::library::ImportOpts) {
         let Some(r) = &self.remote else { return };
@@ -604,6 +662,31 @@ fn fetch_audio(base: &str, auth: &str, id: u64, path: &str, dir: &Path) -> Optio
     rx(n);
     std::fs::rename(&part, &file).ok()?;
     Some(file)
+}
+
+/// Sends a file as the body of a POST (the database of a program that moves to a server).
+fn post_file(base: &str, auth: &str, path: &str, f: &Path, timeout_s: u64) -> Result<(), String> {
+    let len = f.metadata().map_err(|e| e.to_string())?.len();
+    let file = std::fs::File::open(f).map_err(|e| e.to_string())?;
+    tx(len);
+    let r = ureq::AgentBuilder::new()
+        .timeout_connect(Duration::from_secs(6))
+        .timeout_read(Duration::from_secs(timeout_s))
+        .timeout_write(Duration::from_secs(timeout_s))
+        .build()
+        .post(&format!("{base}{path}"))
+        .set("Authorization", auth)
+        .set("Content-Length", &len.to_string())
+        .send(file);
+    match r {
+        Ok(_) => Ok(()),
+        Err(ureq::Error::Status(c, r)) => {
+            let t = r.into_string().unwrap_or_default();
+            let m = serde_json::from_str::<Value>(&t).ok().and_then(|v| v["error"].as_str().map(|x| x.to_string()));
+            Err(m.unwrap_or_else(|| format!("server answered {c}")))
+        }
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 pub fn upload_file(base: &str, auth: &str, f: &Path, kind: &str, o: Option<&crate::library::ImportOpts>, track_id: Option<u64>) -> Result<(), String> {

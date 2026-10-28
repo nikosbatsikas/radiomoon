@@ -157,6 +157,34 @@ pub fn spawn(bind: &str) -> anyhow::Result<Receiver<Req>> {
                     heavy_http(rq, &url, auth.clone(), &tx);
                     continue;
                 }
+                // the database of a program without a server (a backup file) is written to the disk by this thread; the main thread restores it
+                if rq.method().as_str() == "POST" && rq.url() == "/api/restore" {
+                    let ask = |path: &str, query: String| -> Resp {
+                        let (rtx, rrx) = channel();
+                        let req = Req { method: "POST".into(), path: path.into(), query, body: Vec::new(), auth: auth.clone(), reply: rtx };
+                        if tx.send(req).is_err() {
+                            return Resp::err(500, "server is stopping");
+                        }
+                        rrx.recv_timeout(std::time::Duration::from_secs(900)).unwrap_or_else(|_| Resp::err(504, "busy"))
+                    };
+                    let mut resp = ask("/api/restore_target", String::new());
+                    if resp.status == 200 {
+                        let dest = serde_json::from_slice::<Value>(&resp.body).ok().and_then(|v| v["dest"].as_str().map(|x| x.to_string())).unwrap_or_default();
+                        let wrote = std::fs::File::create(&dest).and_then(|mut f| std::io::copy(&mut rq.as_reader(), &mut f).map(|_| ()));
+                        resp = match wrote {
+                            Ok(()) => ask("/api/restore_run", format!("path={}", enc_q(&dest))),
+                            Err(e) => Resp::err(500, &format!("cannot write the file: {e}")),
+                        };
+                        let _ = std::fs::remove_file(&dest);
+                    } else if resp.status == 401 {
+                        std::thread::sleep(std::time::Duration::from_millis(1200));
+                    }
+                    let r = tiny_http::Response::from_data(resp.body)
+                        .with_status_code(resp.status)
+                        .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], resp.ctype.as_bytes()).unwrap());
+                    let _ = rq.respond(r);
+                    continue;
+                }
                 // an upload is written to the disk by this thread (it can be big); the main thread only decides where and imports it afterwards
                 if rq.method().as_str() == "POST" && rq.url().starts_with("/api/upload") {
                     let url = rq.url().to_string();
@@ -558,6 +586,42 @@ pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
         ("GET", "/api/clients") => clients(app),
         ("GET", p) if p.starts_with("/clients/") => client_file(app, &p["/clients/".len()..]),
         ("POST", "/api/tunnel/open") => tunnel_open(app),
+        ("POST", "/api/restore_target") => {
+            if !uadmin {
+                return Resp::err(403, "Only an administrator can replace the database of the server");
+            }
+            let dir = app.base.join("restore");
+            if std::fs::create_dir_all(&dir).is_err() {
+                return Resp::err(500, "cannot create the folder");
+            }
+            Resp::json(json!({ "dest": dir.join("incoming.rmbak").to_string_lossy() }))
+        }
+        ("POST", "/api/restore_run") => {
+            if !uadmin {
+                return Resp::err(403, "Only an administrator can replace the database of the server");
+            }
+            let path = qget(&r.query, "path");
+            let p = std::path::Path::new(&path);
+            if !p.starts_with(app.base.join("restore")) || path.contains("..") || !p.is_file() {
+                return Resp::err(400, "bad file");
+            }
+            let bdir = app.backup_dir();
+            match crate::backup::import(&app.db, p, VERSION, &bdir) {
+                Ok(msg) => {
+                    app.reload_all();
+                    // what belongs to the other computer: its sound cards, its folders
+                    app.data.s.out_main.clear();
+                    app.data.s.out_monitor.clear();
+                    app.data.s.out_instants.clear();
+                    app.data.s.folder_maps.clear();
+                    app.data.s.backup.dir = "backups".into();
+                    app.save_settings();
+                    app.apply_outputs();
+                    Resp::json(json!({ "ok": true, "message": msg }))
+                }
+                Err(e) => Resp::err(500, &format!("{e:#}")),
+            }
+        }
         ("POST", "/api/upload") => upload_target(app, &r.query),
         ("POST", "/api/imported") => imported(app, &r.query),
         _ => Resp::err(404, "not found"),

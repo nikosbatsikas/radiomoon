@@ -45,6 +45,7 @@ pub enum Page {
     Jazler,
     Integrity,
     Reports,
+    ToServer,
     Reset,
 }
 
@@ -94,6 +95,7 @@ const NAV: [(&str, &[(Page, &str, &str)]); 4] = [
             (Page::Jazler, "Import from Jazler / MegaMix", "utilities"),
             (Page::Integrity, "Integrity check", "utilities"),
             (Page::Reports, "Broadcasting reports", "utilities"),
+            (Page::ToServer, "Move to a server", "settings"),
             (Page::Reset, "Reset database", "db_reset"),
         ],
     ),
@@ -104,6 +106,13 @@ pub struct ControlState {
     pub page: Page,
     pub clap_view: Option<crate::clap_host::ClapView>,
     pub clap_filter: String,
+    // move to a server
+    pub mv_url: String,
+    pub mv_user: String,
+    pub mv_pass: String,
+    pub mv_code: String,
+    pub mv_sure: bool,
+    pub mv_running: bool,
     /// the sound outputs of the server (asked at most every 5 seconds) and of this computer for listening
     pub srv_outs: Option<(std::time::Instant, Vec<String>)>,
     pub listen_out: Option<String>,
@@ -363,7 +372,7 @@ impl App {
                         // all entries fit the height of the window: the row height shrinks when the window is low
                         // the client of a server does not use the folders, the database or the backup folder of the server
                         let remote = self.remote.is_some();
-                        let hide = |pg: &Page| remote && matches!(pg, Page::Folders | Page::Server);
+                        let hide = |pg: &Page| remote && matches!(pg, Page::Folders | Page::Server | Page::ToServer);
                         let n_items: usize = NAV.iter().map(|g| g.1.iter().filter(|x| !hide(&x.0)).count()).sum();
                         let fixed = NAV.len() as f32 * (10.0 + 18.0) + 12.0 + 26.0 + if self.data.s.users_enabled { 34.0 } else { 0.0 };
                         let item_h = ((body_h - fixed - 8.0) / n_items as f32).clamp(20.0, 34.0);
@@ -434,6 +443,7 @@ impl App {
                                     Page::Jazler => self.page_jazler(ui),
                                     Page::Integrity => self.page_integrity(ui),
                                     Page::Reports => self.page_reports(ui),
+                                    Page::ToServer => self.page_to_server(ui),
                                     Page::Reset => self.page_reset(ui),
                                 }
                                 if !self.cp.msg.is_empty() {
@@ -2118,6 +2128,58 @@ impl App {
             self.cp.map_from.clear();
             self.cp.map_to.clear();
             self.save_settings();
+        }
+    }
+
+    /// Turns this program into a server edition: the database and the audio files go to a RadioMoon server in the cloud.
+    fn page_to_server(&mut self, ui: &mut egui::Ui) {
+        kit::page_title(ui, "Move to a server", "Send the database and the audio files of this program to a RadioMoon server");
+        if self.scan_done.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            self.cp.mv_running = false;
+        }
+        let running = self.cp.mv_running;
+        kit::card(ui, "The server", |ui| {
+            ui.label(RichText::new(tr("Install radiomoon-server (the same version as this program) on the server, open its address in the browser once, then connect with the RadioMoon client.")).color(kit::GRAY));
+            ui.add_enabled_ui(!running, |ui| {
+                text_row(ui, "Server address", &mut self.cp.mv_url);
+                text_row(ui, "User name", &mut self.cp.mv_user);
+                ui.horizontal(|ui| {
+                    ui.label(tr("Password"));
+                    ui.add(egui::TextEdit::singleline(&mut self.cp.mv_pass).password(true));
+                });
+                ui.horizontal(|ui| {
+                    ui.label(tr("Two-step code (only if the user has it)"));
+                    ui.add(egui::TextEdit::singleline(&mut self.cp.mv_code).desired_width(80.0));
+                });
+            });
+        });
+        kit::card(ui, "What is sent", |ui| {
+            ui.label(tr("1. The whole database: libraries, schedules, playlists, campaigns, users, settings and history. It REPLACES everything that is on the server."));
+            ui.label(tr("2. The audio files of the library, one by one. On the server they are stored in the folders of the libraries and the songs are changed to the new place."));
+            ui.label(RichText::new(tr("The sound outputs and the folder settings of this computer are not taken to the server. This program keeps its own data and does not change.")).small().color(kit::GRAY));
+            ui.checkbox(&mut self.cp.mv_sure, tr("I understand that the database of the server is replaced"));
+        });
+        let ready = !self.cp.mv_url.trim().is_empty() && !self.cp.mv_user.trim().is_empty() && self.cp.mv_sure && !running;
+        ui.add_enabled_ui(ready, |ui| {
+            if kit::primary_button(ui, "Send the database and the songs").clicked() {
+                let (u, n, p) = (self.cp.mv_url.trim().to_string(), self.cp.mv_user.trim().to_string(), format!("{}{}", self.cp.mv_pass, self.cp.mv_code.trim()));
+                match self.move_to_server(&u, &n, &p) {
+                    Ok(()) => {
+                        self.cp.mv_running = true;
+                        self.cp.mv_code.clear();
+                        self.cp.msg.clear();
+                    }
+                    Err(e) => self.cp.msg = e,
+                }
+            }
+        });
+        let st = self.scan_status.lock().map(|g| g.clone()).unwrap_or_default();
+        if !st.is_empty() {
+            ui.add_space(6.0);
+            ui.label(RichText::new(tr(&st)).color(if running { kit::ACCENT } else { Color32::WHITE }));
+        }
+        if running {
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(300));
         }
     }
 
