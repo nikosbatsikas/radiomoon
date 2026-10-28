@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.24
+
+- **Docker:** the server runs in a container. `docker-compose.yml` starts the server and MariaDB; the image `ghcr.io/nikosbatsikas/radiomoon-server` (x64 and arm64) is published with every release. `RADIOMOON_WEB_PASSWORD` sets the web password of the first start. Inside a container the Update button says to replace the image instead of updating the program.
+
 ## 0.14.23
 
 - Effects (CLAP): the **Open window** button is shown for every plugin that has a window of its own. If the plugin cannot open it (the RadioMoon MPX plugin needs the RadioMoon MPX Transmitter program, which was not found), the message says so instead of hiding the button.

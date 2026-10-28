@@ -2201,6 +2201,9 @@ impl App {
                     }
                 }
             }
+            if st["docker"].as_bool() == Some(true) {
+                ui.label(RichText::new(tr("This server runs in Docker: update it by replacing the image (docker compose pull, then docker compose up -d).")).color(kit::ACCENT));
+            }
             ui.add_enabled_ui(!busy, |ui| {
                 if ui.button(tr("Look for a new version")).clicked() {
                     check = true;

@@ -1,0 +1,40 @@
+# RadioMoon server + MariaDB.   docker compose up -d      then open http://localhost:8080/  (user admin)
+# The image is published by the release workflow (make the package public in GitHub > Packages, or log in with
+# `docker login ghcr.io`). To build it yourself see the wiki page "Docker".
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: radiomoon
+      MARIADB_USER: radiomoon
+      MARIADB_PASSWORD: ${DB_PASSWORD:-radiomoon}
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    command: ["--character-set-server=utf8mb4", "--innodb-buffer-pool-size=256M"]
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  radiomoon:
+    image: ghcr.io/nikosbatsikas/radiomoon-server:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RADIOMOON_DB_HOST: db
+      RADIOMOON_DB_PASSWORD: ${DB_PASSWORD:-radiomoon}
+      RADIOMOON_WEB_PASSWORD: ${WEB_PASSWORD:-}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "8080:8080"
+    volumes:
+      - data:/data
+
+volumes:
+  db:
+  data:

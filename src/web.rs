@@ -46,7 +46,11 @@ pub fn credentials(data: &std::path::Path) -> (String, String, bool) {
     use rand::Rng;
     let chars: Vec<char> = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789".chars().collect();
     let mut rng = rand::thread_rng();
-    let pw: String = (0..14).map(|_| chars[rng.gen_range(0..chars.len())]).collect();
+    // RADIOMOON_WEB_PASSWORD (Docker): the password of the first start; else a random one
+    let pw: String = match std::env::var("RADIOMOON_WEB_PASSWORD") {
+        Ok(p) if !p.trim().is_empty() => p.trim().to_string(),
+        _ => (0..14).map(|_| chars[rng.gen_range(0..chars.len())]).collect(),
+    };
     let _ = std::fs::create_dir_all(data);
     let _ = std::fs::write(&f, serde_json::to_string_pretty(&json!({ "user": "admin", "password": pw })).unwrap_or_default());
     ("admin".into(), pw, true)

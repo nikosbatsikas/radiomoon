@@ -10,6 +10,11 @@ use std::time::Duration;
 const REPO: &str = "nikosbatsikas/radiomoon";
 
 /// glibc-x64, alpine-arm64 ... as in the names of the packages.
+/// The server runs in a Docker container (the image is replaced to update it, the program is not).
+pub fn in_docker() -> bool {
+    std::env::var_os("RADIOMOON_DOCKER").is_some() || std::path::Path::new("/.dockerenv").exists()
+}
+
 pub fn flavor() -> String {
     let libc = if cfg!(target_env = "musl") { "alpine" } else { "glibc" };
     let arch = match std::env::consts::ARCH {
@@ -105,13 +110,17 @@ pub fn state(current: &str) -> Value {
         "checked": g.0.is_some(),
         "error": error,
         "latest": latest.as_ref().map(|l| json!({ "version": l.version, "notes": l.notes, "size": l.size })),
-        "newer": latest.as_ref().map(|l| newer(&l.version, current)).unwrap_or(false),
+        "newer": !in_docker() && latest.as_ref().map(|l| newer(&l.version, current)).unwrap_or(false),
+        "docker": in_docker(),
         "update": status(),
     })
 }
 
 /// Installs the version that was found by the last look.
 pub fn install(current: &str) -> Result<(), String> {
+    if in_docker() {
+        return Err("This server runs in Docker: update it by replacing the image (docker compose pull, then docker compose up -d).".into());
+    }
     let l = CHECK.lock().map_err(|_| "busy".to_string())?.0.clone();
     match l {
         Some(Ok(l)) if newer(&l.version, current) => start(l),

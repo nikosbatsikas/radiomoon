@@ -632,6 +632,7 @@
   "What is new": "Τι νέο υπάρχει",
   "The server restarts for a moment (the broadcast stops). Then close this client and open it again: it installs the same version as the server.": "Ο server επανεκκινείται για λίγο (η εκπομπή σταματά). Μετά κλείστε αυτό το client και ανοίξτε το ξανά: εγκαθιστά την ίδια έκδοση με τον server.",
   "Contact": "Επικοινωνία",
+  "This server runs in Docker: update it by replacing the image (docker compose pull, then docker compose up -d).": "Αυτός ο server τρέχει σε Docker: ενημερώνεται με νέο image (docker compose pull και μετά docker compose up -d).",
   "On / bypass": "Ενεργό / παράκαμψη",
   "Parameters": "Παράμετροι",
   "This plugin has no parameters that can be set here.": "Αυτό το plugin δεν έχει παραμέτρους που να ρυθμίζονται εδώ.",

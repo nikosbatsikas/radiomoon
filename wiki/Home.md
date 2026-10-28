@@ -18,6 +18,7 @@ It runs in two ways:
 - [[First Steps]]: from an empty program to the first automatic hour
 - [[Installation]]: Windows, macOS and Linux desktop
 - [[Server Installation]]: the headless server (Debian, Ubuntu, AlmaLinux, Alpine, Raspberry Pi)
+- [[Docker]]: the server and its database in containers
 - [[Cloud Hosting Design]]: how to run a radio in the cloud, and [[Hosting Several Stations]]
 - [[Internet Radio Design]]: streaming, relays, backup servers, live guests
 

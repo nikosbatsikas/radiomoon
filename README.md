@@ -36,6 +36,8 @@ The Windows x64 packages include the MariaDB database. On every other system ins
 - **Desktop:** install, then follow [First Steps](https://github.com/nikosbatsikas/radiomoon/wiki/First-Steps): import songs, make a clock, press **AUTO**.
 - **Server:** `tar xzf RadioMoon-Server-<ver>-linux-glibc-x64.tar.gz && cd RadioMoon-Server && sudo ./install.sh`, then open `http://<server>:8080/` (user `admin`, the password is in `/var/lib/radiomoon/webserver.json`) or use the client.
 
+**Docker:** `docker compose up -d` with the `docker-compose.yml` of this repository starts the server and its database (see the [wiki page](https://github.com/nikosbatsikas/radiomoon/wiki/Docker)).
+
 ## Contact
 
 Nikos Batsikas - [nikos@velikanet.net](mailto:nikos@velikanet.net). Questions, bug reports and ideas are welcome (or open an issue on GitHub).

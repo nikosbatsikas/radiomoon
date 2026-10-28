@@ -5,6 +5,7 @@
 **Install**
 - [[Installation]]
 - [[Server Installation]]
+- [[Docker]]
 - [[Move to a Server]]
 - [[Updating]]
 
