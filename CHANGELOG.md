@@ -2,6 +2,11 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.20
+
+- **Two-step login:** the window of the user shows a **QR code** to scan with the authenticator app (the key and the address are still shown).
+- **Sound outputs in the client:** the page shows the **sound outputs of the server** (its sound cards; the changes are sent to the server) and, in its own card, the **output of this computer for listening** to songs and previews. Before, choosing an output in the client tried to open the sound card names of the server on the client computer, and the listening stopped.
+
 ## 0.14.19
 
 - **The client follows the server:** when the client connects to a server of a different version (newer or older), it downloads the client that came with that server, replaces itself and starts again ("Updating the client to version ..."). If that is not possible (no package for the computer, no network) it connects anyway and the status line says that the versions differ.

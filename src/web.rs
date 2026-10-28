@@ -449,6 +449,14 @@ fn action(app: &mut App, body: &Value) -> Resp {
             app.reload_all();
             app.clap_apply_settings();
         }
+        // the sound outputs were changed in the settings by a client: the server opens the chosen sound cards
+        "apply_outputs" => {
+            if !app.can("settings") {
+                return Resp::err(403, "You are not allowed to change the settings");
+            }
+            app.reload_all();
+            app.apply_outputs();
+        }
         "clap_scan" | "clap_add" | "clap_remove" | "clap_enable" | "clap_param" | "clap_move" => {
             use crate::clap_host::ClapOp;
             let u = |k: &str| body[k].as_u64().unwrap_or(0) as usize;
@@ -545,6 +553,7 @@ pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
         ("GET", "/api/pallets") => Resp::json(pallets(app)),
         ("POST", "/api/action") => action(app, &body),
         ("GET", "/api/trackpath") => trackpath(app, &r.query),
+        ("GET", "/api/outputs") => Resp::json(json!({ "outputs": crate::player::list_outputs() })),
         ("GET", "/api/clap") => Resp::json(crate::clap_host::view_json(&app.clap_view())),
         ("GET", "/api/clients") => clients(app),
         ("GET", p) if p.starts_with("/clients/") => client_file(app, &p["/clients/".len()..]),

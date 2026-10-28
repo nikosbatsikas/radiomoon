@@ -104,6 +104,9 @@ pub struct ControlState {
     pub page: Page,
     pub clap_view: Option<crate::clap_host::ClapView>,
     pub clap_filter: String,
+    /// the sound outputs of the server (asked at most every 5 seconds) and of this computer for listening
+    pub srv_outs: Option<(std::time::Instant, Vec<String>)>,
+    pub listen_out: Option<String>,
     pub clap_msg: String,
     pub clap_sent: Option<std::time::Instant>,
     pub clap_poll: Option<std::time::Instant>,
@@ -1929,8 +1932,22 @@ impl App {
     }
 
     fn page_outputs(&mut self, ui: &mut egui::Ui) {
-        ui.heading(tr("Sound outputs"));
-        let outs = player::list_outputs();
+        let remote = self.remote.is_some();
+        ui.heading(tr(if remote { "Sound outputs of the server" } else { "Sound outputs" }));
+        // with a server the broadcast is played by the sound cards of the SERVER: its list is shown here
+        let outs = if remote {
+            let stale = self.cp.srv_outs.as_ref().map(|x| x.0.elapsed().as_secs() >= 5).unwrap_or(true);
+            if stale {
+                let list = self.remote.as_ref().and_then(|r| crate::remote::get_json(&r.link, "/api/outputs").ok()).map(|v| v["outputs"].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect()).unwrap_or_default());
+                self.cp.srv_outs = Some((std::time::Instant::now(), list.unwrap_or_default()));
+            }
+            self.cp.srv_outs.as_ref().map(|x| x.1.clone()).unwrap_or_default()
+        } else {
+            player::list_outputs()
+        };
+        if remote && outs.is_empty() {
+            ui.label(RichText::new(tr("The server has no sound card: it only sends the internet broadcast.")).color(kit::GRAY));
+        }
         let mut ch = false;
         let s = &mut self.data.s;
         for (label, id, v) in [("Main output", "om", &mut s.out_main), ("Monitor / headphones (preview)", "omo", &mut s.out_monitor), ("Instant jingles output", "oi", &mut s.out_instants)] {
@@ -1950,8 +1967,49 @@ impl App {
         }
         if ch {
             self.save_settings();
-            self.apply_outputs();
-            self.cp.msg = tr("Outputs applied");
+            if remote {
+                self.remote_cmd(serde_json::json!({ "do": "apply_outputs" }));
+                self.cp.msg = tr("Outputs sent to the server");
+            } else {
+                self.apply_outputs();
+                self.cp.msg = tr("Outputs applied");
+            }
+        }
+        if remote {
+            // the sound output of THIS computer, only for listening to songs (the server plays the broadcast)
+            ui.add_space(6.0);
+            let mine = player::list_outputs();
+            let cur = self.cp.listen_out.clone().unwrap_or_else(|| crate::remote::listen_device(&self.base));
+            let mut pick: Option<String> = None;
+            kit::card(ui, "This computer (for listening)", |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(tr("Listening output"));
+                    egui::ComboBox::from_id_salt("listen_out").selected_text(if cur.is_empty() { tr("(default)") } else { cur.clone() }).show_ui(ui, |ui| {
+                        if ui.selectable_label(cur.is_empty(), tr("(default)")).clicked() {
+                            pick = Some(String::new());
+                        }
+                        for o in &mine {
+                            if ui.selectable_label(&cur == o, o).clicked() {
+                                pick = Some(o.clone());
+                            }
+                        }
+                    });
+                });
+                ui.label(RichText::new(tr("Used to listen to songs and previews in this window; the broadcast itself is played by the server.")).small().color(kit::GRAY));
+            });
+            match pick {
+                Some(d) => {
+                    crate::remote::set_listen_device(&self.base, &d);
+                    self.player = player::Player::new(&d, &d, "").ok();
+                    self.cp.listen_out = Some(d);
+                    self.cp.msg = tr("Outputs applied");
+                }
+                None => {
+                    if self.cp.listen_out.is_none() {
+                        self.cp.listen_out = Some(cur);
+                    }
+                }
+            }
         }
         ui.add_space(6.0);
         let mut av = false;
@@ -3757,10 +3815,25 @@ impl App {
                     self.cp.mfa_msg.clear();
                 }
             } else {
-                ui.label(tr("In the authenticator app add an account with this key (time based, 6 digits), or open the address below on the phone:"));
+                ui.label(tr("Scan the QR code with the authenticator app, or add an account with this key (time based, 6 digits):"));
                 let mut key = self.cp.mfa_new.clone();
                 ui.add(egui::TextEdit::singleline(&mut key).font(egui::TextStyle::Monospace).desired_width(f32::INFINITY));
                 let mut uri = crate::totp::otpauth_uri(&u.name, "RadioMoon", &self.cp.mfa_new);
+                // the QR code: scan it with the authenticator app
+                if let Ok(qr) = qrcodegen::QrCode::encode_text(&uri, qrcodegen::QrCodeEcc::Medium) {
+                    let (n, cell, quiet) = (qr.size(), 5.0_f32, 3);
+                    let side = (n + 2 * quiet) as f32 * cell;
+                    let (rect, _) = ui.allocate_exact_size(vec2(side, side), Sense::hover());
+                    ui.painter().rect_filled(rect, 4.0, Color32::WHITE);
+                    for y in 0..n {
+                        for x in 0..n {
+                            if qr.get_module(x, y) {
+                                let p = rect.min + vec2((x + quiet) as f32 * cell, (y + quiet) as f32 * cell);
+                                ui.painter().rect_filled(egui::Rect::from_min_size(p, vec2(cell, cell)), 0.0, Color32::BLACK);
+                            }
+                        }
+                    }
+                }
                 ui.add(egui::TextEdit::singleline(&mut uri).desired_width(f32::INFINITY));
                 ui.horizontal(|ui| {
                     ui.label(tr("Code shown by the app"));

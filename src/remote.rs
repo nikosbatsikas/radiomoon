@@ -134,6 +134,15 @@ fn call(base: &str, auth: &str, post: Option<&Value>, path: &str) -> Result<Valu
     }
 }
 
+/// The sound output of this computer that the client uses for listening to songs (not stored in the database: it is only for this computer).
+pub fn listen_device(dir: &Path) -> String {
+    std::fs::read_to_string(dir.join("listen_output.txt")).map(|s| s.trim().to_string()).unwrap_or_default()
+}
+
+pub fn set_listen_device(dir: &Path, name: &str) {
+    let _ = std::fs::write(dir.join("listen_output.txt"), name);
+}
+
 pub fn get_json(l: &Link, path: &str) -> Result<Value, String> {
     call(&l.base, &l.auth, None, path)
 }

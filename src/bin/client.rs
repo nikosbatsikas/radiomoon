@@ -208,7 +208,8 @@ impl Shell {
         app::REMOTE_MODE.store(true, std::sync::atomic::Ordering::SeqCst);
         let mut a = app::App::new(dbserver::DbServer::none(), db, cfg, sdata.clone(), self.exe_dir.clone(), String::new());
         // a sound output of this computer only for listening to songs; the broadcast is played by the server
-        if let Ok(p) = player::Player::new("", "", "") {
+        let listen = remote::listen_device(&sdata);
+        if let Ok(p) = player::Player::new(&listen, &listen, "") {
             a.player = Some(p);
         }
         a.user = Some(match a.data.users.iter().find(|u| u.name.eq_ignore_ascii_case(&user)) {
