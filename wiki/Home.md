@@ -28,7 +28,7 @@ It runs in two ways:
 - [[Internet Broadcast]] · [[Effects CLAP]]
 - [[Users and Two-step Login]] · [[Backup and Restore]]
 - [[Move to a Server]] · [[Updating]] · [[Import from Jazler]]
-- [[Troubleshooting]]
+- [[Troubleshooting]] · [[Development]] (languages, releases, building)
 
 The newest version is on the **Releases** page of the repository; what changed is in `CHANGELOG.md`.
 
