@@ -27,7 +27,7 @@ jobs:
           sudo mariadb -e "CREATE DATABASE radiomoon CHARACTER SET utf8mb4; CREATE USER 'radiomoon'@'127.0.0.1' IDENTIFIED BY 'radiomoon'; CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'radiomoon'; GRANT ALL ON radiomoon.* TO 'radiomoon'@'127.0.0.1'; GRANT ALL ON radiomoon.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;"
           mk() { # folder, file name, artist, title, frequency
             mkdir -p "demo/$1"
-            ffmpeg -loglevel error -y -f lavfi -i "sine=f=$5:d=$6" -f lavfi -i "sine=f=$(( $5 * 3 / 2 )):d=$6" -filter_complex "[0][1]amix=inputs=2,volume=0.5,tremolo=f=2:d=0.4" -metadata artist="$3" -metadata title="$4" -b:a 128k "demo/$1/$2.mp3"
+            ffmpeg -nostdin -loglevel error -y -f lavfi -i "sine=f=$5:d=$6" -f lavfi -i "sine=f=$(( $5 * 3 / 2 )):d=$6" -filter_complex "[0][1]amix=inputs=2,volume=0.5,tremolo=f=2:d=0.4" -metadata artist="$3" -metadata title="$4" -b:a 128k "demo/$1/$2.mp3"
           }
           i=0
           while IFS='|' read -r artist title; do
