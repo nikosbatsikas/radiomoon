@@ -6,6 +6,10 @@ RadioMoon plays your songs, jingles, spots and sweepers by clocks and a weekly s
 
 - [Download](#download) · [Server](#server-for-headless-linux-and-the-client) · [Studio](#studio-screen) · [Control Panel](#control-panel) · [Internet broadcast](#internet-broadcast) · [Backups](#backups) · [Releases](#versioning-and-releases) · [What's new](#whats-new)
 
+## Documentation
+
+The detailed manual is the **[Wiki](https://github.com/nikosbatsikas/radiomoon/wiki)** (the source is the `wiki/` folder): installation, the server edition, the client and web studio, scheduling, internet broadcast, two-step login, backups, updating, and the design guides for running a radio in the cloud: *Cloud Hosting Design*, *Hosting Several Stations* and *Internet Radio Design*.
+
 ## Download
 
 Get the newest version from the **Releases** page of the repository. The last 10 good releases are kept; older ones are removed automatically (see [Versioning and releases](#versioning-and-releases)).
