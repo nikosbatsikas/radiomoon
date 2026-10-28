@@ -12,6 +12,8 @@ A desktop automation needs a PC in the studio with a sound card. In the cloud th
 - the library (database and audio files) lives on the server;
 - presenters and managers work with the **web studio** or the **RadioMoon client**; closing them never stops the broadcast.
 
+Everything below can run in containers: see [[Docker]].
+
 ## 2. Reference design
 
 ```mermaid

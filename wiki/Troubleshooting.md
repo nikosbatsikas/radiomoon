@@ -8,6 +8,8 @@
 | The client says the versions differ | It tries to install the client of the server. If that fails (no package for this system, no network) update the client by hand from the **Download client** button. |
 | The server cannot update itself | The program folder is not writable for the service user: run `sudo ./install.sh upgrade` once from the newest package. The update also needs the server to reach `github.com`. |
 | No sound on a server | A cloud server has no sound card: the sound goes to the **internet broadcast**. Listen to the stream, or in the client choose an output of your own PC for previews. |
+| The CLAP plug-in has no window | **Open window** says what is missing. The MPX plug-in needs the RadioMoon MPX Transmitter program next to the `.clap` file or installed. See [[Effects CLAP]]. |
+| The Update button does nothing in Docker | A container is updated with a new image: `docker compose pull` and `docker compose up -d`. See [[Docker]]. |
 | A CLAP plug-in is red in the list | It was made for another system or libc; the list says why. |
 | `Missing file` in Central | The audio file was moved or deleted. Use **Utilities > Integrity check**. |
 | The stream does not connect | Check the type, host, port, mount and password. Shoutcast connects to port + 1. The status line of the server says what failed. |

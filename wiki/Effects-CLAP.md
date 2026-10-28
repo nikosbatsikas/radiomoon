@@ -6,7 +6,7 @@
 
 - **Scan** the CLAP folders (`~/.clap`, `/usr/lib/clap`, `Common Files\CLAP`, `CLAP_PATH`, the plug-in folder of the program). A file that cannot be opened (made for another system, for example a Windows `.clap` on a Linux server, or a glibc plug-in on Alpine) is listed with the reason, in red.
 - **Add** effects, set their parameters with sliders, **bypass**, change the order, remove.
-- **Open window** opens the window of a plug-in that has one of its own (on the computer where the plug-in runs, so not for a server without a screen).
+- **Open window** opens the window of a plug-in that has one of its own (on the computer where the plug-in runs, so not for a server without a screen). If the plug-in cannot open it, the page says why. The RadioMoon MPX plug-in shows its window with the RadioMoon MPX Transmitter program: install it, or put `RadioMoon-MPX-Transmitter` next to the `.clap` file. The plug-in works without the window; its settings are in its json file.
 - **Upload plugin files...** copies `.clap` files to the plug-in folder, or uploads them to the server (`plugins/clap` of its data).
 - The chain is saved in the settings and loaded at every start.
 

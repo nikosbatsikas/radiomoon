@@ -2,6 +2,8 @@
 
 The **server edition** is a program without a window: `radiomoon-server`. It plays, mixes and streams; you control it from a browser ([[Web Studio]]) or from the [[Client]]. It needs **no sound card**, so it runs well in a cloud virtual machine, a Proxmox LXC container or a Raspberry Pi.
 
+Prefer containers? See [[Docker]]: `docker compose up -d` starts the server and its database.
+
 ## Which package
 
 | System | Package |

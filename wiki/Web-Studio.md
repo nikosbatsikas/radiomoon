@@ -15,11 +15,12 @@ A sign-in stays valid for the browser session. A wrong password waits a moment b
 ![Web studio](images/screens/web-studio.png)
 
 - **On air**: the title, time and a progress bar; the buttons Restart, Pause, Next, Stop, Loop, Stop after track, Live; the volume.
+- **Header**: the version, the clock and, while the internet broadcast runs, the number of **listeners** (the sum of all servers). **Sign out** returns to the sign-in page.
 - **Mode**: Auto, Manual, Offline.
 - **Playlist** with the order buttons and Play / Remove for every row; **Rebuild automatic** and **Clear playlist**.
 - **Library**: choose the kind (music, jingle, spot ...), search, add *Next up* or to the end.
 - **Instant jingles**: the pallets and their buttons.
-- **Internet broadcast**: starts and stops the streams and shows their status.
+- **Internet broadcast**: starts and stops the streams and shows their status and the listeners of each server.
 - **Played**: the history.
 - English or Greek.
 

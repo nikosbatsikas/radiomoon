@@ -11,6 +11,10 @@ Administrators can update the server from the **web studio** (the **Update** but
 
 The program folder must belong to the service user. A server installed with an older package needs `sudo ./install.sh upgrade` once from the newest package; after that the page can update it.
 
+## Docker
+
+In a container the server is not updated from inside: replace the image (`docker compose pull`, `docker compose up -d`). See [[Docker]].
+
 ## The client follows the server
 
 When a client connects to a server of another version it downloads the client of that server and replaces itself. See [[Client]].
