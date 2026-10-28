@@ -1,10 +1,10 @@
-## 0.14.18
-
-- **Plugin windows (CLAP):** Control panel > Effects (CLAP) has an **Open window** button for plugins that have a window of their own (for example the RadioMoon MPX Transmitter plugin, whose settings are in the Transmitter window). The plugin opens its window as a separate floating window. With a server, the button is not shown: the plugin runs on the server, which has no screen.
-
 # Changelog
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
+
+## 0.14.18
+
+- **Plugin windows (CLAP):** Control panel > Effects (CLAP) has an **Open window** button for plugins that have a window of their own (for example the RadioMoon MPX Transmitter plugin, whose settings are in the Transmitter window). The plugin opens its window as a separate floating window. With a server, the button is not shown: the plugin runs on the server, which has no screen.
 
 ## 0.14.17
 - The Ogg Opus and Ogg FLAC broadcast formats of 0.14.15 were taken out: their libraries did not build on every platform (the AlmaLinux server). The broadcast is MP3 for Icecast and Shoutcast, as in 0.14.14. The release build still sets `CMAKE_POLICY_VERSION_MINIMUM` and shows the build errors of Windows, macOS and the server in the run summary.
