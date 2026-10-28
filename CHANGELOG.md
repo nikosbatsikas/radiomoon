@@ -2,6 +2,10 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.23
+
+- Effects (CLAP): the **Open window** button is shown for every plugin that has a window of its own. If the plugin cannot open it (the RadioMoon MPX plugin needs the RadioMoon MPX Transmitter program, which was not found), the message says so instead of hiding the button.
+
 ## 0.14.22
 
 - The web studio shows the number of listeners (the sum of all internet broadcast servers, in the header, and per server in the broadcast line).

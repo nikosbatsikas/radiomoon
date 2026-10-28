@@ -479,7 +479,7 @@ impl SlotCtl {
             }
             match g.show {
                 Some(sh) if sh(i.plugin) => Ok(()),
-                _ => Err("the plugin window could not be opened (is its window program installed?)".into()),
+                _ => Err("The plugin window could not be opened. The plugin shows its window with a program of its own that was not found (the RadioMoon MPX plugin needs the RadioMoon MPX Transmitter program: install it, or put RadioMoon-MPX-Transmitter next to the .clap file). The plugin works without the window; its settings are in its json file.".into()),
             }
         }
     }
@@ -568,7 +568,9 @@ pub fn load(path: &str, id: &str) -> Result<(SlotCtl, Runner), String> {
             let mut api: *const c_char = std::ptr::null();
             let mut fl = false;
             match (g.get_preferred_api, g.is_api_supported, g.create, g.show) {
-                (Some(pref), Some(sup), Some(_), Some(_)) => pref(plugin, &mut api, &mut fl) && !api.is_null() && sup(plugin, api, true),
+                // the button is shown whenever the plugin has a window of its own; if the plugin cannot open it
+                // (for example its window program is not installed) the click says why
+                (Some(pref), Some(_), Some(_), Some(_)) => pref(plugin, &mut api, &mut fl) && !api.is_null(),
                 _ => false,
             }
         };
