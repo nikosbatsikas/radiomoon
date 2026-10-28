@@ -1,3 +1,7 @@
+## 0.14.18
+
+- **Plugin windows (CLAP):** Control panel > Effects (CLAP) has an **Open window** button for plugins that have a window of their own (for example the RadioMoon MPX Transmitter plugin, whose settings are in the Transmitter window). The plugin opens its window as a separate floating window. With a server, the button is not shown: the plugin runs on the server, which has no screen.
+
 # Changelog
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").

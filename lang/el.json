@@ -592,6 +592,7 @@
   "CLAP plugins that process the on-air mix before the sound card and the internet broadcast": "Plugins CLAP που επεξεργάζονται τον ήχο του αέρα πριν την κάρτα ήχου και την εκπομπή στο internet",
   "Effect chain (in this order)": "Αλυσίδα εφέ (με αυτή τη σειρά)",
   "No effect: the sound goes out unchanged.": "Κανένα εφέ: ο ήχος βγαίνει αμετάβλητος.",
+  "Open window": "Άνοιγμα παραθύρου",
   "On / bypass": "Ενεργό / παράκαμψη",
   "Parameters": "Παράμετροι",
   "This plugin has no parameters that can be set here.": "Αυτό το plugin δεν έχει παραμέτρους που να ρυθμίζονται εδώ.",

@@ -85,6 +85,26 @@ struct ClapPlugin {
     on_main_thread: unsafe extern "C" fn(*const ClapPlugin),
 }
 
+/// clap.gui (a floating window the plugin opens itself)
+#[repr(C)]
+struct PluginGui {
+    is_api_supported: Option<unsafe extern "C" fn(*const ClapPlugin, *const c_char, bool) -> bool>,
+    get_preferred_api: Option<unsafe extern "C" fn(*const ClapPlugin, *mut *const c_char, *mut bool) -> bool>,
+    create: Option<unsafe extern "C" fn(*const ClapPlugin, *const c_char, bool) -> bool>,
+    destroy: Option<unsafe extern "C" fn(*const ClapPlugin)>,
+    set_scale: Option<unsafe extern "C" fn(*const ClapPlugin, f64) -> bool>,
+    get_size: Option<unsafe extern "C" fn(*const ClapPlugin, *mut u32, *mut u32) -> bool>,
+    can_resize: Option<unsafe extern "C" fn(*const ClapPlugin) -> bool>,
+    get_resize_hints: Option<unsafe extern "C" fn(*const ClapPlugin, *mut c_void) -> bool>,
+    adjust_size: Option<unsafe extern "C" fn(*const ClapPlugin, *mut u32, *mut u32) -> bool>,
+    set_size: Option<unsafe extern "C" fn(*const ClapPlugin, u32, u32) -> bool>,
+    set_parent: Option<unsafe extern "C" fn(*const ClapPlugin, *const c_void) -> bool>,
+    set_transient: Option<unsafe extern "C" fn(*const ClapPlugin, *const c_void) -> bool>,
+    suggest_title: Option<unsafe extern "C" fn(*const ClapPlugin, *const c_char)>,
+    show: Option<unsafe extern "C" fn(*const ClapPlugin) -> bool>,
+    hide: Option<unsafe extern "C" fn(*const ClapPlugin) -> bool>,
+}
+
 #[repr(C)]
 struct AudioBuffer {
     data32: *mut *mut f32,
@@ -374,6 +394,8 @@ struct Inner {
     in_ports: Vec<u32>,
     out_ports: Vec<u32>,
     params: *const PluginParams,
+    gui: *const PluginGui,
+    gui_made: AtomicBool,
     _lib: Library, // last: the library is closed after the plugin was destroyed
 }
 
@@ -384,6 +406,11 @@ impl Drop for Inner {
     fn drop(&mut self) {
         unsafe {
             let p = &*self.plugin;
+            if self.gui_made.load(Ordering::Relaxed) && !self.gui.is_null() {
+                if let Some(d) = (*self.gui).destroy {
+                    d(self.plugin);
+                }
+            }
             if self.processing {
                 (p.stop_processing)(self.plugin);
             }
@@ -417,7 +444,45 @@ pub struct SlotCtl {
     pending: Arc<Mutex<Vec<(u32, f64)>>>,
     pub params: Vec<ParamDesc>,
     pub values: Vec<f64>,
+    /// the plugin has a window of its own (floating) that can be opened
+    pub gui: bool,
     _inner: Arc<Inner>,
+}
+
+impl SlotCtl {
+    /// Opens the plugin's own window (it is a separate floating window, shown by the plugin).
+    pub fn open_window(&self) -> Result<(), String> {
+        let i = &*self._inner;
+        if !self.gui || i.gui.is_null() {
+            return Err("this plugin has no window".into());
+        }
+        unsafe {
+            let g = &*i.gui;
+            if !i.gui_made.load(Ordering::Relaxed) {
+                let mut api: *const c_char = std::ptr::null();
+                let mut fl = false;
+                if let Some(f) = g.get_preferred_api {
+                    f(i.plugin, &mut api, &mut fl);
+                }
+                let created = match g.create {
+                    Some(c) => c(i.plugin, api, true),
+                    None => false,
+                };
+                if !created {
+                    return Err("the plugin could not create its window".into());
+                }
+                i.gui_made.store(true, Ordering::Relaxed);
+                if let Some(t) = g.suggest_title {
+                    let n = std::ffi::CString::new(self.name.as_bytes()).unwrap_or_default();
+                    t(i.plugin, n.as_ptr());
+                }
+            }
+            match g.show {
+                Some(sh) if sh(i.plugin) => Ok(()),
+                _ => Err("the plugin window could not be opened (is its window program installed?)".into()),
+            }
+        }
+    }
 }
 
 /// The side that processes audio (audio thread).
@@ -471,7 +536,7 @@ pub fn load(path: &str, id: &str) -> Result<(SlotCtl, Runner), String> {
         if plugin.is_null() {
             return fail("the plugin could not be created");
         }
-        let mut inner = Inner { plugin, entry, host, activated: false, processing: false, in_ports: Vec::new(), out_ports: Vec::new(), params: std::ptr::null(), _lib: lib };
+        let mut inner = Inner { plugin, entry, host, activated: false, processing: false, in_ports: Vec::new(), out_ports: Vec::new(), params: std::ptr::null(), gui: std::ptr::null(), gui_made: AtomicBool::new(false), _lib: lib };
         let p = &*plugin;
         if !(p.init)(plugin) {
             return Err("the plugin could not be initialised".into()); // Inner::drop destroys it
@@ -497,6 +562,16 @@ pub fn load(path: &str, id: &str) -> Result<(SlotCtl, Runner), String> {
             return Err("this plugin is not an effect (it has no audio input)".into());
         }
         inner.params = (p.get_extension)(plugin, b"clap.params\0".as_ptr() as *const c_char) as *const PluginParams;
+        inner.gui = (p.get_extension)(plugin, b"clap.gui\0".as_ptr() as *const c_char) as *const PluginGui;
+        let gui_ok = !inner.gui.is_null() && {
+            let g = &*inner.gui;
+            let mut api: *const c_char = std::ptr::null();
+            let mut fl = false;
+            match (g.get_preferred_api, g.is_api_supported, g.create, g.show) {
+                (Some(pref), Some(sup), Some(_), Some(_)) => pref(plugin, &mut api, &mut fl) && !api.is_null() && sup(plugin, api, true),
+                _ => false,
+            }
+        };
         if !(p.activate)(plugin, RATE, 1, BLOCK as u32) {
             return Err("the plugin could not be activated".into());
         }
@@ -529,7 +604,7 @@ pub fn load(path: &str, id: &str) -> Result<(SlotCtl, Runner), String> {
         let pending = Arc::new(Mutex::new(Vec::new()));
         let mk = |ports: &Vec<u32>| -> Vec<Vec<Vec<f32>>> { ports.iter().map(|c| (0..*c).map(|_| vec![0.0f32; BLOCK]).collect()).collect() };
         let runner = Runner { inner: inner.clone(), enabled: enabled.clone(), pending: pending.clone(), steady: 0, ev: Vec::new(), in_store: mk(&inner.in_ports), out_store: mk(&inner.out_ports) };
-        let slot = SlotCtl { path: path.to_string(), id: id.to_string(), name, vendor, enabled, pending, params, values, _inner: inner };
+        let slot = SlotCtl { path: path.to_string(), id: id.to_string(), name, vendor, enabled, pending, params, values, gui: gui_ok, _inner: inner };
         Ok((slot, runner))
     }
 }
@@ -807,6 +882,8 @@ pub struct SlotView {
     pub path: String,
     pub enabled: bool,
     pub params: Vec<ParamView>,
+    #[serde(default)]
+    pub gui: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -825,6 +902,8 @@ pub enum ClapOp {
     Enable(usize, bool),
     Param(usize, u32, f64, bool),
     Move(usize, usize),
+    /// open the plugin's own window (on the computer where the plugin runs)
+    Window(usize),
 }
 
 impl App {
@@ -886,6 +965,7 @@ impl App {
                         id: s.id.clone(),
                         path: s.path.clone(),
                         enabled: s.enabled.load(Ordering::Relaxed),
+                        gui: s.gui,
                         params: s.params.iter().zip(s.values.iter()).map(|(d, val)| ParamView { id: d.id, name: d.name.clone(), module: d.module.clone(), min: d.min, max: d.max, default: d.default, value: *val, stepped: d.stepped }).collect(),
                     });
                 }
@@ -940,6 +1020,9 @@ impl App {
     /// A change of the chain (in this program, or on the server).
     pub fn clap_do(&mut self, op: ClapOp) -> Result<(), String> {
         if self.remote.is_some() {
+            if matches!(op, ClapOp::Window(_)) {
+                return Err("The plugin window opens on the computer where the plugin runs; the server has no screen".into());
+            }
             let a = match &op {
                 ClapOp::Scan => json!({ "do": "clap_scan" }),
                 ClapOp::Add(p, i) => json!({ "do": "clap_add", "path": p, "id": i }),
@@ -947,6 +1030,7 @@ impl App {
                 ClapOp::Enable(i, on) => json!({ "do": "clap_enable", "slot": i, "on": on }),
                 ClapOp::Param(i, id, v, save) => json!({ "do": "clap_param", "slot": i, "id": id, "value": v, "save": save }),
                 ClapOp::Move(a, b) => json!({ "do": "clap_move", "from": a, "to": b }),
+                ClapOp::Window(_) => return Ok(()),
             };
             let r = self.remote.as_ref().unwrap();
             return crate::remote::post_json(&r.link, &a).map(|_| ());
@@ -1010,6 +1094,10 @@ impl App {
                 }
                 Ok(())
             }
+            ClapOp::Window(i) => match self.player.as_ref().and_then(|p| p.clap.slots.get(i)) {
+                Some(s) => s.open_window(),
+                None => Err("No such plugin".into()),
+            },
             ClapOp::Move(a, b) => {
                 if let Some(p) = self.player.as_mut() {
                     p.clap.swap(a, b);

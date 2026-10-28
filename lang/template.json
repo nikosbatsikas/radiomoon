@@ -594,6 +594,7 @@
   "CLAP plugins that process the on-air mix before the sound card and the internet broadcast": "CLAP plugins that process the on-air mix before the sound card and the internet broadcast",
   "Effect chain (in this order)": "Effect chain (in this order)",
   "No effect: the sound goes out unchanged.": "No effect: the sound goes out unchanged.",
+  "Open window": "Open window",
   "On / bypass": "On / bypass",
   "Parameters": "Parameters",
   "This plugin has no parameters that can be set here.": "This plugin has no parameters that can be set here.",

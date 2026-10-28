@@ -2745,6 +2745,9 @@ impl App {
                     }
                     ui.label(RichText::new(s.name.clone()).strong());
                     ui.label(RichText::new(s.vendor.clone()).color(kit::GRAY));
+                    if s.gui && !remote && ui.small_button(tr("Open window")).clicked() {
+                        op = Some(ClapOp::Window(i));
+                    }
                     if ui.add_enabled(i > 0, egui::Button::new("\u{25B2}").small()).clicked() {
                         op = Some(ClapOp::Move(i, i - 1));
                     }
@@ -2828,7 +2831,7 @@ impl App {
         }
         self.cp.clap_view = Some(view);
         if let Some(o) = op {
-            let refresh = !matches!(o, ClapOp::Param(..));
+            let refresh = !matches!(o, ClapOp::Param(..) | ClapOp::Window(..));
             match self.clap_do(o) {
                 Ok(()) => self.cp.clap_msg.clear(),
                 Err(e) => self.cp.clap_msg = e,
