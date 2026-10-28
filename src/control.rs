@@ -354,7 +354,10 @@ impl App {
                         let side = ui.max_rect();
                         ui.painter().rect_filled(side, egui::Rounding { nw: 0.0, ne: 0.0, sw: 10.0, se: 0.0 }, kit::SIDEBAR);
                         // all entries fit the height of the window: the row height shrinks when the window is low
-                        let n_items: usize = NAV.iter().map(|g| g.1.len()).sum();
+                        // the client of a server does not use the folders, the database or the backup folder of the server
+                        let remote = self.remote.is_some();
+                        let hide = |pg: &Page| remote && matches!(pg, Page::Folders | Page::Server);
+                        let n_items: usize = NAV.iter().map(|g| g.1.iter().filter(|x| !hide(&x.0)).count()).sum();
                         let fixed = NAV.len() as f32 * (10.0 + 18.0) + 12.0 + 26.0 + if self.data.s.users_enabled { 34.0 } else { 0.0 };
                         let item_h = ((body_h - fixed - 8.0) / n_items as f32).clamp(20.0, 34.0);
                         egui::ScrollArea::vertical().id_salt("cpnav").auto_shrink([false, false]).show(ui, |ui| {
@@ -363,6 +366,9 @@ impl App {
                                 let (gr, _) = ui.allocate_exact_size(vec2(216.0, 18.0), Sense::hover());
                                 ui.painter().text(pos2(gr.left() + 18.0, gr.center().y), Align2::LEFT_CENTER, tr(group).to_uppercase(), FontId::proportional(11.0), kit::GRAY);
                                 for (pg, name, perm) in pages.iter() {
+                                    if hide(pg) {
+                                        continue;
+                                    }
                                     let allowed = self.can(perm);
                                     let (rect, resp) = ui.allocate_exact_size(vec2(216.0, item_h), Sense::click());
                                     let sel = self.cp.page == *pg;
@@ -2965,6 +2971,7 @@ impl App {
     fn page_backup(&mut self, ui: &mut egui::Ui) {
         kit::page_title(ui, "Backup & restore", "Automatic copies of the whole database");
         let mut ch = false;
+        let remote_bk = self.remote.is_some();
         kit::card(ui, "Automatic backup", |ui| {
             let b = &mut self.data.s.backup;
             ch |= ui.checkbox(&mut b.enabled, tr("Make a backup every day")).changed();
@@ -2973,7 +2980,8 @@ impl App {
                 ch |= ui.add(egui::TextEdit::singleline(&mut b.time).desired_width(60.0)).changed();
                 ui.add(egui::DragValue::new(&mut b.keep).range(1..=365).prefix(tr("Keep the last ")).suffix(tr(" backups")));
             });
-            ui.horizontal(|ui| {
+            if !remote_bk {
+              ui.horizontal(|ui| {
                 ui.label(tr("Folder"));
                 ch |= ui.add(egui::TextEdit::singleline(&mut b.dir).desired_width(380.0)).changed();
                 if ui.button(tr("...")).clicked() {
@@ -2982,7 +2990,8 @@ impl App {
                         ch = true;
                     }
                 }
-            });
+              });
+            }
             ui.label(RichText::new(tr("Also a backup is made before the database is upgraded to a new program version.")).color(kit::GRAY).small());
         });
         if ch {
