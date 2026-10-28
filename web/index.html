@@ -101,6 +101,7 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
   <button id="m-manual" data-t="Manual">Manual</button>
   <button id="m-offline" data-t="Offline">Offline</button>
   <button id="b-dl" data-t="Download client">Download client</button>
+  <button id="b-upd" data-t="Update" style="display:none">Update</button>
   <button id="b-about" data-t="About">About</button>
   <select id="lang"><option value="en">English</option><option value="el">Ελληνικά</option></select>
 </header>
@@ -170,6 +171,15 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
   <p><a class="gift" href="https://paypal.me/nikosbatsikas" target="_blank" rel="noopener" data-t="Gift with PayPal">Gift with PayPal</a></p>
   <div class="row"><button data-close="m-about" data-t="Close">Close</button></div>
 </div></div>
+<div class="modal" id="m-upd"><div class="box">
+  <h3 data-t="Server update">Server update</h3>
+  <div class="sub" id="u-cur"></div>
+  <div id="u-info"></div>
+  <pre id="u-notes" style="white-space:pre-wrap;max-height:200px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;display:none"></pre>
+  <div id="u-phase" style="color:var(--acc);margin:8px 0"></div>
+  <div class="row"><button id="u-check" data-t="Look for a new version">Look for a new version</button><button id="u-go" class="on" style="display:none" data-t="Update the server now">Update the server now</button><button data-close="m-upd" data-t="Close">Close</button></div>
+  <div class="sub" style="margin-top:8px" data-t="The server restarts for a moment (the broadcast stops).">The server restarts for a moment (the broadcast stops).</div>
+</div></div>
 <div class="modal" id="m-dl"><div class="box">
   <h3 data-t="Download client">Download client</h3>
   <div class="sub" data-t="The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.">The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.</div>
@@ -177,7 +187,7 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
   <div class="row"><button data-close="m-dl" data-t="Close">Close</button></div>
 </div></div>
 <script>
-const EL={"Auto":"Αυτόματο","Manual":"Χειροκίνητο","Offline":"Εκτός","On air":"Στον αέρα","Restart":"Επανεκκίνηση","Pause":"Παύση","Next":"Επόμενο","Stop":"Στοπ","Loop":"Επανάληψη","Stop after track":"Στοπ μετά το κομμάτι","Live":"Ζωντανά","Volume":"Ένταση","Playlist":"Λίστα","Rebuild automatic":"Νέο αυτόματο πρόγραμμα","Clear playlist":"Καθαρισμός λίστας","Instant jingles":"Άμεσα jingles","Stop jingles":"Στοπ jingles","Library":"Βιβλιοθήκη","Played":"Παίχτηκαν","Download client":"Λήψη client","Internet broadcast":"Εκπομπή στο internet","About":"Σχετικά","Close":"Κλείσιμο","Download":"Λήψη","Gift with PayPal":"Δώρο με PayPal","Radio automation for Windows, Linux and macOS":"Αυτοματισμός ραδιοφώνου για Windows, Linux και macOS","Author - idea, design, testing":"Δημιουργός - ιδέα, σχεδίαση, δοκιμές","AI pair programmer by Anthropic":"Προγραμματιστής AI της Anthropic","Auto schedule with clocks, playlists, breaks and force clocks":"Αυτόματο πρόγραμμα με ρολόγια, playlists, διαλείμματα και force clocks","Crossfade player, instant jingles, live rebroadcast":"Player με crossfade, άμεσα jingles, ζωντανή αναμετάδοση","Multi-server streaming with song titles":"Streaming σε πολλούς servers με τίτλους τραγουδιών","Jazler RadioStar 2 database import":"Εισαγωγή βάσης Jazler RadioStar 2","The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.":"Το RadioMoon client είναι το παράθυρο στούντιο αυτού του server. Εγκαταστήστε το στον υπολογιστή του στούντιο, γράψτε τη διεύθυνση αυτού του server και το όνομα χρήστη σας.","No client is included in this server package":"Αυτό το πακέτο server δεν περιέχει client","Search":"Αναζήτηση","Add":"Προσθήκη","Next up":"Επόμενο","Play":"Παίξε","Remove":"Αφαίρεση","Nothing is playing":"Δεν παίζει τίποτα","music":"Μουσική","jingle":"Jingle","sweeper":"Sweeper","voice":"Voice","spot":"Διαφήμιση","break":"Διάλειμμα","memo":"Σημείωση","Studio on the web":"Στούντιο στο web","User name":"Όνομα χρήστη","Password":"Κωδικός","Two-step code (only if the user has it)":"Κωδικός δύο βημάτων (μόνο αν ο χρήστης τον έχει)","Sign in":"Σύνδεση","Wrong user name, password or code":"Λάθος όνομα χρήστη, κωδικός ή κωδικός δύο βημάτων","The server does not answer":"Ο server δεν απαντά","Signed out: sign in again":"Αποσύνδεση: συνδεθείτε ξανά","The download failed":"Η λήψη απέτυχε"};
+const EL={"Auto":"Αυτόματο","Manual":"Χειροκίνητο","Offline":"Εκτός","On air":"Στον αέρα","Restart":"Επανεκκίνηση","Pause":"Παύση","Next":"Επόμενο","Stop":"Στοπ","Loop":"Επανάληψη","Stop after track":"Στοπ μετά το κομμάτι","Live":"Ζωντανά","Volume":"Ένταση","Playlist":"Λίστα","Rebuild automatic":"Νέο αυτόματο πρόγραμμα","Clear playlist":"Καθαρισμός λίστας","Instant jingles":"Άμεσα jingles","Stop jingles":"Στοπ jingles","Library":"Βιβλιοθήκη","Played":"Παίχτηκαν","Download client":"Λήψη client","Internet broadcast":"Εκπομπή στο internet","About":"Σχετικά","Close":"Κλείσιμο","Download":"Λήψη","Gift with PayPal":"Δώρο με PayPal","Radio automation for Windows, Linux and macOS":"Αυτοματισμός ραδιοφώνου για Windows, Linux και macOS","Author - idea, design, testing":"Δημιουργός - ιδέα, σχεδίαση, δοκιμές","AI pair programmer by Anthropic":"Προγραμματιστής AI της Anthropic","Auto schedule with clocks, playlists, breaks and force clocks":"Αυτόματο πρόγραμμα με ρολόγια, playlists, διαλείμματα και force clocks","Crossfade player, instant jingles, live rebroadcast":"Player με crossfade, άμεσα jingles, ζωντανή αναμετάδοση","Multi-server streaming with song titles":"Streaming σε πολλούς servers με τίτλους τραγουδιών","Jazler RadioStar 2 database import":"Εισαγωγή βάσης Jazler RadioStar 2","The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.":"Το RadioMoon client είναι το παράθυρο στούντιο αυτού του server. Εγκαταστήστε το στον υπολογιστή του στούντιο, γράψτε τη διεύθυνση αυτού του server και το όνομα χρήστη σας.","No client is included in this server package":"Αυτό το πακέτο server δεν περιέχει client","Search":"Αναζήτηση","Add":"Προσθήκη","Next up":"Επόμενο","Play":"Παίξε","Remove":"Αφαίρεση","Nothing is playing":"Δεν παίζει τίποτα","music":"Μουσική","jingle":"Jingle","sweeper":"Sweeper","voice":"Voice","spot":"Διαφήμιση","break":"Διάλειμμα","memo":"Σημείωση","Studio on the web":"Στούντιο στο web","User name":"Όνομα χρήστη","Password":"Κωδικός","Two-step code (only if the user has it)":"Κωδικός δύο βημάτων (μόνο αν ο χρήστης τον έχει)","Sign in":"Σύνδεση","Wrong user name, password or code":"Λάθος όνομα χρήστη, κωδικός ή κωδικός δύο βημάτων","The server does not answer":"Ο server δεν απαντά","Signed out: sign in again":"Αποσύνδεση: συνδεθείτε ξανά","The download failed":"Η λήψη απέτυχε","Update":"Ενημέρωση","Server update":"Ενημέρωση του server","The server runs version":"Ο server τρέχει την έκδοση","Newest version":"Νεότερη έκδοση","A newer version is available.":"Υπάρχει νεότερη έκδοση.","The server is up to date.":"Ο server είναι ενημερωμένος.","Looking for the newest version...":"Αναζήτηση νεότερης έκδοσης...","Look for a new version":"Αναζήτηση νέας έκδοσης","Update the server now":"Ενημέρωση του server τώρα","The server restarts for a moment (the broadcast stops).":"Ο server επανεκκινείται για λίγο (η εκπομπή σταματά).","Restarting the server...":"Επανεκκίνηση του server..."};
 let lang='en',S={},cur=null,pal=[],pidx=0,lastFetch=0;
 const $=id=>document.getElementById(id);
 const T=s=>lang==='el'&&EL[s]?EL[s]:s;
@@ -200,8 +210,34 @@ async function api(path,body){
   return r.json();
 }
 let started=false;
+let updTimer=null,updWas=false;
+async function updRefresh(){
+  let r;try{r=await api('/api/update');}catch(e){
+    // the server is restarting: wait until it answers with the new version, then load the page again
+    if(updWas){$('u-phase').textContent=T('Restarting the server...');setTimeout(updRefresh,1500);}return;}
+  $('u-cur').textContent=T('The server runs version')+' '+r.current;
+  const u=r.update||{};
+  const l=r.latest;
+  $('u-info').textContent=r.checking?T('Looking for the newest version...'):l?(T('Newest version')+' '+l.version+' - '+(r.newer?T('A newer version is available.'):T('The server is up to date.'))):(r.error||'');
+  $('u-notes').style.display=(l&&r.newer&&l.notes)?'':'none';$('u-notes').textContent=l?l.notes:'';
+  $('u-phase').textContent=u.error||u.phase||'';
+  $('u-phase').style.color=u.error?'var(--bad)':'var(--acc)';
+  $('u-go').style.display=r.newer?'':'none';
+  const busy=r.checking||u.running;$('u-check').disabled=busy;$('u-go').disabled=busy;
+  if(updWas&&!u.running&&!u.error&&r.current&&window._updFrom&&r.current!==window._updFrom){location.reload();return;}
+  if($('m-upd').classList.contains('on')&&(busy||updWas))setTimeout(updRefresh,1000);
+}
+$('b-upd').onclick=async()=>{$('m-upd').classList.add('on');updWas=false;try{await api('/api/update_check',{});}catch(e){}updRefresh();};
+$('u-check').onclick=async()=>{await api('/api/update_check',{});updRefresh();};
+$('u-go').onclick=async()=>{
+  if(!confirm(T('The server restarts for a moment (the broadcast stops).')))return;
+  const r0=await api('/api/update');window._updFrom=r0.current;updWas=true;
+  try{await api('/api/update_install',{});}catch(e){}
+  updRefresh();
+};
 function startApp(){
   $('login').classList.remove('on');
+  fetch('/api/login',{headers:hdr()}).then(r=>r.json()).then(j=>{if(j.admin)$('b-upd').style.display='';}).catch(()=>{});
   if(started)return;started=true;
   setInterval(tick,1000);
   applyLang();tick().then(()=>{loadLib();loadPal();});

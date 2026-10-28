@@ -46,6 +46,7 @@ pub enum Page {
     Integrity,
     Reports,
     ToServer,
+    Update,
     Reset,
 }
 
@@ -86,6 +87,7 @@ const NAV: [(&str, &[(Page, &str, &str)]); 4] = [
             (Page::Folders, "Audio folder mappings", "folder_maps"),
             (Page::Stream, "Internet broadcast", "settings"),
             (Page::Backup, "Backup & restore", "settings"),
+            (Page::Update, "Server update", "settings"),
             (Page::Server, "Database server", "settings"),
         ],
     ),
@@ -107,6 +109,8 @@ pub struct ControlState {
     pub clap_view: Option<crate::clap_host::ClapView>,
     pub clap_filter: String,
     // move to a server
+    pub upd_poll: Option<std::time::Instant>,
+    pub upd_state: Option<serde_json::Value>,
     pub mv_url: String,
     pub mv_user: String,
     pub mv_pass: String,
@@ -372,7 +376,7 @@ impl App {
                         // all entries fit the height of the window: the row height shrinks when the window is low
                         // the client of a server does not use the folders, the database or the backup folder of the server
                         let remote = self.remote.is_some();
-                        let hide = |pg: &Page| remote && matches!(pg, Page::Folders | Page::Server | Page::ToServer);
+                        let hide = |pg: &Page| (remote && matches!(pg, Page::Folders | Page::Server | Page::ToServer)) || (!remote && matches!(pg, Page::Update));
                         let n_items: usize = NAV.iter().map(|g| g.1.iter().filter(|x| !hide(&x.0)).count()).sum();
                         let fixed = NAV.len() as f32 * (10.0 + 18.0) + 12.0 + 26.0 + if self.data.s.users_enabled { 34.0 } else { 0.0 };
                         let item_h = ((body_h - fixed - 8.0) / n_items as f32).clamp(20.0, 34.0);
@@ -444,6 +448,7 @@ impl App {
                                     Page::Integrity => self.page_integrity(ui),
                                     Page::Reports => self.page_reports(ui),
                                     Page::ToServer => self.page_to_server(ui),
+                                    Page::Update => self.page_update(ui),
                                     Page::Reset => self.page_reset(ui),
                                 }
                                 if !self.cp.msg.is_empty() {
@@ -2129,6 +2134,83 @@ impl App {
             self.cp.map_to.clear();
             self.save_settings();
         }
+    }
+
+    /// The update of the server (the client of a server): look for the newest version, install it.
+    fn page_update(&mut self, ui: &mut egui::Ui) {
+        kit::page_title(ui, "Server update", "Install the newest RadioMoon version on the server");
+        let Some(rem) = self.remote.as_ref() else { return };
+        let link = &rem.link;
+        let asked = self.cp.upd_poll.map(|t| t.elapsed().as_millis() < 1000).unwrap_or(false);
+        if !asked {
+            self.cp.upd_poll = Some(std::time::Instant::now());
+            if let Ok(v) = crate::remote::get_json(link, "/api/update") {
+                self.cp.upd_state = Some(v);
+            }
+        }
+        let st = self.cp.upd_state.clone().unwrap_or(serde_json::Value::Null);
+        let mut check = false;
+        let mut install = false;
+        let busy = st["checking"].as_bool() == Some(true) || st["update"]["running"].as_bool() == Some(true);
+        kit::card(ui, "Versions", |ui| {
+            ui.label(format!("{} {}", tr("The server runs version"), st["current"].as_str().unwrap_or("?")));
+            match st["latest"]["version"].as_str() {
+                Some(v) => {
+                    ui.label(format!("{} {}", tr("Newest version"), v));
+                    if st["newer"].as_bool() == Some(true) {
+                        ui.label(RichText::new(tr("A newer version is available.")).color(kit::ACCENT));
+                    } else {
+                        ui.label(RichText::new(tr("The server is up to date.")).color(Color32::from_rgb(70, 192, 122)));
+                    }
+                }
+                None if st["checking"].as_bool() == Some(true) => {
+                    ui.label(tr("Looking for the newest version..."));
+                }
+                None => {
+                    if let Some(e) = st["error"].as_str() {
+                        ui.colored_label(Color32::from_rgb(229, 83, 75), e);
+                    }
+                }
+            }
+            ui.add_enabled_ui(!busy, |ui| {
+                if ui.button(tr("Look for a new version")).clicked() {
+                    check = true;
+                }
+                if st["newer"].as_bool() == Some(true) && kit::primary_button(ui, "Update the server now").clicked() {
+                    install = true;
+                }
+            });
+        });
+        if let Some(n) = st["latest"]["notes"].as_str() {
+            if !n.is_empty() && st["newer"].as_bool() == Some(true) {
+                kit::card(ui, "What is new", |ui| {
+                    egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
+                        ui.label(n);
+                    });
+                });
+            }
+        }
+        if let Some(p) = st["update"]["phase"].as_str() {
+            if !p.is_empty() {
+                ui.label(RichText::new(p).color(kit::ACCENT));
+            }
+        }
+        if let Some(e) = st["update"]["error"].as_str() {
+            ui.colored_label(Color32::from_rgb(229, 83, 75), e);
+        }
+        ui.label(RichText::new(tr("The server restarts for a moment (the broadcast stops). Then close this client and open it again: it installs the same version as the server.")).small().color(kit::GRAY));
+        if check {
+            let _ = crate::remote::post_path(link, "/api/update_check", &serde_json::json!({}));
+            self.cp.upd_poll = None;
+        }
+        if install {
+            match crate::remote::post_path(link, "/api/update_install", &serde_json::json!({})) {
+                Ok(_) => self.cp.msg.clear(),
+                Err(e) => self.cp.msg = e,
+            }
+            self.cp.upd_poll = None;
+        }
+        ui.ctx().request_repaint_after(std::time::Duration::from_millis(1000));
     }
 
     /// Turns this program into a server edition: the database and the audio files go to a RadioMoon server in the cloud.

@@ -41,6 +41,8 @@ mod remote;
 mod schema;
 #[path = "../stream.rs"]
 mod stream;
+#[path = "../srvupdate.rs"]
+mod srvupdate;
 #[path = "../studio.rs"]
 mod studio;
 #[path = "../totp.rs"]

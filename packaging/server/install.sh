@@ -44,6 +44,8 @@ copy_program() {
         rm -rf /opt/radiomoon/clients
         cp -r "$HERE/clients" /opt/radiomoon/clients
     fi
+    # the server updates itself from its web page / client (Server update): its program folder belongs to its user
+    id radiomoon >/dev/null 2>&1 && chown -R radiomoon:radiomoon /opt/radiomoon 2>/dev/null || true
 }
 
 # Settings that make the database faster on a small server (a commit does not wait for the disk every time, the working data stays in memory).

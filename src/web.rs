@@ -586,6 +586,17 @@ pub fn handle(app: &mut App, r: &Req, creds: &(String, String)) -> Resp {
         ("GET", "/api/clients") => clients(app),
         ("GET", p) if p.starts_with("/clients/") => client_file(app, &p["/clients/".len()..]),
         ("POST", "/api/tunnel/open") => tunnel_open(app),
+        // the update of the server to the newest release
+        ("GET", "/api/update") if uadmin => Resp::json(crate::srvupdate::state(VERSION)),
+        ("POST", "/api/update_check") if uadmin => {
+            crate::srvupdate::check_async();
+            Resp::json(json!({ "ok": true }))
+        }
+        ("POST", "/api/update_install") if uadmin => match crate::srvupdate::install(VERSION) {
+            Ok(()) => Resp::json(json!({ "ok": true })),
+            Err(e) => Resp::err(400, &e),
+        },
+        ("GET", "/api/update") | ("POST", "/api/update_check") | ("POST", "/api/update_install") => Resp::err(403, "Only an administrator can update the server"),
         ("POST", "/api/restore_target") => {
             if !uadmin {
                 return Resp::err(403, "Only an administrator can replace the database of the server");

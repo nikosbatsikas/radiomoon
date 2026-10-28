@@ -143,6 +143,11 @@ pub fn set_listen_device(dir: &Path, name: &str) {
     let _ = std::fs::write(dir.join("listen_output.txt"), name);
 }
 
+/// A POST to any path of the server (the update of the server).
+pub fn post_path(l: &Link, path: &str, v: &Value) -> Result<Value, String> {
+    call(&l.base, &l.auth, Some(v), path)
+}
+
 pub fn get_json(l: &Link, path: &str) -> Result<Value, String> {
     call(&l.base, &l.auth, None, path)
 }
@@ -975,7 +980,7 @@ fn own_package(base: &str, auth: &str) -> Result<String, String> {
         .ok_or_else(|| format!("the server has no client for this computer ({os} {arch})"))
 }
 
-fn copy_dir(from: &Path, to: &Path) {
+pub fn copy_dir(from: &Path, to: &Path) {
     let _ = std::fs::create_dir_all(to);
     if let Ok(rd) = std::fs::read_dir(from) {
         for e in rd.flatten() {

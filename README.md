@@ -111,6 +111,10 @@ Control Panel > Backup & restore: a daily automatic backup (default 03:00, keeps
 
 English and Greek are built in. To add a language, copy `lang\template.json` to `lang\xx.json`, translate it and choose it in Control Panel > General settings. See `lang\README.txt`.
 
+## Updating the server
+
+Administrators update the server from the web studio (**Update** button) or from the client (Control panel > Settings > **Server update**): the server finds the newest release on GitHub, installs the package of its own system and restarts. The first time on a server installed with an older package, run `./install.sh upgrade` from the newest package once (it lets the server update itself later).
+
 ## Two-step login (MFA)
 
 Each user of a server can have a two-step login: Control panel > Users & security > edit the user > *Turn on two-step login*, add the key to an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 2FAS ...) and type the code to confirm. After that the user types the password followed by the 6 digit code: the client has a *Two-step code* field, the web studio takes `password123456` in the password box. The sign-in then stays valid for 12 hours; 5 wrong codes lock the user for 5 minutes. The `webserver.json` administrator has no two-step login.
