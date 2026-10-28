@@ -31,7 +31,7 @@ jobs:
           python3 - <<'PY'
           import json
           seen = set()
-          n = 0
+          rows = []
           for line in open("check.json"):
               try:
                   m = json.loads(line)
@@ -49,8 +49,8 @@ jobs:
               if key in seen:
                   continue
               seen.add(key)
-              n += 1
-              lvl = "error" if d["level"] == "error" else "warning"
-              print(f"::{lvl} file={sp['file_name']},line={sp['line_start']}::{d['message']}")
-          print(f"{n} warnings or errors in the program's own source")
+              rows.append(f"{d['level']} {sp['file_name']}:{sp['line_start']} {d['message']}")
+          # one annotation holds them all (GitHub shows only 10 annotations per step)
+          body = "%0A".join(r.replace("%", "%25").replace("\r", "").replace("\n", " ") for r in rows)
+          print(f"::warning title={len(rows)} warnings or errors::{body}" if rows else "::notice::no warnings")
           PY
