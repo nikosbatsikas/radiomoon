@@ -4,7 +4,6 @@ A radio that runs on a desktop PC can be moved to a RadioMoon server in the clou
 
 **Control Panel > Settings > Move to a server** (desktop program only).
 
-![Move to a server](images/screens/cp-move.png)
 
 1. Install the server ([[Server Installation]]), **the same version** as the desktop program.
 2. In the desktop program enter the **server address**, an **administrator** user and password (and the two-step code if it has one).

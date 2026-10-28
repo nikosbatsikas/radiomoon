@@ -16,7 +16,6 @@ Each user of a server can have a second step: the code of an **authenticator app
 2. Scan the **QR code** with the app, or type the key. (The `otpauth://` address is shown too.)
 3. Type the 6 digit code that the app shows and press **Confirm**, then **OK**.
 
-![Two-step login](images/screens/cp-user-mfa.png)
 
 After that the user signs in with the password **followed by the code**:
 

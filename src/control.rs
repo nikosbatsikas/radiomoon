@@ -50,6 +50,35 @@ pub enum Page {
     Reset,
 }
 
+impl Page {
+    /// Used by the screenshot job of the wiki (RM_SHOT_PAGE): the page by its name.
+    pub fn from_name(n: &str) -> Option<Page> {
+        Some(match n.to_ascii_lowercase().as_str() {
+            "songs" => Page::Songs,
+            "clap" => Page::Clap,
+            "spots" => Page::Spots,
+            "jingles" => Page::Jingles,
+            "clocks" => Page::Clocks,
+            "playlists" => Page::Playlists,
+            "force" => Page::Force,
+            "finallog" => Page::FinalLog,
+            "logviewer" => Page::LogViewer,
+            "general" => Page::General,
+            "outputs" => Page::Outputs,
+            "live" => Page::Live,
+            "shortcuts" => Page::Shortcuts,
+            "users" => Page::Users,
+            "stream" => Page::Stream,
+            "backup" => Page::Backup,
+            "reports" => Page::Reports,
+            "update" => Page::Update,
+            "integrity" => Page::Integrity,
+            "reset" => Page::Reset,
+            _ => return None,
+        })
+    }
+}
+
 const NAV: [(&str, &[(Page, &str, &str)]); 4] = [
     (
         "Libraries",

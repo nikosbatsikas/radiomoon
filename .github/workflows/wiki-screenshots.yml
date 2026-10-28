@@ -1,0 +1,124 @@
+# Real screenshots for the wiki: starts a server with demo songs (made with ffmpeg), opens the client on every page of the
+# control panel under Xvfb, photographs the web studio with Playwright and puts the pictures into the wiki (images/screens).
+# Run it by hand (Actions > wiki-screenshots > Run workflow) after the interface changes.
+name: wiki-screenshots
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  shots:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: shots
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev pkg-config libxkbcommon-dev libwayland-dev libgtk-3-dev xvfb imagemagick libgl1-mesa-dri mesa-utils x11-utils libxkbcommon-x11-0 ffmpeg mariadb-server
+      - name: Build
+        run: cargo build --release --bin radiomoon-server --bin radiomoon-client
+      - name: Database and demo songs
+        run: |
+          sudo systemctl start mariadb
+          sudo mariadb -e "CREATE DATABASE radiomoon CHARACTER SET utf8mb4; CREATE USER 'radiomoon'@'127.0.0.1' IDENTIFIED BY 'radiomoon'; CREATE USER 'radiomoon'@'localhost' IDENTIFIED BY 'radiomoon'; GRANT ALL ON radiomoon.* TO 'radiomoon'@'127.0.0.1'; GRANT ALL ON radiomoon.* TO 'radiomoon'@'localhost'; FLUSH PRIVILEGES;"
+          mk() { # folder, file name, artist, title, frequency
+            mkdir -p "demo/$1"
+            ffmpeg -loglevel error -y -f lavfi -i "sine=f=$5:d=$6" -f lavfi -i "sine=f=$(( $5 * 3 / 2 )):d=$6" -filter_complex "[0][1]amix=inputs=2,volume=0.5,tremolo=f=2:d=0.4" -metadata artist="$3" -metadata title="$4" -b:a 128k "demo/$1/$2.mp3"
+          }
+          i=0
+          while IFS='|' read -r artist title; do
+            i=$((i+1)); mk songs "$artist - $title" "$artist" "$title" $((200 + i * 35)) 45
+          done <<'EOF'
+          Luna Waves|Midnight Drive
+          The Night Owls|City Lights
+          Aurora Bay|Golden Hour
+          Neon Harbor|Slow Motion
+          Sunset Avenue|Summer Rain
+          Cosmic Tide|Echoes
+          Velvet Sky|Paper Planes
+          Blue Horizon|Higher Ground
+          Mira Stone|Wildfire
+          Static Bloom|Afterglow
+          Northern Lights|Winter Song
+          Delta Park|Open Road
+          EOF
+          mk jingles "Station ID" "RadioMoon" "Station ID" 880 4
+          mk jingles "Morning Show" "RadioMoon" "Morning Show" 660 4
+          mk spots "Coffee House" "Spots" "Coffee House" 440 20
+          mk spots "Car Dealer" "Spots" "Car Dealer" 520 25
+          mk sweepers "Sweeper 1" "RadioMoon" "Sweeper 1" 990 3
+          ls -R demo | head -40
+      - name: Start the server
+        run: |
+          mkdir -p data
+          VER=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          mkdir -p target/release/clients
+          tar czf "target/release/clients/RadioMoon-Client-$VER-linux-x64.tar.gz" -C target/release radiomoon-client
+          (target/release/radiomoon-server --bind 127.0.0.1:8080 --data "$PWD/data" --db-user radiomoon --db-password radiomoon --db-name radiomoon > server.log 2>&1 &)
+          for i in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:8080/ && break; sleep 1; done
+          tail -5 server.log
+          grep -o '"password" *: *"[^"]*"' data/webserver.json | cut -d'"' -f4 > pw.txt
+          python3 packaging/wiki/shots.py seed http://127.0.0.1:8080 "$(cat pw.txt)" demo
+      - name: Screenshots of the client
+        shell: bash
+        timeout-minutes: 20
+        run: |
+          set +e
+          mkdir -p shots logs
+          Xvfb :99 -screen 0 1400x900x24 & sleep 2
+          export DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1
+          export RM_SHOT_URL=http://127.0.0.1:8080 RM_SHOT_USER=admin RM_SHOT_PASS="$(cat pw.txt)"
+          shot() { # page, file, seconds
+            RM_SHOT_PAGE=$1 target/release/radiomoon-client > logs/$2.log 2>&1 & P=$!
+            sleep ${3:-16}
+            import -window root "shots/$2.png"
+            kill $P 2>/dev/null; sleep 1
+          }
+          shot login client-login 6
+          shot studio client-studio 20
+          shot songs cp-songs
+          shot clocks cp-clocks
+          shot playlists cp-playlists
+          shot spots cp-spots
+          shot reports cp-reports
+          shot live cp-live
+          shot stream cp-stream
+          shot clap cp-clap
+          shot users cp-users
+          shot backup cp-backup
+          shot outputs cp-outputs
+          shot update cp-update 25
+          ls -l shots
+          tail -3 logs/cp-songs.log
+      - name: Screenshots of the web studio
+        run: |
+          pip install -q playwright && python -m playwright install --with-deps chromium > /dev/null
+          python packaging/wiki/shots.py web http://127.0.0.1:8080 "$(cat pw.txt)" shots
+          ls -l shots
+      - name: Put the screenshots into the wiki
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone -q "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" w
+          mkdir -p w/images/screens
+          cp shots/*.png w/images/screens/
+          cd w
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "screenshots unchanged"; exit 0; fi
+          git commit -qm "Screenshots from ${GITHUB_SHA::7}"
+          git push -q
+          echo "::notice title=screenshots::$(ls ../shots | tr '\n' ' ')"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shots
+          path: |
+            shots
+            server.log
+            logs

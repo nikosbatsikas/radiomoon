@@ -91,6 +91,9 @@ struct Shell {
     /// servers used before: (address, user name, encrypted password or empty)
     history: Vec<(String, String, String)>,
     first_tries: u32,
+    /// screenshots for the wiki (set by the CI job): sign in by itself and open this page ("login" = stay on the sign-in)
+    shot: Option<String>,
+    shot_frames: u32,
     msg: String,
     app: Option<app::App>,
     data: PathBuf,
@@ -103,10 +106,14 @@ impl Shell {
         let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|x| x.to_path_buf())).unwrap_or_else(|| PathBuf::from("."));
         let saved: Value = std::fs::read_to_string(data.join("client.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(Value::Null);
         let g = |k: &str, d: &str| saved[k].as_str().unwrap_or(d).to_string();
+        let shot = std::env::var("RM_SHOT_PAGE").ok().filter(|s| !s.is_empty());
+        let ev = |k: &str, d: String| std::env::var(k).ok().filter(|s| !s.is_empty()).unwrap_or(d);
         Shell {
-            url: g("url", "http://127.0.0.1:8080"),
-            user: g("user", "admin"),
-            pass: saved["pass"].as_str().and_then(config::decrypt).unwrap_or_default(),
+            shot_frames: 0,
+            shot: shot.clone(),
+            url: ev("RM_SHOT_URL", g("url", "http://127.0.0.1:8080")),
+            user: ev("RM_SHOT_USER", g("user", "admin")),
+            pass: ev("RM_SHOT_PASS", saved["pass"].as_str().and_then(config::decrypt).unwrap_or_default()),
             code: String::new(),
             remember: saved["remember"].as_bool().unwrap_or(false),
             bw: saved["bw"].as_u64().unwrap_or(0).min(2) as u8,
@@ -229,6 +236,12 @@ fn tr_msg(s: &str) -> String {
 impl eframe::App for Shell {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if let Some(a) = self.app.as_mut() {
+            if let Some(pg) = self.shot.take() {
+                if let Some(p) = control::Page::from_name(&pg) {
+                    a.cp_open = true;
+                    a.cp.page = p;
+                }
+            }
             eframe::App::update(a, ctx, frame);
             return;
         }
@@ -267,12 +280,19 @@ impl eframe::App for Shell {
             return;
         }
         // the window is maximized (asked again for the first seconds, until the system confirms it)
-        if self.first_tries < 40 && ctx.input(|i| i.viewport().maximized) != Some(true) {
+        if std::env::var("RM_SHOT_PAGE").is_err() && self.first_tries < 40 && ctx.input(|i| i.viewport().maximized) != Some(true) {
             self.first_tries += 1;
             ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
             ctx.request_repaint();
         }
         let mut go = false;
+        // screenshots for the wiki: sign in by itself after a moment (not for the sign-in picture)
+        if self.shot.as_deref().map(|s| s != "login").unwrap_or(false) && !self.pass.is_empty() {
+            self.shot_frames += 1;
+            if self.shot_frames == 30 {
+                go = true;
+            }
+        }
         egui::CentralPanel::default().frame(egui::Frame::none().fill(kit::BG)).show(ctx, |ui| {
             let full = ui.max_rect();
             let painter = ui.painter();
@@ -395,7 +415,7 @@ fn main() -> eframe::Result<()> {
         let _ = std::fs::remove_file(PathBuf::from(format!("{}.old", exe.display())));
     }
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1250.0, 760.0]).with_min_inner_size([800.0, 480.0]).with_maximized(true).with_title(format!("RadioMoon client {VERSION}")),
+        viewport: egui::ViewportBuilder::default().with_inner_size(if std::env::var("RM_SHOT_PAGE").is_ok() { [1400.0, 900.0] } else { [1250.0, 760.0] }).with_min_inner_size([800.0, 480.0]).with_maximized(std::env::var("RM_SHOT_PAGE").is_err()).with_title(format!("RadioMoon client {VERSION}")),
         ..Default::default()
     };
     eframe::run_native("RadioMoon client", options, Box::new(|cc| {
