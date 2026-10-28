@@ -3,6 +3,7 @@ use eframe::egui::{self, pos2, vec2, Align2, Color32, FontId, Painter, Pos2, Rec
 use std::f32::consts::PI;
 
 // Palette of FM Analyzer: dark instrument look
+#[allow(dead_code)] // used by the client window only
 pub const BG: Color32 = Color32::from_rgb(0x0b, 0x0e, 0x12);
 pub const PANEL: Color32 = Color32::from_rgb(0x11, 0x15, 0x1b);
 pub const CARD: Color32 = Color32::from_rgb(0x17, 0x1c, 0x24);

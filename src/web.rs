@@ -131,9 +131,16 @@ pub fn spawn(bind: &str) -> anyhow::Result<Receiver<Req>> {
             for mut rq in server.incoming_requests() {
                 let auth = rq.headers().iter().find(|h| h.field.equiv("Authorization")).map(|h| h.value.as_str().to_string());
                 if auth.is_none() {
-                    let r = tiny_http::Response::from_string("Login required")
-                        .with_status_code(401)
-                        .with_header(tiny_http::Header::from_bytes(&b"WWW-Authenticate"[..], &b"Basic realm=\"RadioMoon\""[..]).unwrap());
+                    // the page with the sign-in form is public (it holds nothing); the rest needs the sign-in. There is no WWW-Authenticate
+                    // header: the page asks for the user name, the password and the code itself, not the password box of the browser.
+                    let is_page = rq.method().as_str() == "GET" && (rq.url() == "/" || rq.url() == "/index.html");
+                    let r = if is_page {
+                        tiny_http::Response::from_string(INDEX)
+                            .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=utf-8"[..]).unwrap())
+                            .with_header(tiny_http::Header::from_bytes(&b"Cache-Control"[..], &b"no-store"[..]).unwrap())
+                    } else {
+                        tiny_http::Response::from_string("Login required").with_status_code(401)
+                    };
                     let _ = rq.respond(r);
                     continue;
                 }
@@ -177,12 +184,9 @@ pub fn spawn(bind: &str) -> anyhow::Result<Receiver<Req>> {
                     } else if resp.status == 401 {
                         std::thread::sleep(std::time::Duration::from_millis(1200));
                     }
-                    let mut r = tiny_http::Response::from_data(resp.body)
+                    let r = tiny_http::Response::from_data(resp.body)
                         .with_status_code(resp.status)
                         .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], resp.ctype.as_bytes()).unwrap());
-                    if resp.status == 401 {
-                        r = r.with_header(tiny_http::Header::from_bytes(&b"WWW-Authenticate"[..], &b"Basic realm=\"RadioMoon\""[..]).unwrap());
-                    }
                     let _ = rq.respond(r);
                     continue;
                 }
@@ -202,13 +206,10 @@ pub fn spawn(bind: &str) -> anyhow::Result<Receiver<Req>> {
                 if resp.status == 401 {
                     std::thread::sleep(std::time::Duration::from_millis(1200)); // slows down password guessing
                 }
-                let mut r = tiny_http::Response::from_data(resp.body)
+                let r = tiny_http::Response::from_data(resp.body)
                     .with_status_code(resp.status)
                     .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], resp.ctype.as_bytes()).unwrap())
                     .with_header(tiny_http::Header::from_bytes(&b"Cache-Control"[..], &b"no-store"[..]).unwrap());
-                if resp.status == 401 {
-                    r = r.with_header(tiny_http::Header::from_bytes(&b"WWW-Authenticate"[..], &b"Basic realm=\"RadioMoon\""[..]).unwrap());
-                }
                 let _ = rq.respond(r);
             }
         });

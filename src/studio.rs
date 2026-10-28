@@ -7,7 +7,6 @@ use crate::model::*;
 use chrono::{DateTime, Local, Timelike};
 use eframe::egui::{self, pos2, vec2, Align2, Color32, FontId, Rect, Sense, Stroke};
 use std::f32::consts::PI;
-use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};

@@ -42,6 +42,23 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
 .badge.live{background:var(--bad);border-color:var(--bad)}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 #login-note{display:none}
+#login{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:16px;overflow:hidden;background:linear-gradient(180deg,#080b10,#122640)}
+#login.on{display:flex}
+#login .moon{position:absolute;right:-6vmin;top:-8vmin;width:70vmin;height:70vmin;border-radius:50%;background:rgba(56,182,255,.09);box-shadow:inset -9vmin 0 0 #0c1420}
+#login .bars{position:absolute;left:0;right:0;bottom:0;height:22vh;display:flex;align-items:flex-end;gap:16px;padding:0 5px;pointer-events:none}
+#login .bars i{flex:0 0 12px;border-radius:3px 3px 0 0;background:rgba(56,182,255,.1);animation:eq 3.2s ease-in-out infinite}
+@keyframes eq{0%,100%{height:8%}50%{height:100%}}
+#login .lcard{position:relative;width:100%;max-width:400px;background:#171c24;border:1px solid #2a3140;border-radius:16px;padding:28px 30px 26px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+#login .logo{display:block;margin:0 auto 6px}
+#login h1{margin:0;text-align:center;font-size:26px;color:#fff}
+#login .sub2{text-align:center;color:var(--dim);margin:2px 0 18px}
+#login label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:0 0 4px}
+#login input{width:100%;margin:0 0 12px;padding:10px 12px;background:#0f131a;color:var(--text);border:1px solid var(--line);border-radius:8px;font:inherit}
+#login input:focus{outline:none;border-color:#38b6ff}
+#login .go{width:100%;padding:11px;margin-top:4px;background:#2e8fd0;border:0;border-radius:8px;color:#fff;font-size:16px;font-weight:600}
+#login .go:hover{background:#38a0e6}
+#login .err{color:#ff786e;margin-top:10px;min-height:1.2em;text-align:center}
+#login .lsel{position:absolute;top:12px;right:12px}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
 .modal.on{display:flex}
 .box{background:var(--panel);border:1px solid var(--acc);border-radius:10px;padding:20px;max-width:460px;width:100%;max-height:90vh;overflow:auto}
@@ -56,6 +73,24 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
 </style>
 </head>
 <body>
+<div id="login">
+  <div class="moon"></div>
+  <div class="bars" id="lbars"></div>
+  <select id="llang" class="lsel"><option value="en">English</option><option value="el">Ελληνικά</option></select>
+  <form class="lcard" id="lform" autocomplete="on">
+    <svg class="logo" width="60" height="60" viewBox="0 0 60 60"><circle cx="30" cy="30" r="29" fill="#0e2a44"/><circle cx="30" cy="30" r="20" fill="#38b6ff"/><circle cx="39" cy="26" r="18" fill="#0e2a44"/></svg>
+    <h1 id="lstation">RadioMoon</h1>
+    <div class="sub2" data-t="Studio on the web">Studio on the web</div>
+    <label for="lu" data-t="User name">User name</label>
+    <input id="lu" name="username" autocomplete="username" autocapitalize="off" spellcheck="false">
+    <label for="lp" data-t="Password">Password</label>
+    <input id="lp" name="password" type="password" autocomplete="current-password">
+    <label for="lc" data-t="Two-step code (only if the user has it)">Two-step code (only if the user has it)</label>
+    <input id="lc" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 digits">
+    <button class="go" type="submit" data-t="Sign in">Sign in</button>
+    <div class="err" id="lerr"></div>
+  </form>
+</div>
 <header>
   <h1 id="station">RadioMoon</h1>
   <span class="badge" id="ver"></span>
@@ -142,17 +177,45 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
   <div class="row"><button data-close="m-dl" data-t="Close">Close</button></div>
 </div></div>
 <script>
-const EL={"Auto":"Αυτόματο","Manual":"Χειροκίνητο","Offline":"Εκτός","On air":"Στον αέρα","Restart":"Επανεκκίνηση","Pause":"Παύση","Next":"Επόμενο","Stop":"Στοπ","Loop":"Επανάληψη","Stop after track":"Στοπ μετά το κομμάτι","Live":"Ζωντανά","Volume":"Ένταση","Playlist":"Λίστα","Rebuild automatic":"Νέο αυτόματο πρόγραμμα","Clear playlist":"Καθαρισμός λίστας","Instant jingles":"Άμεσα jingles","Stop jingles":"Στοπ jingles","Library":"Βιβλιοθήκη","Played":"Παίχτηκαν","Download client":"Λήψη client","Internet broadcast":"Εκπομπή στο internet","About":"Σχετικά","Close":"Κλείσιμο","Download":"Λήψη","Gift with PayPal":"Δώρο με PayPal","Radio automation for Windows, Linux and macOS":"Αυτοματισμός ραδιοφώνου για Windows, Linux και macOS","Author - idea, design, testing":"Δημιουργός - ιδέα, σχεδίαση, δοκιμές","AI pair programmer by Anthropic":"Προγραμματιστής AI της Anthropic","Auto schedule with clocks, playlists, breaks and force clocks":"Αυτόματο πρόγραμμα με ρολόγια, playlists, διαλείμματα και force clocks","Crossfade player, instant jingles, live rebroadcast":"Player με crossfade, άμεσα jingles, ζωντανή αναμετάδοση","Multi-server streaming with song titles":"Streaming σε πολλούς servers με τίτλους τραγουδιών","Jazler RadioStar 2 database import":"Εισαγωγή βάσης Jazler RadioStar 2","The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.":"Το RadioMoon client είναι το παράθυρο στούντιο αυτού του server. Εγκαταστήστε το στον υπολογιστή του στούντιο, γράψτε τη διεύθυνση αυτού του server και το όνομα χρήστη σας.","No client is included in this server package":"Αυτό το πακέτο server δεν περιέχει client","Search":"Αναζήτηση","Add":"Προσθήκη","Next up":"Επόμενο","Play":"Παίξε","Remove":"Αφαίρεση","Nothing is playing":"Δεν παίζει τίποτα","music":"Μουσική","jingle":"Jingle","sweeper":"Sweeper","voice":"Voice","spot":"Διαφήμιση","break":"Διάλειμμα","memo":"Σημείωση"};
+const EL={"Auto":"Αυτόματο","Manual":"Χειροκίνητο","Offline":"Εκτός","On air":"Στον αέρα","Restart":"Επανεκκίνηση","Pause":"Παύση","Next":"Επόμενο","Stop":"Στοπ","Loop":"Επανάληψη","Stop after track":"Στοπ μετά το κομμάτι","Live":"Ζωντανά","Volume":"Ένταση","Playlist":"Λίστα","Rebuild automatic":"Νέο αυτόματο πρόγραμμα","Clear playlist":"Καθαρισμός λίστας","Instant jingles":"Άμεσα jingles","Stop jingles":"Στοπ jingles","Library":"Βιβλιοθήκη","Played":"Παίχτηκαν","Download client":"Λήψη client","Internet broadcast":"Εκπομπή στο internet","About":"Σχετικά","Close":"Κλείσιμο","Download":"Λήψη","Gift with PayPal":"Δώρο με PayPal","Radio automation for Windows, Linux and macOS":"Αυτοματισμός ραδιοφώνου για Windows, Linux και macOS","Author - idea, design, testing":"Δημιουργός - ιδέα, σχεδίαση, δοκιμές","AI pair programmer by Anthropic":"Προγραμματιστής AI της Anthropic","Auto schedule with clocks, playlists, breaks and force clocks":"Αυτόματο πρόγραμμα με ρολόγια, playlists, διαλείμματα και force clocks","Crossfade player, instant jingles, live rebroadcast":"Player με crossfade, άμεσα jingles, ζωντανή αναμετάδοση","Multi-server streaming with song titles":"Streaming σε πολλούς servers με τίτλους τραγουδιών","Jazler RadioStar 2 database import":"Εισαγωγή βάσης Jazler RadioStar 2","The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.":"Το RadioMoon client είναι το παράθυρο στούντιο αυτού του server. Εγκαταστήστε το στον υπολογιστή του στούντιο, γράψτε τη διεύθυνση αυτού του server και το όνομα χρήστη σας.","No client is included in this server package":"Αυτό το πακέτο server δεν περιέχει client","Search":"Αναζήτηση","Add":"Προσθήκη","Next up":"Επόμενο","Play":"Παίξε","Remove":"Αφαίρεση","Nothing is playing":"Δεν παίζει τίποτα","music":"Μουσική","jingle":"Jingle","sweeper":"Sweeper","voice":"Voice","spot":"Διαφήμιση","break":"Διάλειμμα","memo":"Σημείωση","Studio on the web":"Στούντιο στο web","User name":"Όνομα χρήστη","Password":"Κωδικός","Two-step code (only if the user has it)":"Κωδικός δύο βημάτων (μόνο αν ο χρήστης τον έχει)","Sign in":"Σύνδεση","Wrong user name, password or code":"Λάθος όνομα χρήστη, κωδικός ή κωδικός δύο βημάτων","The server does not answer":"Ο server δεν απαντά","Signed out: sign in again":"Αποσύνδεση: συνδεθείτε ξανά","The download failed":"Η λήψη απέτυχε"};
 let lang='en',S={},cur=null,pal=[],pidx=0,lastFetch=0;
 const $=id=>document.getElementById(id);
 const T=s=>lang==='el'&&EL[s]?EL[s]:s;
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function fm(ms){const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 function applyLang(){document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T(e.dataset.t));$('q').placeholder=T('Search');document.documentElement.lang=lang;renderKinds();}
-async function api(path,body){
-  const o=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{};
-  const r=await fetch(path,o);return r.json();
+// the sign-in: user name and password (and the code of the authenticator app, which follows the password) are sent as Basic credentials
+let AUTH='';try{AUTH=sessionStorage.getItem('rm_auth')||'';}catch(e){}
+function mkAuth(u,p){return btoa(unescape(encodeURIComponent(u+':'+p)));}
+function showLogin(msg){
+  AUTH='';try{sessionStorage.removeItem('rm_auth');}catch(e){}
+  $('login').classList.add('on');$('lerr').textContent=msg?T(msg):'';
+  setTimeout(()=>{($('lu').value?$('lp'):$('lu')).focus();},50);
 }
+function hdr(h){h=h||{};if(AUTH)h['Authorization']='Basic '+AUTH;return h;}
+async function api(path,body){
+  const o=body?{method:'POST',headers:hdr({'Content-Type':'application/json'}),body:JSON.stringify(body)}:{headers:hdr()};
+  const r=await fetch(path,o);
+  if(r.status===401){showLogin(AUTH?'Signed out: sign in again':'');throw new Error('401');}
+  return r.json();
+}
+let started=false;
+function startApp(){
+  $('login').classList.remove('on');
+  if(started)return;started=true;
+  setInterval(tick,1000);
+  applyLang();tick().then(()=>{loadLib();loadPal();});
+}
+$('lform').onsubmit=async e=>{
+  e.preventDefault();
+  const a=mkAuth($('lu').value.trim(),$('lp').value+$('lc').value.trim());
+  $('lerr').textContent='';
+  let r;try{r=await fetch('/api/login',{headers:{'Authorization':'Basic '+a}});}catch(x){$('lerr').textContent=T('The server does not answer');return;}
+  if(r.status===200){AUTH=a;try{sessionStorage.setItem('rm_auth',a);}catch(x){}$('lp').value='';$('lc').value='';startApp();}
+  else{$('lp').value='';$('lc').value='';$('lerr').textContent=T('Wrong user name, password or code');$('lp').focus();}
+};
+$('llang').onchange=()=>{lang=$('llang').value;$('lang').value=lang;applyLang();};
+(()=>{const b=$('lbars');for(let i=0;i<70;i++){const e=document.createElement('i');e.style.animationDelay=(-(i*0.37)%3.2)+'s';e.style.animationDuration=(2.4+(i*7%10)/8)+'s';b.appendChild(e);}})();
 async function act(o){S=await api('/api/action',o);render();}
 function render(){
   $('station').textContent=S.station||'RadioMoon';$('ver').textContent='v'+S.version;
@@ -178,7 +241,7 @@ function fsz(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.round(n/1024)
 $('b-about').onclick=()=>{$('a-ver').textContent='v'+(S.version||'');$('m-about').classList.add('on')};
 $('b-dl').onclick=async()=>{
   const r=await api('/api/clients');const l=r.clients||[];
-  $('dl-list').innerHTML=l.length?l.map(c=>`<div class="dl"><span class="n"><b>${esc(c.os||'')}</b> ${esc(c.arch||'')}<br><small style="color:var(--dim)">${esc(c.name)} - ${fsz(c.size)}</small></span><a href="/clients/${encodeURIComponent(c.name)}" download="${esc(c.name)}"><button>${T('Download')}</button></a></div>`).join(''):`<div class="sub">${T('No client is included in this server package')}</div>`;
+  $('dl-list').innerHTML=l.length?l.map(c=>`<div class="dl"><span class="n"><b>${esc(c.os||'')}</b> ${esc(c.arch||'')}<br><small style="color:var(--dim)">${esc(c.name)} - ${fsz(c.size)}</small></span><button data-dl="${esc(c.name)}">${T('Download')}</button></div>`).join(''):`<div class="sub">${T('No client is included in this server package')}</div>`;
   $('m-dl').classList.add('on');
 };
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).classList.remove('on'));
@@ -208,8 +271,21 @@ $('ptabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;pidx=+b.d
 $('pad').onclick=e=>{const b=e.target.closest('button');if(!b)return;act({do:'jingle',id:+b.dataset.id});};
 async function tick(){try{S=await api('/api/state');render();}catch(e){$('status').textContent='offline';}}
 setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString();},1000);
-setInterval(tick,1000);
-applyLang();tick().then(()=>{loadLib();loadPal();});
+$('dl-list').onclick=async e=>{
+  const b=e.target.closest('button[data-dl]');if(!b)return;
+  const n=b.dataset.dl;b.disabled=true;
+  try{const r=await fetch('/clients/'+encodeURIComponent(n),{headers:hdr()});if(!r.ok)throw 0;
+    const u=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=u;a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);}
+  catch(x){alert(T('The download failed'));}
+  b.disabled=false;
+};
+// start: with the sign-in of this browser session, else the sign-in page
+if(/^el/i.test(navigator.language||''))lang='el';
+$('llang').value=lang;applyLang();
+(async()=>{
+  if(AUTH){try{const r=await fetch('/api/login',{headers:hdr()});if(r.status===200){startApp();return;}}catch(e){}}
+  showLogin('');
+})();
 </script>
 </body>
 </html>

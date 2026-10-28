@@ -1165,7 +1165,7 @@ impl App {
                 ui.add_space(4.0);
                 let q = self.cp.grid_q.to_lowercase();
                 egui::ScrollArea::vertical().id_salt("brushlist").max_height(540.0).auto_shrink([false, false]).show(ui, |ui| {
-                    let mut row = |ui: &mut egui::Ui, id: u64, label: &str, col: Color32, brush: &mut u64| {
+                    let row = |ui: &mut egui::Ui, id: u64, label: &str, col: Color32, brush: &mut u64| {
                         let (r, resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 26.0), Sense::click());
                         let on = *brush == id;
                         if on {

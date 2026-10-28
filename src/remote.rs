@@ -49,6 +49,8 @@ pub struct Shared {
     pub seq: u64,
     pub user: String,
     pub admin: bool,
+    /// the version of the server program
+    pub version: String,
     pub err: String,
     pub denied: bool,
     pub online: bool,
@@ -151,6 +153,7 @@ pub fn connect(url: String, user: String, pass: String, ctx: eframe::egui::Conte
                 let mut g = sh2.lock().unwrap();
                 g.user = v["user"].as_str().unwrap_or("").to_string();
                 g.admin = v["admin"].as_bool().unwrap_or(false);
+                g.version = v["version"].as_str().unwrap_or("").to_string();
                 g.online = true;
             }
             Err(e) if e == "401" => {
@@ -857,4 +860,109 @@ pub fn spawn_autocue(link: (String, String), id: u64, db: f32, out: Arc<Mutex<Op
 /// The tags of the file of a library item, read by the server.
 pub fn fetch_tags(link: &(String, String), id: u64) -> Option<Value> {
     serde_json::from_slice(&http_get(link, &format!("/api/tags?id={id}"), 30)?).ok()
+}
+
+// ------------------------------------------------------------------ the client follows the version of its server
+/// The client package of this computer that came with the server: (file name) of `RadioMoon-Client-<version>-<system>-<arch>.<zip|tar.gz>`.
+fn own_package(base: &str, auth: &str) -> Result<String, String> {
+    let os = std::env::consts::OS;
+    let arch = match std::env::consts::ARCH {
+        "x86_64" => "x64",
+        "x86" => "x86",
+        "aarch64" => "arm64",
+        other => other,
+    };
+    let v = call(base, auth, None, "/api/clients")?;
+    let want = format!("-{os}-{arch}");
+    v["clients"]
+        .as_array()
+        .and_then(|a| a.iter().filter_map(|c| c["name"].as_str()).find(|n| n.contains(&want)))
+        .map(|n| n.to_string())
+        .ok_or_else(|| format!("the server has no client for this computer ({os} {arch})"))
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    let _ = std::fs::create_dir_all(to);
+    if let Ok(rd) = std::fs::read_dir(from) {
+        for e in rd.flatten() {
+            let (src, dst) = (e.path(), to.join(e.file_name()));
+            if src.is_dir() {
+                copy_dir(&src, &dst);
+            } else {
+                let _ = std::fs::copy(&src, &dst);
+            }
+        }
+    }
+}
+
+/// Downloads the client of the server (its version, newer or older than this one), puts it in place of this program and starts it.
+/// `say` receives what is going on. Returns only when something failed (on success the new client is started and this process ends).
+pub fn self_update(base: &str, auth: &str, say: &dyn Fn(&str)) -> Result<(), String> {
+    use std::process::Command;
+    say("Looking for the client of the server...");
+    let name = own_package(base, auth)?;
+    let tmp = std::env::temp_dir().join(format!("radiomoon-update-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&tmp).map_err(|e| format!("cannot use the temporary folder: {e}"))?;
+    let file = tmp.join(&name);
+    say("Downloading the client...");
+    let resp = ureq::AgentBuilder::new()
+        .timeout_connect(Duration::from_secs(5))
+        .timeout_read(Duration::from_secs(120))
+        .build()
+        .get(&format!("{base}/clients/{}", enc(&name)))
+        .set("Authorization", auth)
+        .call()
+        .map_err(|e| format!("download failed: {e}"))?;
+    let mut f = std::fs::File::create(&file).map_err(|e| e.to_string())?;
+    let n = std::io::copy(&mut resp.into_reader(), &mut f).map_err(|e| format!("download failed: {e}"))?;
+    drop(f);
+    rx(n);
+    say("Unpacking...");
+    // tar reads .tar.gz everywhere and .zip on Windows 10+ and macOS
+    let out = Command::new("tar").arg("-xf").arg(&file).arg("-C").arg(&tmp).output().map_err(|e| format!("cannot unpack (tar): {e}"))?;
+    if !out.status.success() {
+        return Err(format!("cannot unpack: {}", String::from_utf8_lossy(&out.stderr).trim()));
+    }
+    let (new_exe, new_lang) = if cfg!(windows) {
+        (tmp.join("RadioMoon-Client").join("RadioMoon-Client.exe"), tmp.join("RadioMoon-Client").join("lang"))
+    } else if cfg!(target_os = "macos") {
+        (tmp.join("RadioMoon Client.app").join("Contents").join("MacOS").join("RadioMoon Client"), tmp.join("RadioMoon Client.app").join("Contents").join("Resources").join("lang"))
+    } else {
+        (tmp.join("RadioMoon-Client").join("radiomoon-client"), tmp.join("RadioMoon-Client").join("lang"))
+    };
+    if !new_exe.is_file() {
+        return Err("the package of the server has no client program".into());
+    }
+    say("Installing...");
+    let cur = std::env::current_exe().map_err(|e| e.to_string())?;
+    let staged = cur.with_extension("new");
+    std::fs::copy(&new_exe, &staged).map_err(|e| format!("cannot write next to the program: {e}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o755));
+    }
+    if cfg!(windows) {
+        // a running program cannot be overwritten but it can be renamed; the old file is removed at the next start
+        let old = std::path::PathBuf::from(format!("{}.old", cur.display()));
+        let _ = std::fs::remove_file(&old);
+        std::fs::rename(&cur, &old).map_err(|e| format!("cannot replace the program: {e}"))?;
+        if let Err(e) = std::fs::rename(&staged, &cur) {
+            let _ = std::fs::rename(&old, &cur);
+            return Err(format!("cannot replace the program: {e}"));
+        }
+    } else {
+        std::fs::rename(&staged, &cur).map_err(|e| format!("cannot replace the program: {e}"))?;
+    }
+    if let Some(dir) = cur.parent() {
+        let lang = dir.join("lang");
+        if lang.is_dir() && new_lang.is_dir() {
+            copy_dir(&new_lang, &lang);
+        }
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+    say("Starting the new client...");
+    Command::new(&cur).arg("--updated").spawn().map_err(|e| format!("cannot start the new client: {e}"))?;
+    std::process::exit(0);
 }

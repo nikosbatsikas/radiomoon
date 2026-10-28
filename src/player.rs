@@ -675,18 +675,6 @@ impl Player {
         self.live.is_some()
     }
 
-    pub fn set_live_gain(&self, db: f32) {
-        if let Some(sh) = &self.live {
-            sh.gain.store(lin(db).to_bits(), Ordering::Relaxed);
-        }
-    }
-
-    pub fn set_live_mute_automation(&self, on: bool) {
-        if self.live.is_some() {
-            DUCK.store(on, Ordering::Relaxed);
-        }
-    }
-
     /// (peak 0..1, status text) of the live source.
     pub fn live_info(&self) -> (f32, String) {
         match &self.live {

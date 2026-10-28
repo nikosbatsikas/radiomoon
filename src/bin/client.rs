@@ -54,6 +54,7 @@ pub use ::rfd;
 use eframe::egui;
 use serde_json::{json, Value};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -69,7 +70,17 @@ fn settings_dir() -> PathBuf {
     dir
 }
 
+/// The client is being replaced by the version of the server: what is going on, and the error if it failed.
+struct Upd {
+    msg: String,
+    err: Option<String>,
+}
+
 struct Shell {
+    /// the update to the version of the server (shared with the thread that does it) and that version
+    upd: Option<(Arc<Mutex<Upd>>, String)>,
+    /// no update (the program was just updated, or the update failed)
+    skip_update: bool,
     url: String,
     user: String,
     pass: String,
@@ -103,6 +114,8 @@ impl Shell {
                 .as_array()
                 .map(|a| a.iter().map(|x| (x["url"].as_str().unwrap_or("").to_string(), x["user"].as_str().unwrap_or("").to_string(), x["pass"].as_str().unwrap_or("").to_string())).filter(|x| !x.0.is_empty()).collect())
                 .unwrap_or_default(),
+            upd: None,
+            skip_update: std::env::args().any(|a| a == "--updated"),
             first_tries: 0,
             msg: String::new(),
             app: None,
@@ -126,7 +139,7 @@ impl Shell {
         remote::LOW_BW.store(self.bw, std::sync::atomic::Ordering::Relaxed);
         let link = remote::connect(self.url.clone(), self.user.clone(), format!("{}{}", self.pass, self.code.trim()), ctx.clone());
         let t0 = Instant::now();
-        let (user, admin) = loop {
+        let (user, admin, server_version) = loop {
             {
                 let g = link.sh.lock().unwrap();
                 if g.denied {
@@ -135,7 +148,7 @@ impl Shell {
                     return;
                 }
                 if g.online {
-                    break (g.user.clone(), g.admin);
+                    break (g.user.clone(), g.admin, g.version.clone());
                 }
                 if !g.err.is_empty() || t0.elapsed() > Duration::from_secs(8) {
                     self.msg = format!("Cannot reach the server: {}", if g.err.is_empty() { "no answer".to_string() } else { g.err.clone() });
@@ -147,6 +160,29 @@ impl Shell {
             std::thread::sleep(Duration::from_millis(50));
         };
 
+        // the client and the server must be the same version: a different client is replaced by the one of the server (newer or older)
+        if !self.skip_update && !server_version.is_empty() && server_version != VERSION {
+            let (base, auth) = (link.base.clone(), link.auth.clone());
+            let st = Arc::new(Mutex::new(Upd { msg: "Starting...".into(), err: None }));
+            self.upd = Some((st.clone(), server_version.clone()));
+            let ctx2 = ctx.clone();
+            std::thread::spawn(move || {
+                let say = |m: &str| {
+                    if let Ok(mut g) = st.lock() {
+                        g.msg = m.to_string();
+                    }
+                    ctx2.request_repaint();
+                };
+                if let Err(e) = remote::self_update(&base, &auth, &say) {
+                    if let Ok(mut g) = st.lock() {
+                        g.err = Some(e);
+                    }
+                    ctx2.request_repaint();
+                }
+            });
+            let _ = link.tx.send(remote::Cmd::Quit);
+            return;
+        }
         // the database of the server is reached through the server itself (only the address, user name and password are needed)
         let info = match remote::start_db_proxy(&link.base, &link.auth) {
             Ok(i) => i,
@@ -195,6 +231,40 @@ impl eframe::App for Shell {
             eframe::App::update(a, ctx, frame);
             return;
         }
+        if let Some((st, sv)) = self.upd.clone() {
+            let (msg, err) = match st.lock() {
+                Ok(g) => (g.msg.clone(), g.err.clone()),
+                Err(_) => (String::new(), Some("the update stopped".to_string())),
+            };
+            if let Some(e) = err {
+                // not updated: connect anyway (the studio works, but the program versions are different)
+                self.upd = None;
+                self.skip_update = true;
+                self.connect(ctx);
+                if self.app.is_some() {
+                    if let Some(a) = self.app.as_mut() {
+                        a.status = format!("The client is {VERSION}, the server is {sv}: the automatic update failed ({e})");
+                    }
+                } else if self.msg.is_empty() {
+                    self.msg = format!("The client is {VERSION}, the server is {sv}: the automatic update failed ({e})");
+                }
+                return;
+            }
+            egui::CentralPanel::default().frame(egui::Frame::none().fill(kit::BG)).show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(ui.available_height() * 0.38);
+                    ui.label(egui::RichText::new(format!("Updating the client to version {sv}")).size(22.0).strong().color(egui::Color32::WHITE));
+                    ui.add_space(6.0);
+                    ui.label(egui::RichText::new(format!("This client is {VERSION}; the server runs {sv}. The client of the server is installed and starts again.")).color(kit::TEXT_DIM));
+                    ui.add_space(14.0);
+                    ui.spinner();
+                    ui.add_space(8.0);
+                    ui.label(egui::RichText::new(msg).color(kit::TEXT_DIM));
+                });
+            });
+            ctx.request_repaint_after(Duration::from_millis(200));
+            return;
+        }
         // the window is maximized (asked again for the first seconds, until the system confirms it)
         if self.first_tries < 40 && ctx.input(|i| i.viewport().maximized) != Some(true) {
             self.first_tries += 1;
@@ -231,7 +301,7 @@ impl eframe::App for Shell {
             ui.painter().rect_filled(card.translate(egui::vec2(0.0, 6.0)).expand(2.0), 18.0, egui::Color32::from_black_alpha(90));
             ui.painter().rect(card, 16.0, kit::CARD, egui::Stroke::new(1.0_f32, kit::BORDER));
             let inner = card.shrink2(egui::vec2(30.0, 24.0));
-            let mut cui = ui.child_ui(inner, egui::Layout::top_down(egui::Align::Min), None);
+            let mut cui = ui.new_child(egui::UiBuilder::new().max_rect(inner).layout(egui::Layout::top_down(egui::Align::Min)));
             cui.vertical_centered(|ui| {
                 let (r, _) = ui.allocate_exact_size(egui::vec2(60.0, 60.0), egui::Sense::hover());
                 ui.painter().circle_filled(r.center(), 29.0, egui::Color32::from_rgb(0x0e, 0x2a, 0x44));
@@ -319,6 +389,10 @@ impl eframe::App for Shell {
 }
 
 fn main() -> eframe::Result<()> {
+    // a program that was replaced by an update leaves its old file behind (Windows cannot delete a running program)
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::fs::remove_file(PathBuf::from(format!("{}.old", exe.display())));
+    }
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([1250.0, 760.0]).with_min_inner_size([800.0, 480.0]).with_maximized(true).with_title(format!("RadioMoon client {VERSION}")),
         ..Default::default()

@@ -922,7 +922,7 @@ impl App {
         let mut errs = Vec::new();
         for c in self.data.s.clap_chain.clone() {
             match load(&c.path, &c.id) {
-                Ok((mut slot, runner)) => {
+                Ok((slot, runner)) => {
                     slot.enabled.store(c.enabled, Ordering::Relaxed);
                     let idx = p.clap.slots.len();
                     p.clap.add(slot, runner);
@@ -1121,6 +1121,7 @@ impl App {
     }
 }
 
+#[allow(dead_code)] // used by the server only
 pub fn view_json(v: &ClapView) -> Value {
     serde_json::to_value(v).unwrap_or(Value::Null)
 }
