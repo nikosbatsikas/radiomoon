@@ -2,6 +2,13 @@
 
 Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a new version to `main` creates the tag and the release automatically (see README.md, "Versioning and releases").
 
+## 0.14.21
+
+- The web studio has the same blue look as the client sign-in, and a **Sign out** button.
+- Web studio: the scrollbars are dark, the page no longer scrolls sideways and the playlist rows fit their box.
+- Client sign-in: the Connect button is inside the card.
+- New: the Wiki (`wiki/`) with the manual and the design guides for cloud hosting and internet radio.
+
 ## 0.14.20
 
 - **Server update:** the server can update itself to the newest release. In the **web studio** (administrator) the **Update** button, and in the **client** Control panel > Settings > **Server update**: look for the newest version, read what is new, **Update the server now**. The server downloads the package of its system (glibc or Alpine, x64 or arm64) from GitHub, checks that the new program starts and reports the new version, replaces itself (with the `lang` folder and the clients that it offers), starts the new program in the same process and the database is upgraded at the start (a backup is made first). The broadcast stops for a moment. The program folder must belong to the service user: a server installed with an older package needs `./install.sh upgrade` once (it now gives the folder to the user `radiomoon`). The client installs the version of its server the next time it is opened.

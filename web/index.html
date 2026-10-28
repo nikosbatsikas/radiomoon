@@ -5,19 +5,26 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RadioMoon</title>
 <style>
-:root{--bg:#14161c;--panel:#1d2029;--panel2:#252936;--line:#323748;--text:#e6e8ef;--dim:#8d93a6;--acc:#f0a23a;--ok:#46c07a;--bad:#e5534b}
+:root{color-scheme:dark;--bg:#0b1018;--panel:#151b25;--panel2:#1d2531;--line:#2a3344;--text:#e6e8ef;--dim:#8d99ad;--acc:#38b6ff;--ok:#46c07a;--bad:#e5534b}
+html{overflow-x:hidden}
+*{scrollbar-width:thin;scrollbar-color:#2e3a4e #0f141c}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#0f141c}
+::-webkit-scrollbar-thumb{background:#2e3a4e;border-radius:6px;border:2px solid #0f141c}
+::-webkit-scrollbar-thumb:hover{background:#3d4d66}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif}
-header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
-header h1{font-size:16px;margin:0;color:var(--acc)}
+body{margin:0;min-width:0;overflow-x:hidden;background:linear-gradient(180deg,#080b10,#0f1d30) fixed;color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0;color:#fff}
 header .sp{flex:1}
 button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px 12px;font:inherit;cursor:pointer;white-space:nowrap}
 button:hover{border-color:var(--acc)}
-button.on{background:var(--acc);color:#1a1a1a;border-color:var(--acc)}
+button.on{background:var(--acc);color:#04121c;border-color:var(--acc)}
 button.danger:hover{border-color:var(--bad)}
 input[type=text],input[type=search],select{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font:inherit;min-width:0}
-main{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;padding:12px}
-@media(max-width:900px){main{grid-template-columns:1fr}}
+main{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:12px;padding:12px}
+@media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}}
+main>section{min-width:0}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;min-width:0}
 .card h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 8px}
 #now .t{font-size:20px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -27,13 +34,14 @@ main{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;padding:12px}
 .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
 .row label{color:var(--dim)}
 input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
-.list{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:6px}
+.list{max-height:46vh;overflow:auto;overflow-x:hidden;background:var(--bg);border:1px solid var(--line);border-radius:6px}
 .it{display:flex;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line)}
 .it:last-child{border:0}
-.it.cur{background:#3a2f1a}
+.it.cur{background:#10304a}
 .it .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .it .m{color:var(--dim);font-variant-numeric:tabular-nums;font-size:12px}
-.it button{padding:3px 8px}
+.it button{padding:3px 8px;flex:none}
+.it .k,.it .m{flex:none}
 .k{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:0 5px}
 #status{color:var(--dim);font-size:12px;margin-top:8px;min-height:1.4em}
 .pad{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin-top:6px}
@@ -103,6 +111,7 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
   <button id="b-dl" data-t="Download client">Download client</button>
   <button id="b-upd" data-t="Update" style="display:none">Update</button>
   <button id="b-about" data-t="About">About</button>
+  <button id="b-out" data-t="Sign out">Sign out</button>
   <select id="lang"><option value="en">English</option><option value="el">Ελληνικά</option></select>
 </header>
 <main>
@@ -187,7 +196,7 @@ input[type=range]{flex:1;min-width:100px;accent-color:var(--acc)}
   <div class="row"><button data-close="m-dl" data-t="Close">Close</button></div>
 </div></div>
 <script>
-const EL={"Auto":"Αυτόματο","Manual":"Χειροκίνητο","Offline":"Εκτός","On air":"Στον αέρα","Restart":"Επανεκκίνηση","Pause":"Παύση","Next":"Επόμενο","Stop":"Στοπ","Loop":"Επανάληψη","Stop after track":"Στοπ μετά το κομμάτι","Live":"Ζωντανά","Volume":"Ένταση","Playlist":"Λίστα","Rebuild automatic":"Νέο αυτόματο πρόγραμμα","Clear playlist":"Καθαρισμός λίστας","Instant jingles":"Άμεσα jingles","Stop jingles":"Στοπ jingles","Library":"Βιβλιοθήκη","Played":"Παίχτηκαν","Download client":"Λήψη client","Internet broadcast":"Εκπομπή στο internet","About":"Σχετικά","Close":"Κλείσιμο","Download":"Λήψη","Gift with PayPal":"Δώρο με PayPal","Radio automation for Windows, Linux and macOS":"Αυτοματισμός ραδιοφώνου για Windows, Linux και macOS","Author - idea, design, testing":"Δημιουργός - ιδέα, σχεδίαση, δοκιμές","AI pair programmer by Anthropic":"Προγραμματιστής AI της Anthropic","Auto schedule with clocks, playlists, breaks and force clocks":"Αυτόματο πρόγραμμα με ρολόγια, playlists, διαλείμματα και force clocks","Crossfade player, instant jingles, live rebroadcast":"Player με crossfade, άμεσα jingles, ζωντανή αναμετάδοση","Multi-server streaming with song titles":"Streaming σε πολλούς servers με τίτλους τραγουδιών","Jazler RadioStar 2 database import":"Εισαγωγή βάσης Jazler RadioStar 2","The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.":"Το RadioMoon client είναι το παράθυρο στούντιο αυτού του server. Εγκαταστήστε το στον υπολογιστή του στούντιο, γράψτε τη διεύθυνση αυτού του server και το όνομα χρήστη σας.","No client is included in this server package":"Αυτό το πακέτο server δεν περιέχει client","Search":"Αναζήτηση","Add":"Προσθήκη","Next up":"Επόμενο","Play":"Παίξε","Remove":"Αφαίρεση","Nothing is playing":"Δεν παίζει τίποτα","music":"Μουσική","jingle":"Jingle","sweeper":"Sweeper","voice":"Voice","spot":"Διαφήμιση","break":"Διάλειμμα","memo":"Σημείωση","Studio on the web":"Στούντιο στο web","User name":"Όνομα χρήστη","Password":"Κωδικός","Two-step code (only if the user has it)":"Κωδικός δύο βημάτων (μόνο αν ο χρήστης τον έχει)","Sign in":"Σύνδεση","Wrong user name, password or code":"Λάθος όνομα χρήστη, κωδικός ή κωδικός δύο βημάτων","The server does not answer":"Ο server δεν απαντά","Signed out: sign in again":"Αποσύνδεση: συνδεθείτε ξανά","The download failed":"Η λήψη απέτυχε","Update":"Ενημέρωση","Server update":"Ενημέρωση του server","The server runs version":"Ο server τρέχει την έκδοση","Newest version":"Νεότερη έκδοση","A newer version is available.":"Υπάρχει νεότερη έκδοση.","The server is up to date.":"Ο server είναι ενημερωμένος.","Looking for the newest version...":"Αναζήτηση νεότερης έκδοσης...","Look for a new version":"Αναζήτηση νέας έκδοσης","Update the server now":"Ενημέρωση του server τώρα","The server restarts for a moment (the broadcast stops).":"Ο server επανεκκινείται για λίγο (η εκπομπή σταματά).","Restarting the server...":"Επανεκκίνηση του server..."};
+const EL={"Auto":"Αυτόματο","Manual":"Χειροκίνητο","Offline":"Εκτός","On air":"Στον αέρα","Restart":"Επανεκκίνηση","Pause":"Παύση","Next":"Επόμενο","Stop":"Στοπ","Loop":"Επανάληψη","Stop after track":"Στοπ μετά το κομμάτι","Live":"Ζωντανά","Volume":"Ένταση","Playlist":"Λίστα","Rebuild automatic":"Νέο αυτόματο πρόγραμμα","Clear playlist":"Καθαρισμός λίστας","Instant jingles":"Άμεσα jingles","Stop jingles":"Στοπ jingles","Library":"Βιβλιοθήκη","Played":"Παίχτηκαν","Download client":"Λήψη client","Internet broadcast":"Εκπομπή στο internet","About":"Σχετικά","Close":"Κλείσιμο","Download":"Λήψη","Gift with PayPal":"Δώρο με PayPal","Radio automation for Windows, Linux and macOS":"Αυτοματισμός ραδιοφώνου για Windows, Linux και macOS","Author - idea, design, testing":"Δημιουργός - ιδέα, σχεδίαση, δοκιμές","AI pair programmer by Anthropic":"Προγραμματιστής AI της Anthropic","Auto schedule with clocks, playlists, breaks and force clocks":"Αυτόματο πρόγραμμα με ρολόγια, playlists, διαλείμματα και force clocks","Crossfade player, instant jingles, live rebroadcast":"Player με crossfade, άμεσα jingles, ζωντανή αναμετάδοση","Multi-server streaming with song titles":"Streaming σε πολλούς servers με τίτλους τραγουδιών","Jazler RadioStar 2 database import":"Εισαγωγή βάσης Jazler RadioStar 2","The RadioMoon client is the studio window of this server. Install it on the studio computer, enter the address of this server and your user name.":"Το RadioMoon client είναι το παράθυρο στούντιο αυτού του server. Εγκαταστήστε το στον υπολογιστή του στούντιο, γράψτε τη διεύθυνση αυτού του server και το όνομα χρήστη σας.","No client is included in this server package":"Αυτό το πακέτο server δεν περιέχει client","Search":"Αναζήτηση","Add":"Προσθήκη","Next up":"Επόμενο","Play":"Παίξε","Remove":"Αφαίρεση","Nothing is playing":"Δεν παίζει τίποτα","music":"Μουσική","jingle":"Jingle","sweeper":"Sweeper","voice":"Voice","spot":"Διαφήμιση","break":"Διάλειμμα","memo":"Σημείωση","Studio on the web":"Στούντιο στο web","User name":"Όνομα χρήστη","Password":"Κωδικός","Two-step code (only if the user has it)":"Κωδικός δύο βημάτων (μόνο αν ο χρήστης τον έχει)","Sign in":"Σύνδεση","Sign out":"Αποσύνδεση","Wrong user name, password or code":"Λάθος όνομα χρήστη, κωδικός ή κωδικός δύο βημάτων","The server does not answer":"Ο server δεν απαντά","Signed out: sign in again":"Αποσύνδεση: συνδεθείτε ξανά","The download failed":"Η λήψη απέτυχε","Update":"Ενημέρωση","Server update":"Ενημέρωση του server","The server runs version":"Ο server τρέχει την έκδοση","Newest version":"Νεότερη έκδοση","A newer version is available.":"Υπάρχει νεότερη έκδοση.","The server is up to date.":"Ο server είναι ενημερωμένος.","Looking for the newest version...":"Αναζήτηση νεότερης έκδοσης...","Look for a new version":"Αναζήτηση νέας έκδοσης","Update the server now":"Ενημέρωση του server τώρα","The server restarts for a moment (the broadcast stops).":"Ο server επανεκκινείται για λίγο (η εκπομπή σταματά).","Restarting the server...":"Επανεκκίνηση του server..."};
 let lang='en',S={},cur=null,pal=[],pidx=0,lastFetch=0;
 const $=id=>document.getElementById(id);
 const T=s=>lang==='el'&&EL[s]?EL[s]:s;
@@ -202,6 +211,7 @@ function showLogin(msg){
   $('login').classList.add('on');$('lerr').textContent=msg?T(msg):'';
   setTimeout(()=>{($('lu').value?$('lp'):$('lu')).focus();},50);
 }
+$('b-out').onclick=()=>showLogin('');
 function hdr(h){h=h||{};if(AUTH)h['Authorization']='Basic '+AUTH;return h;}
 async function api(path,body){
   const o=body?{method:'POST',headers:hdr({'Content-Type':'application/json'}),body:JSON.stringify(body)}:{headers:hdr()};

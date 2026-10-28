@@ -298,7 +298,7 @@ impl eframe::App for Shell {
             ui.ctx().request_repaint_after(Duration::from_millis(60));
 
             // the login card in the centre
-            let card = egui::Rect::from_center_size(full.center(), egui::vec2(400.0_f32.min(full.width() - 24.0), 560.0_f32.min(full.height() - 16.0)));
+            let card = egui::Rect::from_center_size(full.center(), egui::vec2(400.0_f32.min(full.width() - 24.0), 650.0_f32.min(full.height() - 16.0)));
             ui.painter().rect_filled(card.translate(egui::vec2(0.0, 6.0)).expand(2.0), 18.0, egui::Color32::from_black_alpha(90));
             ui.painter().rect(card, 16.0, kit::CARD, egui::Stroke::new(1.0_f32, kit::BORDER));
             let inner = card.shrink2(egui::vec2(30.0, 24.0));
