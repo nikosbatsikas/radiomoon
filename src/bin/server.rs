@@ -43,6 +43,8 @@ mod schema;
 mod stream;
 #[path = "../studio.rs"]
 mod studio;
+#[path = "../totp.rs"]
+mod totp;
 #[path = "../waveform.rs"]
 mod waveform;
 #[path = "../web.rs"]

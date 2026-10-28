@@ -21,6 +21,7 @@ mod remote;
 mod schema;
 mod stream;
 mod studio;
+mod totp;
 mod waveform;
 
 #[cfg(feature = "desktop")]

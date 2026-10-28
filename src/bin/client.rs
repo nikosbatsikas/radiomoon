@@ -44,6 +44,8 @@ mod schema;
 mod stream;
 #[path = "../studio.rs"]
 mod studio;
+#[path = "../totp.rs"]
+mod totp;
 #[path = "../waveform.rs"]
 mod waveform;
 
@@ -71,6 +73,8 @@ struct Shell {
     url: String,
     user: String,
     pass: String,
+    /// the code of the authenticator app (never remembered)
+    code: String,
     remember: bool,
     bw: u8,
     /// servers used before: (address, user name, encrypted password or empty)
@@ -92,6 +96,7 @@ impl Shell {
             url: g("url", "http://127.0.0.1:8080"),
             user: g("user", "admin"),
             pass: saved["pass"].as_str().and_then(config::decrypt).unwrap_or_default(),
+            code: String::new(),
             remember: saved["remember"].as_bool().unwrap_or(false),
             bw: saved["bw"].as_u64().unwrap_or(0).min(2) as u8,
             history: saved["servers"]
@@ -119,13 +124,14 @@ impl Shell {
             (if self.remember { json!({ "url": self.url, "user": self.user, "remember": true, "bw": self.bw, "pass": enc, "servers": servers }) } else { json!({ "url": self.url, "user": self.user, "remember": false, "bw": self.bw, "servers": servers }) }).to_string(),
         );
         remote::LOW_BW.store(self.bw, std::sync::atomic::Ordering::Relaxed);
-        let link = remote::connect(self.url.clone(), self.user.clone(), self.pass.clone(), ctx.clone());
+        let link = remote::connect(self.url.clone(), self.user.clone(), format!("{}{}", self.pass, self.code.trim()), ctx.clone());
         let t0 = Instant::now();
         let (user, admin) = loop {
             {
                 let g = link.sh.lock().unwrap();
                 if g.denied {
-                    self.msg = tr_msg("Wrong user name or password");
+                    self.msg = tr_msg("Wrong user name, password or code");
+                    self.code.clear();
                     return;
                 }
                 if g.online {
@@ -286,6 +292,7 @@ impl eframe::App for Shell {
             cui.add_space(8.0);
             go |= field(&mut cui, "USER NAME", &mut self.user, false, "");
             go |= field(&mut cui, "PASSWORD", &mut self.pass, true, "");
+            go |= field(&mut cui, "TWO-STEP CODE (only if the user has it)", &mut self.code, false, "6 digits");
             cui.label(egui::RichText::new("CONNECTION").small().color(kit::TEXT_DIM));
             egui::ComboBox::from_id_salt("login_bw").width(cui.available_width()).selected_text(remote::bw_name(self.bw)).show_ui(&mut cui, |ui| {
                 for k in 0..3u8 {

@@ -4,6 +4,7 @@ Versions follow MAJOR.MINOR.PATCH. The version lives in `Cargo.toml`. Pushing a 
 
 ## 0.14.19
 
+- **Two-step login (MFA) for the users of a server:** Control panel > Users & security > edit a user > **Two-step login**. The window shows a key (and the `otpauth://` address) for an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 2FAS ...); the user is turned on after the code of the app is typed to confirm it. Then the user signs in with the password followed by the 6 digit code: in the **client** there is a *Two-step code* field, in the **web studio** the password box takes `password123456`. A checked sign-in stays valid for 12 hours (the browser and the client send the same credentials with every request); after 5 wrong codes the user is locked for 5 minutes. The server was restarted: sign in again with a new code. The key is stored in the user's record; the administrator account of `webserver.json` has no two-step login.
 - **Listeners in the header:** moved a little to the right so it does not touch the volume knob; "1 listener" in the singular.
 - **Client of a server:** the pages **Audio folder mappings** and **Database server**, and the **Folder** field of the automatic backup, are not shown any more: they belong to the server (its paths, its database and its backups), not to the client. The program without a server keeps them.
 

@@ -111,6 +111,10 @@ Control Panel > Backup & restore: a daily automatic backup (default 03:00, keeps
 
 English and Greek are built in. To add a language, copy `lang\template.json` to `lang\xx.json`, translate it and choose it in Control Panel > General settings. See `lang\README.txt`.
 
+## Two-step login (MFA)
+
+Each user of a server can have a two-step login: Control panel > Users & security > edit the user > *Turn on two-step login*, add the key to an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 2FAS ...) and type the code to confirm. After that the user types the password followed by the 6 digit code: the client has a *Two-step code* field, the web studio takes `password123456` in the password box. The sign-in then stays valid for 12 hours; 5 wrong codes lock the user for 5 minutes. The `webserver.json` administrator has no two-step login.
+
 ## Security note
 
 `config.json` is stored encrypted so the database password is not readable in a text editor. The key is built into the program: this protects against casual reading, not against someone who has the program.

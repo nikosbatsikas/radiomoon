@@ -163,6 +163,10 @@ pub struct ControlState {
     // users
     pub user: Option<User>,
     pub user_pw: String,
+    /// two-step login being set up for the user in the window: the new secret and the code typed to confirm it
+    pub mfa_new: String,
+    pub mfa_code: String,
+    pub mfa_msg: String,
     // jazler import
     pub jz_path: String,
     pub jz_opts: Option<crate::jzimport::Opts>,
@@ -2000,6 +2004,9 @@ impl App {
         if ui.button(tr("Add new user")).clicked() {
             self.cp.user = Some(User { name: "user".into(), ..Default::default() });
             self.cp.user_pw.clear();
+            self.cp.mfa_new.clear();
+            self.cp.mfa_code.clear();
+            self.cp.mfa_msg.clear();
         }
         let mut edit = None;
         let mut del = None;
@@ -2017,6 +2024,9 @@ impl App {
         if edit.is_some() {
             self.cp.user = edit;
             self.cp.user_pw.clear();
+            self.cp.mfa_new.clear();
+            self.cp.mfa_code.clear();
+            self.cp.mfa_msg.clear();
         }
         if let Some(id) = del {
             if self.data.users.iter().filter(|u| u.admin).count() > 1 || !self.data.users.iter().any(|u| u.id == id && u.admin) {
@@ -3732,6 +3742,50 @@ impl App {
                 ui.add(egui::TextEdit::singleline(&mut self.cp.user_pw).password(true));
             });
             ui.add(egui::DragValue::new(&mut u.timeout_min).range(0..=600).prefix(tr("Login timeout (min, 0 = off): ")));
+            ui.separator();
+            ui.label(RichText::new(tr("Two-step login (MFA)")).strong());
+            if !u.mfa.is_empty() {
+                ui.label(tr("On: at the server the user types the password followed by the 6 digit code of the authenticator app."));
+                if ui.button(tr("Turn off two-step login")).clicked() {
+                    u.mfa.clear();
+                }
+            } else if self.cp.mfa_new.is_empty() {
+                ui.label(RichText::new(tr("Off. The server asks for a code of an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 2FAS ...) after the password.")).color(kit::GRAY));
+                if ui.button(tr("Turn on two-step login")).clicked() {
+                    self.cp.mfa_new = crate::totp::new_secret();
+                    self.cp.mfa_code.clear();
+                    self.cp.mfa_msg.clear();
+                }
+            } else {
+                ui.label(tr("In the authenticator app add an account with this key (time based, 6 digits), or open the address below on the phone:"));
+                let mut key = self.cp.mfa_new.clone();
+                ui.add(egui::TextEdit::singleline(&mut key).font(egui::TextStyle::Monospace).desired_width(f32::INFINITY));
+                let mut uri = crate::totp::otpauth_uri(&u.name, "RadioMoon", &self.cp.mfa_new);
+                ui.add(egui::TextEdit::singleline(&mut uri).desired_width(f32::INFINITY));
+                ui.horizontal(|ui| {
+                    ui.label(tr("Code shown by the app"));
+                    ui.add(egui::TextEdit::singleline(&mut self.cp.mfa_code).desired_width(80.0));
+                    if ui.button(tr("Confirm")).clicked() {
+                        if crate::totp::verify(&self.cp.mfa_new, &self.cp.mfa_code, crate::totp::now()) {
+                            u.mfa = self.cp.mfa_new.clone();
+                            self.cp.mfa_new.clear();
+                            self.cp.mfa_code.clear();
+                            self.cp.mfa_msg.clear();
+                        } else {
+                            self.cp.mfa_msg = tr("That code is not right: try the next one");
+                        }
+                    }
+                    if ui.button(tr("Cancel")).clicked() {
+                        self.cp.mfa_new.clear();
+                        self.cp.mfa_code.clear();
+                        self.cp.mfa_msg.clear();
+                    }
+                });
+                if !self.cp.mfa_msg.is_empty() {
+                    ui.colored_label(egui::Color32::from_rgb(229, 83, 75), self.cp.mfa_msg.clone());
+                }
+            }
+            ui.separator();
             ui.checkbox(&mut u.admin, tr("Administrator (all permissions)"));
             if !u.admin {
                 for (k, l) in PERMS {

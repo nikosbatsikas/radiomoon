@@ -258,6 +258,8 @@ pub struct User {
     pub timeout_min: u32,
     pub admin: bool,
     pub perms: Vec<String>,
+    /// Base32 secret of the two-step login (authenticator app); empty = the user signs in with the password only
+    pub mfa: String,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

@@ -66,9 +66,56 @@ fn who(app: &App, auth: &Option<String>, creds: &(String, String)) -> Option<cra
     }
     if app.data.s.users_enabled {
         let name = u.trim().to_lowercase();
-        return app.data.users.iter().find(|x| x.name.to_lowercase() == name && crate::app::hash_pw(&x.salt, p) == x.hash).cloned();
+        let x = app.data.users.iter().find(|x| x.name.to_lowercase() == name)?;
+        if x.mfa.is_empty() {
+            return (crate::app::hash_pw(&x.salt, p) == x.hash).then(|| x.clone());
+        }
+        // two-step login: the password is followed by the 6 digit code of the authenticator app
+        let (pw, code) = crate::totp::split_code(p)?;
+        if crate::app::hash_pw(&x.salt, pw) != x.hash {
+            return None;
+        }
+        return mfa_check(&name, h, &x.mfa, code).then(|| x.clone());
     }
     None
+}
+
+/// Checked sign-ins stay valid for 12 hours (the browser and the client send the same credentials with every request, and a code is only
+/// valid for 30 seconds). After 5 wrong codes of a user the sign-in is locked for 5 minutes.
+static MFA_OK: std::sync::Mutex<Option<std::collections::HashMap<String, u64>>> = std::sync::Mutex::new(None);
+static MFA_FAIL: std::sync::Mutex<Option<std::collections::HashMap<String, (u32, u64)>>> = std::sync::Mutex::new(None);
+
+fn mfa_check(user: &str, header: &str, secret: &str, code: &str) -> bool {
+    let now = crate::totp::now();
+    let (Ok(mut ok), Ok(mut fail)) = (MFA_OK.lock(), MFA_FAIL.lock()) else { return false };
+    let ok = ok.get_or_insert_with(Default::default);
+    let fail = fail.get_or_insert_with(Default::default);
+    if ok.get(header).map(|t| now < *t).unwrap_or(false) {
+        return true;
+    }
+    if let Some((n, until)) = fail.get(user) {
+        if *n >= 5 && now < *until {
+            return false;
+        }
+    }
+    if crate::totp::verify(secret, code, now) {
+        fail.remove(user);
+        if ok.len() > 500 {
+            ok.retain(|_, t| now < *t);
+        }
+        if ok.len() > 500 {
+            ok.clear();
+        }
+        ok.insert(header.to_string(), now + 12 * 3600);
+        return true;
+    }
+    let e = fail.entry(user.to_string()).or_insert((0, 0));
+    if e.0 >= 5 && now >= e.1 {
+        e.0 = 0;
+    }
+    e.0 += 1;
+    e.1 = now + 300;
+    false
 }
 
 /// Starts the listener and returns the receiving end of the requests; the caller answers them with [`handle`].
